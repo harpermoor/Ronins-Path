@@ -5,7 +5,7 @@
  * with export/import of a .json save file as a backup that survives clearing browser data or switching browsers.
  */
 const SAVE_KEY = 'roninsPath.save.v1';
-const SAVE_VERSION = 3;
+const SAVE_VERSION = 4;
 const SAVE_FILE_NAME = 'ronins-path-save.json';
 const MAX_SAVE_FILE_BYTES = 1000000;
 
@@ -35,7 +35,7 @@ const SaveGame = {
     },
 
     valid(d) {
-        return !!d && typeof d === 'object' && (d.v === 1 || d.v === 2 || d.v === SAVE_VERSION)
+        return !!d && typeof d === 'object' && [1, 2, 3, SAVE_VERSION].includes(d.v)
             && Number.isFinite(d.seed) && !!d.player && typeof d.player === 'object';
     },
 
@@ -53,9 +53,12 @@ const SaveGame = {
                 hp: dead ? p.maxHp : p.hp,
                 gourds: dead ? p.maxGourds : p.gourds,
                 throws: dead ? p.maxThrows : p.throws,
-                artCharges: dead ? 0 : p.artCharges,
+                artCharges: dead ? p.maxArtCharges : p.artCharges,
                 ki: dead ? 0 : p.ki,
+                stamina: dead ? p.maxStamina : p.stamina,
+                fallen: dead,
             },
+            deathEcho: game.deathEcho ? Object.assign({}, game.deathEcho) : null,
             lastShrine: world.shrines.indexOf(sp),
             shrines: world.shrines.map(s => s.discovered),
             camps: world.camps.map(c => c.cleared),
@@ -91,7 +94,7 @@ const SaveGame = {
                 e.setSt('DEAD');
                 e.deadT = 999;
             }
-            if (d.v < SAVE_VERSION) for (const c of world.camps) {
+            if (d.v < 3) for (const c of world.camps) {
                 if (c.members.every(e => e.st === 'DEAD')) c.cleared = true;
             }
         }
@@ -103,6 +106,10 @@ const SaveGame = {
         game.loadout.apply(d.loadout, game.elitesSlain);
         game.pointsEarned = Math.trunc(num(d.pointsEarned, 0, 1000, 0));
         game.exp = num(d.exp, 0, expForNextPoint(game.pointsEarned) - 1, 0);
+        const echo = d.deathEcho;
+        game.deathEcho = echo && Number.isFinite(echo.x) && Number.isFinite(echo.y)
+            && Number.isFinite(echo.amount) && echo.amount > 0
+            ? { x: U.clamp(echo.x, 0, WORLD_SIZE), y: U.clamp(echo.y, 0, WORLD_SIZE), amount: Math.min(echo.amount, 1e7) } : null;
         // only keep skills whose prerequisites are learned and that fit in the points earned
         const wanted = new Set(Array.isArray(d.skills) ? d.skills.filter(id => typeof id === 'string') : []);
         let spent = 0;
@@ -123,9 +130,11 @@ const SaveGame = {
         p.throws = Math.trunc(num(s.throws, 0, p.maxThrows, p.maxThrows));
         p.artCharges = Math.trunc(num(s.artCharges, 0, p.maxArtCharges, 0));
         p.ki = num(s.ki, 0, 100, 0);
+        p.stamina = num(s.stamina, 0, p.maxStamina, p.maxStamina);
         p.x = num(s.x, 0, WORLD_SIZE, p.x);
         p.y = num(s.y, 0, WORLD_SIZE, p.y);
         world.resolve(p);
+        if (s.fallen === true) game.restEnemies();
         game.camX = p.x;
         game.camY = p.y;
     },

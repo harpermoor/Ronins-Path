@@ -6,11 +6,12 @@ const WORLD_SIZE = 8000, CELL = 200, CHUNK = 256;
 const K = { PINE: 0, SAKURA: 1, MAPLE: 2, BAMBOO: 3, ROCK: 4, POND: 5, TENT: 6, HOUSE: 7, FIRE: 8, SHRINE: 9, POST: 10, LANTERN: 11, BANNER: 12 };
 const isTree = o => o.kind <= K.BAMBOO;
 
-const SHRINE_NAMES = ['Shrine of First Light', 'Moonlit Shrine', 'Shrine of Falling Petals', 'Crane Shrine',
-    'Shrine of the Red Maple', 'Whispering Bamboo Shrine', 'Shrine of Still Water', 'Ember Shrine'];
-const ELITES = [['Kagemaru the Silent', 'RONIN'], ['Gozu, Oni Warlord', 'BRUTE'],
-    ['Lady Tomoe of the Crimson Spear', 'SPEAR'], ['Ryusei, the Fallen Blade', 'RONIN'], ['Okami, the Hollow Monk', 'SPEAR']];
-const GROUND_BASE = [rgb(86, 128, 64), rgb(128, 122, 62), rgb(66, 112, 58)];
+const SHRINE_NAMES = ['First Ember Sanctuary', 'Shrine of the Pale Moon', 'Petalfall Reliquary', 'The Broken Belfry',
+    'Shrine of the Withered Crown', 'Silent Pilgrim Shrine', 'Stillwater Sanctuary', 'The Last Lantern'];
+const ELITES = [['Veyr, the Veiled Knight', 'RONIN'], ['Mourn, the Bell Warden', 'BRUTE'],
+    ['Seris of the Thorn Oath', 'SPEAR'], ['Aster, the Fallen Crown', 'RONIN'], ['The Hollow Prior', 'SPEAR']];
+const FINAL_BOSS_NAME = 'The Cinder Regent';
+const GROUND_BASE = [rgb(76, 91, 70), rgb(105, 78, 48), rgb(58, 78, 59)];
 
 class World {
     constructor(seed) {
@@ -65,9 +66,9 @@ class World {
 
     biomeName(x, y) {
         switch (this.biome(x, y)) {
-            case 1: return 'Crimson Maple Woods';
-            case 2: return 'Whispering Bamboo Grove';
-            default: return 'Sakura Fields';
+            case 1: return 'The Withered March';
+            case 2: return 'Pilgrim Graves';
+            default: return 'The Gloam Weald';
         }
     }
 
@@ -373,16 +374,28 @@ class World {
         }
         // flowers
         const b = this.biome(ox + CHUNK / 2, oy + CHUNK / 2);
-        g.fillStyle = b === 1 ? 'rgb(200,90,40)' : b === 2 ? 'rgb(230,230,200)' : 'rgb(250,190,210)';
+        g.fillStyle = b === 1 ? 'rgb(163,122,72)' : b === 2 ? 'rgb(148,153,139)' : 'rgb(193,169,148)';
         for (let i = 0; i < 6; i++) fillEllipse(g, r.nextInt(CHUNK), r.nextInt(CHUNK), 3, 3);
         g.translate(-ox, -oy);
         // camp dirt & shrine plazas
         for (const c of this.camps) {
             if (Math.abs(c.x - ox - CHUNK / 2) > c.r + CHUNK || Math.abs(c.y - oy - CHUNK / 2) > c.r + CHUNK) continue;
-            g.fillStyle = 'rgba(128,108,76,0.784)';
+            g.fillStyle = 'rgba(87,83,70,0.85)';
             fillCircle(g, c.x, c.y, c.r);
-            g.fillStyle = 'rgba(110,92,64,0.627)';
+            g.fillStyle = 'rgba(61,62,56,0.7)';
             fillCircle(g, c.x, c.y, c.r * 0.6);
+            g.strokeStyle = 'rgba(161,147,110,0.3)';
+            setStroke(g, 2, false);
+            g.beginPath();
+            g.arc(c.x, c.y, c.r * 0.68, 0, TAU);
+            g.stroke();
+            if (c.elite) {
+                for (let i = 0; i < 8; i++) {
+                    const a = i * TAU / 8, d = c.r * 0.72;
+                    g.fillStyle = 'rgba(176,157,111,0.4)';
+                    g.fillRect(c.x + Math.cos(a) * d - 5, c.y + Math.sin(a) * d - 5, 10, 10);
+                }
+            }
         }
         for (const s of this.shrines) {
             if (Math.abs(s.x - ox - CHUNK / 2) > 250 + CHUNK || Math.abs(s.y - oy - CHUNK / 2) > 250 + CHUNK) continue;
@@ -406,10 +419,10 @@ class World {
                 g.stroke();
             };
             setStroke(g, 48, true);
-            g.strokeStyle = 'rgb(132,112,78)';
+            g.strokeStyle = 'rgb(90,85,68)';
             path();
             setStroke(g, 34, true);
-            g.strokeStyle = 'rgb(158,136,98)';
+            g.strokeStyle = 'rgb(120,111,88)';
             path();
         }
         this.chunks.set(key, img);
@@ -442,11 +455,11 @@ class World {
         for (const o of vis) {
             if (o.kind !== K.POND) continue;
             const r = o.r;
-            g.fillStyle = 'rgb(160,150,112)';
+            g.fillStyle = 'rgb(98,106,94)';
             fillCircle(g, o.x, o.y, r + 12);
-            g.fillStyle = 'rgb(38,78,104)';
+            g.fillStyle = 'rgb(30,49,60)';
             fillCircle(g, o.x, o.y, r);
-            g.fillStyle = 'rgb(58,108,138)';
+            g.fillStyle = 'rgb(43,68,75)';
             fillEllipse(g, o.x - r * 0.75, o.y - r * 0.8, r * 1.4, r * 1.35);
             g.strokeStyle = 'rgba(200,230,255,0.275)';
             setStroke(g, 2, false);
@@ -489,14 +502,10 @@ class World {
         const g = img.getContext('2d');
         g.translate(size / 2, size / 2);
         if (o.kind === K.BAMBOO) {
-            const rr = new Rng(o.variant % 12);
-            for (let i = 0; i < 5; i++) {
-                const px = (rr.nextDouble() - 0.5) * o.r * 1.8, py = (rr.nextDouble() - 0.5) * o.r * 1.8;
-                g.fillStyle = 'rgb(120,160,70)';
-                fillCircle(g, px, py, 4);
-                g.fillStyle = 'rgb(160,200,100)';
-                fillCircle(g, px, py, 2);
-            }
+            g.fillStyle = 'rgba(0,0,0,0.25)';
+            fillEllipse(g, -16, -4, 40, 24);
+            g.fillStyle = 'rgb(89,95,85)';
+            g.fillRect(-13, -9, 26, 18);
         } else {
             g.fillStyle = 'rgba(0,0,0,0.196)';
             fillEllipse(g, -cr * 0.8 + 14, -cr * 0.6 + 18, cr * 1.6, cr * 1.3);
@@ -517,28 +526,60 @@ class World {
         const g = img.getContext('2d');
         g.translate(size / 2, size / 2);
         const v = o.variant % 12;
+        if (o.kind === K.BAMBOO) {
+            g.fillStyle = 'rgb(107,115,108)';
+            roundRectPath(g, -10, -23, 20, 32, 8);
+            g.fill();
+            g.fillStyle = 'rgb(53,63,57)';
+            g.fillRect(-2, -18, 4, 17);
+            g.fillRect(-7, -13, 14, 3);
+            g.strokeStyle = 'rgb(145,149,133)';
+            setStroke(g, 1, false);
+            strokeLine(g, -8, -5, -4, 5);
+            this.sprites.set(key, img);
+            return img;
+        }
         let base;
         switch (o.kind) {
-            case K.SAKURA: base = rgb(236, 150, 180); break;
-            case K.MAPLE: base = v % 3 === 0 ? rgb(220, 150, 40) : rgb(196, 60, 40); break;
-            case K.BAMBOO: base = rgb(110, 160, 70); break;
-            default: base = rgb(40, 86, 52);
+            case K.SAKURA: base = rgb(154, 145, 120); break;
+            case K.MAPLE: base = v % 3 === 0 ? rgb(176, 119, 48) : rgb(157, 69, 48); break;
+            case K.BAMBOO: base = rgb(83, 119, 67); break;
+            default: base = rgb(44, 68, 51);
         }
         const rr = new Rng(v * 31 + o.kind);
         const blobs = o.kind === K.BAMBOO ? 4 : 6;
+        const crown = (x, y, radius) => {
+            g.beginPath();
+            for (let i = 0; i < 18; i++) {
+                const a = i * TAU / 18, d = radius * (i % 2 === 0 ? 1 : 0.72 + rr.nextDouble() * 0.12);
+                const px = x + Math.cos(a) * d, py = y + Math.sin(a) * d;
+                if (i === 0) g.moveTo(px, py);
+                else g.lineTo(px, py);
+            }
+            g.closePath();
+            g.fill();
+        };
         g.fillStyle = css(U.shade(base, 0.75));
-        fillCircle(g, 0, 0, cr);
+        crown(0, 0, cr);
         for (let i = 0; i < blobs; i++) {
             const ang = rr.nextDouble() * 6.28, dd = cr * 0.45 * rr.nextDouble();
             const br = cr * (0.45 + rr.nextDouble() * 0.25);
             const bx = Math.cos(ang) * dd, by = Math.sin(ang) * dd - 4;
             g.fillStyle = css(U.shade(base, 0.9 + rr.nextDouble() * 0.25));
-            fillCircle(g, bx, by, br);
+            crown(bx, by, br);
         }
-        g.fillStyle = css(U.alpha(U.shade(base, 1.3), 0.8));
-        fillEllipse(g, -cr * 0.45 - 6, -cr * 0.55, cr * 0.6, cr * 0.5);
+        g.strokeStyle = css(U.shade(base, 0.45));
+        setStroke(g, 3, true);
+        for (let i = 0; i < 5; i++) {
+            const a = i * TAU / 5 + v;
+            const bx = Math.cos(a) * cr * 0.7, by = Math.sin(a) * cr * 0.7;
+            strokeLine(g, 0, 0, bx, by);
+            strokeLine(g, bx * 0.7, by * 0.7, bx - Math.sin(a) * 10, by + Math.cos(a) * 10);
+        }
+        g.fillStyle = css(U.alpha(U.shade(base, 1.3), 0.25));
+        crown(-cr * 0.2, -cr * 0.25, cr * 0.45);
         if (o.kind === K.SAKURA) {
-            g.fillStyle = 'rgb(255,235,245)';
+            g.fillStyle = 'rgb(203,193,157)';
             for (let i = 0; i < 14; i++) {
                 const ang = rr.nextDouble() * 6.28, dd = cr * 0.85 * Math.sqrt(rr.nextDouble());
                 fillCircle(g, Math.cos(ang) * dd, Math.sin(ang) * dd, 1.5);
@@ -569,29 +610,43 @@ class World {
                 case K.TENT:
                     g.fillStyle = 'rgba(0,0,0,0.235)';
                     g.fillRect(o.x + 6, o.y + 8, o.w, o.h);
-                    g.fillStyle = 'rgb(170,150,110)';
+                    g.fillStyle = 'rgb(92,92,83)';
                     g.fillRect(o.x, o.y, o.w, o.h);
-                    g.fillStyle = 'rgb(140,120,86)';
+                    g.fillStyle = 'rgb(66,69,63)';
                     g.fillRect(o.x, o.y + o.h / 2, o.w, o.h / 2);
-                    g.strokeStyle = 'rgb(90,70,50)';
+                    g.strokeStyle = 'rgb(134,127,107)';
                     setStroke(g, 2, false);
                     strokeLine(g, o.x, o.y + o.h / 2, o.x + o.w, o.y + o.h / 2);
+                    for (let i = 1; i < 4; i++) strokeLine(g, o.x + o.w * i / 4, o.y, o.x + o.w * i / 4, o.y + o.h);
+                    g.fillStyle = 'rgb(38,42,39)';
+                    g.fillRect(o.x + 10, o.y + 8, o.w - 20, o.h - 16);
+                    g.fillStyle = 'rgb(124,117,98)';
+                    g.fillRect(o.x + 4, o.y - 3, 14, 14);
+                    g.fillRect(o.x + o.w - 17, o.y + o.h - 10, 13, 13);
                     break;
                 case K.HOUSE:
                     g.fillStyle = 'rgba(0,0,0,0.275)';
                     g.fillRect(o.x + 8, o.y + 10, o.w, o.h);
-                    g.fillStyle = 'rgb(60,56,64)';
+                    g.fillStyle = 'rgb(76,78,72)';
                     g.fillRect(o.x - 6, o.y - 6, o.w + 12, o.h + 12);
-                    g.fillStyle = 'rgb(84,80,92)';
+                    g.fillStyle = 'rgb(115,112,98)';
                     g.fillRect(o.x, o.y, o.w, o.h / 2);
-                    g.fillStyle = 'rgb(72,68,80)';
+                    g.fillStyle = 'rgb(90,90,79)';
                     g.fillRect(o.x, o.y + o.h / 2, o.w, o.h / 2);
-                    g.strokeStyle = 'rgb(40,36,44)';
+                    g.strokeStyle = 'rgb(58,60,54)';
                     setStroke(g, 2, false);
                     for (let i = 1; i < 8; i++) strokeLine(g, o.x + o.w * i / 8, o.y, o.x + o.w * i / 8, o.y + o.h);
                     setStroke(g, 4, false);
-                    g.strokeStyle = 'rgb(150,40,40)';
+                    g.strokeStyle = 'rgb(160,146,109)';
                     strokeLine(g, o.x - 6, o.y + o.h / 2, o.x + o.w + 6, o.y + o.h / 2);
+                    g.fillStyle = 'rgb(34,39,36)';
+                    for (let i = 1; i <= 3; i++) {
+                        roundRectPath(g, o.x + i * o.w / 4 - 7, o.y + 7, 14, o.h - 14, 7);
+                        g.fill();
+                    }
+                    g.fillStyle = 'rgb(137,133,116)';
+                    g.fillRect(o.x - 8, o.y - 8, 20, 20);
+                    g.fillRect(o.x + o.w - 12, o.y - 8, 20, 20);
                     break;
                 case K.FIRE: {
                     g.fillStyle = 'rgb(80,80,80)';
@@ -608,20 +663,29 @@ class World {
                 case K.SHRINE: {
                     g.fillStyle = 'rgba(0,0,0,0.275)';
                     g.fillRect(o.x - 30, o.y - 22, 70, 60);
-                    g.fillStyle = 'rgb(60,50,44)';
+                    g.fillStyle = 'rgb(87,88,77)';
                     g.fillRect(o.x - 36, o.y - 30, 72, 58);
-                    g.fillStyle = 'rgb(170,40,36)';
+                    g.fillStyle = 'rgb(122,119,101)';
                     g.fillRect(o.x - 30, o.y - 24, 60, 22);
-                    g.fillStyle = 'rgb(150,32,30)';
+                    g.fillStyle = 'rgb(102,102,87)';
                     g.fillRect(o.x - 30, o.y - 2, 60, 22);
+                    g.fillStyle = 'rgb(170,156,112)';
+                    fillEllipse(g, o.x - 12, o.y - 22, 24, 30);
+                    g.strokeStyle = 'rgb(75,76,66)';
+                    setStroke(g, 2, false);
+                    strokeLine(g, o.x, o.y - 18, o.x, o.y + 4);
+                    strokeLine(g, o.x - 6, o.y - 10, o.x + 6, o.y - 10);
                     const glow = 0.6 + 0.4 * Math.sin(time * 2);
                     g.fillStyle = css(rgb(255, 210, 120, Math.floor(120 * glow)));
-                    fillCircle(g, o.x, o.y + 32, 12);
+                    fillCircle(g, o.x, o.y + 32, 35);
+                    g.fillStyle = 'rgb(229,200,129)';
+                    fillEllipse(g, o.x - 4, o.y + 16, 8, 24);
+                    Draw.glint(g, o.x, o.y + 30, 7 + glow * 4, rgb(255, 229, 166));
                     break;
                 }
                 case K.POST:
-                    g.fillStyle = 'rgb(180,40,30)';
-                    fillCircle(g, o.x, o.y, o.r);
+                    g.fillStyle = 'rgb(145,139,119)';
+                    g.fillRect(o.x - o.r, o.y - o.r, o.r * 2, o.r * 2);
                     break;
                 case K.LANTERN: {
                     g.fillStyle = 'rgb(130,128,120)';
@@ -651,24 +715,45 @@ class World {
                 const wave = Math.sin(time * 4 + o.x * 0.1) * 4;
                 g.fillStyle = 'rgb(60,40,30)';
                 fillCircle(g, o.x, o.y, 3);
-                g.fillStyle = o.variant === 1 ? 'rgb(90,30,110)' : 'rgb(170,30,30)';
+                g.fillStyle = o.variant === 1 ? 'rgb(95,82,65)' : 'rgb(104,54,47)';
                 g.beginPath();
                 g.moveTo(o.x, o.y - 2);
                 g.lineTo(o.x + 26 + wave, o.y - 6);
                 g.lineTo(o.x + 24 + wave, o.y + 10);
+                g.lineTo(o.x + 16 + wave, o.y + 4);
+                g.lineTo(o.x + 13 + wave, o.y + 11);
                 g.lineTo(o.x, o.y + 6);
                 g.closePath();
                 g.fill();
             }
         }
-        // torii beams over shrine posts
+        // Weathered stone lintels above the sanctuary entrance.
         for (const s of this.shrines) {
             if (Math.abs(s.x - px) > 1400 || Math.abs(s.y - py) > 1000) continue;
-            g.fillStyle = 'rgb(190,44,34)';
+            g.fillStyle = 'rgb(119,115,98)';
             g.fillRect(s.x - 72, s.y + 86, 144, 12);
-            g.fillStyle = 'rgb(40,30,30)';
+            g.fillStyle = 'rgb(71,74,65)';
             g.fillRect(s.x - 80, s.y + 80, 160, 7);
+            g.fillStyle = 'rgb(185,163,103)';
+            g.fillRect(s.x - 4, s.y + 84, 8, 10);
         }
+    }
+
+    drawAtmosphere(g, l, t, r, b, time) {
+        g.save();
+        g.fillStyle = 'rgba(12,19,26,0.16)';
+        g.fillRect(l, t, r - l, b - t);
+        const w = r - l, h = b - t;
+        for (let i = 0; i < 2; i++) {
+            const x = l + w * (0.25 + i * 0.5) + Math.sin(time * 0.05 + i) * 80;
+            const y = t + h * (0.3 + i * 0.4);
+            const fog = g.createRadialGradient(x, y, 0, x, y, w * 0.5);
+            fog.addColorStop(0, 'rgba(147,161,157,0.07)');
+            fog.addColorStop(1, 'rgba(147,161,157,0)');
+            g.fillStyle = fog;
+            g.fillRect(l, t, w, h);
+        }
+        g.restore();
     }
 
     buildMinimap() {

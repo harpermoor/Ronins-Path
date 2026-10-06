@@ -41,8 +41,8 @@ function duelStatMods(s) {
 function describeDuelSettings(s) {
     return [s.mode === 'ffa' ? 'Free-for-all, up to ' + s.maxPlayers + ' players' : '1v1 Duel',
         'first to ' + s.rounds + (s.rounds === 1 ? ' round' : ' rounds'),
-        s.hp + ' HP', s.posture + ' posture', s.gourds + (s.gourds === 1 ? ' gourd' : ' gourds'),
-        s.charges + ' art charges', s.speed + '% speed', s.parry + ' ms parry', s.arena + ' map'].join('  -  ');
+        s.hp + ' HP', s.posture + ' posture', s.gourds + (s.gourds === 1 ? ' flask' : ' flasks'),
+        s.charges + ' focus', s.speed + '% speed', s.parry + ' ms parry', s.arena + ' map'].join('  -  ');
 }
 
 function sanitizeCoopSettings(s) {

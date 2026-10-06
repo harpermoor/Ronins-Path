@@ -20,7 +20,8 @@ const PLAYER_SYNC = ['x', 'y', 'facing', 'st', 'stT', 'vx', 'vy', 'moveX', 'move
     'comboGrace', 'guarding', 'guardStart', 'guardWindow', 'spam', 'deflectStreak', 'deflectStreakT', 'guardFlash', 'dodgeDx', 'dodgeDy',
     'dodgeHeld', 'sprinting', 'invuln', 'staggerDur', 'hurtFlash', 'postureCd', 'walkAnim', 'scarf', 'hp', 'posture', 'gourds',
     'artCharges', 'healed', 'ki', 'dbDone', 'iaiSx', 'iaiSy', 'iaiDx', 'iaiDy', 'iaiDone', 'iaiLine', 'deadT', 'beingExecuted', 'brokenT',
-    'stabAttack', 'bufThrow', 'throwDone', 'throws', 'gone', 'poiseLeft', 'artHitsLeft'];
+    'stabAttack', 'bufStab', 'bufThrow', 'throwDone', 'throws', 'gone', 'poiseLeft', 'artHitsLeft',
+    'stamina', 'staminaCd', 'sprintExhausted', 'exhaustedT'];
 const YOU_COLOR = rgb(110, 190, 255), FOE_COLOR = rgb(255, 95, 80);
 const FFA_COLORS = [rgb(255, 95, 80), rgb(120, 220, 120), rgb(255, 205, 80), rgb(205, 135, 255), rgb(90, 225, 215), rgb(255, 140, 200),
     rgb(255, 160, 70), rgb(225, 225, 225)];
@@ -769,7 +770,7 @@ class Duel {
         fx.line(e.x - Math.cos(a - 0.8) * 60, e.y - Math.sin(a - 0.8) * 60, e.x + Math.cos(a - 0.8) * 60, e.y + Math.sin(a - 0.8) * 60, 0.6, 4,
             rgb(255, 220, 220));
         fx.ring(e.x, e.y, 10, 130, 0.6, 6, rgb(255, 50, 40));
-        fx.text('DEATHBLOW', e.x, e.y - 50, rgb(255, 70, 60), 22);
+        fx.text('CRITICAL STRIKE', e.x, e.y - 50, rgb(255, 70, 60), 22);
         this.sfx.play('DEATHBLOW');
         this.hitstop(0.16);
         this.shake(14);
@@ -777,8 +778,15 @@ class Duel {
         this.zoomKick(0.12);
         this.flash(rgb(255, 200, 200), 0.3);
         e.brokenT = 0;
-        e.hp = 0;
-        e.die();
+        e.posture = 0;
+        e.hp -= e.maxHp * 0.6;
+        if (e.hp <= 0) e.die();
+        else {
+            e.st = 'STAGGER';
+            e.stT = 0;
+            e.staggerDur = 0.65;
+            e.invuln = 0.4;
+        }
     }
 
     resolveIai(p, victims) {
@@ -857,7 +865,9 @@ class Duel {
             const k = PLAYER_SYNC[i], v = a[i];
             if (typeof v !== typeof p[k] || (typeof v === 'number' && !Number.isFinite(v))) continue;
             if (k === 'st' && !PLAYER_STATES.includes(v)) continue;
-            p[k] = k === 'artHitsLeft' ? U.clamp(Math.floor(v), 0, 2) : v;
+            p[k] = k === 'artHitsLeft' ? U.clamp(Math.floor(v), 0, 2)
+                : k === 'stamina' ? U.clamp(v, 0, p.maxStamina)
+                    : k === 'staminaCd' || k === 'exhaustedT' ? U.clamp(v, 0, 2) : v;
         }
         const at = i => (Number.isInteger(i) && i >= 0 && i < this.n ? this.players[i] : null);
         p.cur = p.stabAttack ? p.stabAtk : (p.combo >= 0 && p.combo < p.comboAtk.length ? p.comboAtk[p.combo] : null);
@@ -951,17 +961,17 @@ class Duel {
 
     drawArena(g, l, t, r, b) {
         const R = this.arenaR;
-        g.fillStyle = 'rgb(38,52,34)';
+        g.fillStyle = 'rgb(26,34,31)';
         g.fillRect(l, t, r - l, b - t);
-        g.fillStyle = 'rgb(84,70,48)';
+        g.fillStyle = 'rgb(67,63,52)';
         fillCircle(g, 0, 0, R + 30);
         const grad = g.createRadialGradient(0, 0, R * 0.1, 0, 0, R);
-        grad.addColorStop(0, 'rgb(196,178,136)');
-        grad.addColorStop(1, 'rgb(160,140,100)');
+        grad.addColorStop(0, 'rgb(107,104,89)');
+        grad.addColorStop(1, 'rgb(69,73,66)');
         g.fillStyle = grad;
         fillCircle(g, 0, 0, R);
         setStroke(g, 1.5, false);
-        g.strokeStyle = 'rgba(110,92,62,0.28)';
+        g.strokeStyle = 'rgba(171,155,117,0.28)';
         for (let rr = 70; rr < R; rr += 55) {
             g.beginPath();
             g.arc(0, 0, rr, 0, TAU);
@@ -974,23 +984,22 @@ class Duel {
             const a = i / this.n * TAU, sx = Math.cos(a) * R * 0.62, sy = Math.sin(a) * R * 0.62;
             strokeLine(g, sx - Math.sin(a) * 34, sy + Math.cos(a) * 34, sx + Math.sin(a) * 34, sy - Math.cos(a) * 34);
         }
-        // sacred rope
-        setStroke(g, 7, true);
-        g.strokeStyle = 'rgb(232,222,196)';
+        // The broken coliseum wall follows the arena's collision boundary.
+        setStroke(g, 10, true);
+        g.strokeStyle = 'rgb(122,118,99)';
         g.beginPath();
         g.arc(0, 0, R + 6, 0, TAU);
         g.stroke();
-        g.fillStyle = 'rgb(250,250,245)';
+        g.fillStyle = 'rgb(139,132,110)';
         for (let i = 0; i < 24; i++) {
             const a = i / 24 * TAU, x = Math.cos(a) * (R + 6), y = Math.sin(a) * (R + 6);
-            g.beginPath();
-            g.moveTo(x - 4, y);
-            g.lineTo(x + 4, y + 6);
-            g.lineTo(x - 3, y + 12);
-            g.lineTo(x + 3, y + 18);
-            g.lineTo(x - 2, y + 18);
-            g.closePath();
-            g.fill();
+            g.save();
+            g.translate(x, y);
+            g.rotate(a);
+            g.fillRect(-8, -12, 20 + i % 3 * 5, 24);
+            g.fillStyle = 'rgb(67,70,61)';
+            g.fillRect(-4, -8, 10, 16);
+            g.restore();
         }
         // stone lanterns
         for (let i = 0; i < 8; i++) {
@@ -1055,6 +1064,11 @@ class Duel {
         g.fillStyle = p.ki >= 100 ? 'rgb(150,210,255)' : 'rgb(70,120,210)';
         const kw = Math.trunc(w * p.ki / 100);
         g.fillRect(right ? x + w - kw : x, y + 42, kw, 3);
+        g.fillStyle = 'rgba(0,0,0,0.667)';
+        g.fillRect(x - 2, y + 52, w + 4, 9);
+        g.fillStyle = 'rgb(118,157,92)';
+        const staminaW = w * U.clamp(p.stamina / p.maxStamina, 0, 1);
+        g.fillRect(right ? x + w - staminaW : x, y + 54, staminaW, 5);
     }
 
     /** Free-for-all replaces the opponent bar with a compact standings list. */
@@ -1105,16 +1119,16 @@ class Duel {
             fillEllipse(g, gx + 3, hy, 10, 10);
         }
         g.font = SMALL_FONT;
-        this.text(g, '[Q] heal', hx + me.maxGourds * 24 + 8, hy + 18, rgb(220, 200, 170), false);
-        this.text(g, '[T] Shuriken ' + me.throws + '/' + me.maxThrows, hx, hy + 42,
+        this.text(g, '[Q] Amber Flask', hx + me.maxGourds * 24 + 8, hy + 18, rgb(220, 200, 170), false);
+        this.text(g, '[T] ' + me.throwable.name + ' ' + me.throws + '/' + me.maxThrows, hx, hy + 42,
             me.throws ? me.throwable.color : rgb(150, 140, 130), false);
         const art = me.art, canArt = me.artCharges >= art.cost;
         g.font = 'bold 15px serif';
-        this.text(g, art.name + '  ' + me.artCharges + '/' + art.cost + (canArt ? '  READY  [R] / Block + Attack' : '  (deflect to charge)'),
+        this.text(g, art.name + '  ' + me.artCharges + '/' + art.cost + (canArt ? '  READY  [R] / Block + Attack' : '  (parry for focus)'),
             hx, hy - 16, canArt ? art.color : rgb(150, 140, 130), false);
         if (me.ki >= 100) {
             g.font = HUD_FONT;
-            this.text(g, '[F] IAI FLASH READY', hx, hy - 38, rgb(170, 220, 255), false);
+            this.text(g, '[F] WRAITH STEP READY', hx, hy - 38, rgb(170, 220, 255), false);
         }
         g.font = SMALL_FONT;
         const help = 'LMB attack   RMB deflect / hold block   Space dodge / sprint   Esc twice to leave';
@@ -1125,7 +1139,7 @@ class Duel {
         }
         if (this.phase === 'FIGHT' && me.st !== 'DEAD' && this.deathblowTarget(me) !== null) {
             g.font = 'bold 20px serif';
-            this.text(g, '[LMB]  DEATHBLOW', sw / 2, sh - 70, rgb(255, 90, 80), true);
+            this.text(g, '[LMB]  CRITICAL STRIKE', sw / 2, sh - 70, rgb(255, 90, 80), true);
         }
         this.drawPhase(g, sw, sh);
         if (this.leaveConfirmT > 0 && this.lostMsg === null) {
@@ -1145,10 +1159,8 @@ class Duel {
             this.text(g, String(n), sw / 2, cy + 110, rgb(255, 220, 150), true);
         } else if (this.phase === 'FIGHT' && this.phaseT < 0.9) {
             const a = U.clamp(1 - this.phaseT / 0.9, 0, 1);
-            g.font = BIG_KANJI;
-            this.text(g, '\u65ac', sw / 2, cy + 60, U.alpha(rgb(230, 50, 40), a), true);
             g.font = TITLE_FONT;
-            this.text(g, 'FIGHT', sw / 2, cy + 120, U.alpha(WHITE, a), true);
+            this.text(g, 'DRAW STEEL', sw / 2, cy + 60, U.alpha(rgb(220, 194, 135), a), true);
         } else if (this.phase === 'KO') {
             const a = U.clamp(this.phaseT * 3, 0, 1);
             const won = this.lastKo === this.localIdx, draw = this.lastKo === -1;
@@ -1167,10 +1179,9 @@ class Duel {
             const won = this.score[this.localIdx] === best && this.score.filter(s => s === best).length === 1;
             g.fillStyle = 'rgba(0,0,0,0.55)';
             g.fillRect(0, 0, sw, sh);
-            g.font = BIG_KANJI;
-            this.text(g, won ? '\u52dd' : '\u6557', sw / 2, cy + 30, won ? rgb(255, 205, 100) : rgb(200, 30, 30), true);
             g.font = TITLE_FONT;
-            this.text(g, won ? 'VICTORY' : 'DEFEAT', sw / 2, cy + 100, WHITE, true);
+            this.text(g, won ? 'OATH FULFILLED' : 'YOUR LIGHT FADES', sw / 2, cy + 60,
+                won ? rgb(220, 194, 135) : rgb(175, 70, 53), true);
             g.font = SUB_FONT;
             this.text(g, this.score.map((s, i) => this.nameOf(i) + ' ' + s).join('   -   '), sw / 2, cy + 136, rgb(230, 220, 210), true);
             const meReady = this.ready[this.localIdx];

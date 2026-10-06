@@ -15,35 +15,35 @@ function artAtk(name, range, arc, dmg, post, pierce) {
 // hits[].t: seconds into the art when the strike lands. blade(t): weapon angle relative to facing. lunge: [from, to, speed].
 const ARTS = [
     {
-        id: 'whirlwind', name: 'Whirlwind Slash', kanji: '旋風', cost: 2, unlock: 0, color: rgb(170, 230, 255), spin: true,
+        id: 'whirlwind', name: 'Gale Cleave', kanji: 'I', cost: 2, unlock: 0, color: rgb(170, 230, 255), spin: true,
         desc: 'Spin and cut a wide area around you, twice.', info: 'Wide area  -  2 cuts',
         dur: 0.7, lunge: [0.08, 0.42, 90],
         hits: [{ t: 0.18, atk: artAtk('whirl1', 150, 360, 24, 28) }, { t: 0.36, atk: artAtk('whirl2', 150, 360, 30, 36) }],
         blade: t => 1.4 - U.clamp((t - 0.1) / 0.34, 0, 1) * TAU * 2,
     },
     {
-        id: 'ichimonji', name: 'Ichimonji', kanji: '一文字', cost: 2, unlock: 0, color: rgb(255, 220, 150), recover: 35,
+        id: 'ichimonji', name: 'Oathbreaker', kanji: 'II', cost: 2, unlock: 0, color: rgb(255, 220, 150), recover: 35,
         desc: 'One committed overhead cut. Crushes posture and steadies your own.', info: 'Heavy posture damage  -  restores your posture',
         dur: 0.85, lunge: [0.3, 0.42, 260],
         hits: [{ t: 0.38, atk: artAtk('ichimonji', 92, 80, 42, 95), line: true }],
         blade: t => (t < 0.38 ? U.lerp(0.6, 2.9, t / 0.38) : U.lerp(2.9, 0.05, U.clamp((t - 0.38) / 0.07, 0, 1))),
     },
     {
-        id: 'nightjar', name: 'Nightjar Slash', kanji: '夜鷹', cost: 2, unlock: 1, color: rgb(200, 170, 255), trail: true, iframes: [0, 0.3],
+        id: 'nightjar', name: 'Raven Descent', kanji: 'III', cost: 2, unlock: 1, color: rgb(200, 170, 255), trail: true, iframes: [0, 0.3],
         desc: 'Leap forward and cut down on landing. Invincible mid-leap.', info: 'Gap closer  -  invincible while leaping',
         dur: 0.72, lunge: [0.02, 0.28, 820],
         hits: [{ t: 0.3, atk: artAtk('nightjar', 96, 150, 38, 52) }],
         blade: t => (t < 0.3 ? 2.0 : U.lerp(1.3, -1.3, U.clamp((t - 0.3) / 0.08, 0, 1))),
     },
     {
-        id: 'mortal', name: 'Mortal Draw', kanji: '抜刀', cost: 3, unlock: 3, color: rgb(255, 110, 110), charge: true,
+        id: 'mortal', name: 'Grave Requiem', kanji: 'IV', cost: 3, unlock: 3, color: rgb(255, 110, 110), charge: true,
         desc: 'Hold the blade in its sheath, then release a vast draw.', info: 'Huge reach  -  cannot be blocked',
         dur: 1.05,
         hits: [{ t: 0.6, atk: artAtk('mortal', 200, 80, 85, 75, true), line: true }],
         blade: t => (t < 0.6 ? 2.7 : U.lerp(1.2, -1.1, U.clamp((t - 0.6) / 0.07, 0, 1))),
     },
     {
-        id: 'spearfall', name: 'Heaven-Piercing Thrust', kanji: '穿', cost: 2, unlock: 0, weapon: 'spear',
+        id: 'spearfall', name: 'Thorn Oath', kanji: 'V', cost: 2, unlock: 0, weapon: 'spear',
         color: rgb(150, 220, 255), motion: 'thrust', trail: true,
         desc: 'Drive forward with a rapid double thrust.', info: 'Two piercing jabs  -  spear only',
         dur: 0.82, lunge: [0.05, 0.52, 220],
@@ -54,7 +54,7 @@ const ARTS = [
         blade: () => 0,
     },
     {
-        id: 'earthshaker', name: 'Earthshaker', kanji: '砕', cost: 2, unlock: 0, weapon: 'hammer',
+        id: 'earthshaker', name: 'Earthshaker', kanji: 'VI', cost: 2, unlock: 0, weapon: 'hammer',
         color: rgb(255, 190, 115), motion: 'slam',
         desc: 'Wind up and smash the ground with crushing force.', info: 'Massive posture damage  -  hammer only',
         dur: 0.92, recover: 20, lunge: [0.3, 0.46, 125],
@@ -64,45 +64,45 @@ const ARTS = [
 ];
 
 const SWORDS = [
-    { id: 'wanderer', type: 'katana', name: "Wanderer's Katana", kanji: '打刀', unlock: 0, dmg: 1, post: 1, spd: 1, reach: 0, len: 56, color: rgb(210, 215, 230),
+    { id: 'wanderer', type: 'katana', name: "Exile's Longsword", kanji: 'I', unlock: 0, dmg: 1, post: 1, spd: 1, reach: 0, len: 56, color: rgb(210, 215, 230),
         desc: 'A plain, honest blade. Balanced in every way.', info: 'Balanced' },
-    { id: 'odachi', type: 'katana', name: 'Crimson Odachi', kanji: '大太刀', unlock: 1, poise: 12, dmg: 1.3, post: 1.2, spd: 1.2, reach: 16, len: 70, color: rgb(235, 170, 165),
+    { id: 'odachi', type: 'katana', name: 'Gloam Greatsword', kanji: 'II', unlock: 1, poise: 12, dmg: 1.3, post: 1.2, spd: 1.2, reach: 16, len: 70, color: rgb(235, 170, 165),
         desc: 'Long and heavy. Strikes hard but swings slow, and holds firm mid-swing.', info: 'Damage +30%  -  Reach +16  -  Slower swings' },
-    { id: 'wakizashi', type: 'katana', name: 'Mist Raven Wakizashi', kanji: '脇差', unlock: 2, dmg: 0.82, post: 0.9, spd: 0.72, reach: -10, len: 44, color: rgb(175, 210, 245),
+    { id: 'wakizashi', type: 'katana', name: 'Raven Shortsword', kanji: 'III', unlock: 2, dmg: 0.82, post: 0.9, spd: 0.72, reach: -10, len: 44, color: rgb(175, 210, 245),
         desc: 'Short and light. Chains cuts in a blur.', info: 'Much faster swings  -  Less damage and reach' },
-    { id: 'sorrow', type: 'katana', name: 'Blade of Sorrow', kanji: '哀刃', unlock: 4, dmg: 1.35, post: 1.5, spd: 1.05, reach: 6, len: 62, color: rgb(210, 70, 80),
+    { id: 'sorrow', type: 'katana', name: 'Blade of Sorrow', kanji: 'IV', unlock: 4, dmg: 1.35, post: 1.5, spd: 1.05, reach: 6, len: 62, color: rgb(210, 70, 80),
         desc: 'A cursed edge that shatters any guard.', info: 'Damage +35%  -  Posture damage +50%' },
-    { id: 'spear', type: 'spear', name: 'Ash Spear', kanji: '槍', unlock: 0, dmg: 0.85, post: 0.85, spd: 1.08, reach: 38, len: 76, color: rgb(205, 220, 225),
+    { id: 'spear', type: 'spear', name: 'Ash Spear', kanji: 'I', unlock: 0, dmg: 0.85, post: 0.85, spd: 1.08, reach: 38, len: 76, color: rgb(205, 220, 225),
         combo: [new Attack('spear1', 0.12, 0.10, 0.25, 112, 42, 15, 12, 150),
             new Attack('spear2', 0.12, 0.10, 0.25, 112, 42, 15, 12, 150),
             new Attack('spear3', 0.20, 0.12, 0.40, 125, 54, 25, 24, 210)],
         desc: 'Keep enemies at a distance with narrow thrusts.', info: 'Reach +38  -  Narrow arc  -  Less posture damage' },
-    { id: 'storm-spear', type: 'spear', name: 'Tempest Spear', kanji: '嵐槍', unlock: 1, dmg: 0.92, post: 0.92, spd: 0.9, reach: 48, len: 86, color: rgb(165, 205, 235),
+    { id: 'storm-spear', type: 'spear', name: 'Tempest Spear', kanji: 'II', unlock: 1, dmg: 0.92, post: 0.92, spd: 0.9, reach: 48, len: 86, color: rgb(165, 205, 235),
         combo: [new Attack('stormSpear1', 0.11, 0.09, 0.24, 118, 36, 15, 12, 170),
             new Attack('stormSpear2', 0.11, 0.09, 0.24, 118, 36, 15, 12, 170),
             new Attack('stormSpear3', 0.18, 0.12, 0.38, 132, 48, 26, 25, 230)],
         desc: 'A long, quick spear that keeps foes at bay.', info: 'Longer reach  -  Faster thrusts  -  Light hits' },
-    { id: 'serpent-spear', type: 'spear', name: 'Serpent Fang Spear', kanji: '蛇槍', unlock: 3, dmg: 1.12, post: 1, spd: 1.18, reach: 30, len: 72, color: rgb(150, 205, 165),
+    { id: 'serpent-spear', type: 'spear', name: 'Serpent Fang Spear', kanji: 'III', unlock: 3, dmg: 1.12, post: 1, spd: 1.18, reach: 30, len: 72, color: rgb(150, 205, 165),
         combo: [new Attack('serpentSpear1', 0.14, 0.11, 0.26, 108, 48, 17, 14, 145),
             new Attack('serpentSpear2', 0.13, 0.10, 0.25, 108, 48, 17, 14, 150),
             new Attack('serpentSpear3', 0.22, 0.14, 0.42, 122, 62, 29, 28, 215)],
         desc: 'A hooked point built for forceful, accurate thrusts.', info: 'Damage +12%  -  Broad thrusts  -  Faster than Ash Spear' },
-    { id: 'hammer', type: 'hammer', name: 'Iron Hammer', kanji: '鎚', unlock: 0, poise: 26, dmg: 1.25, post: 1.65, spd: 1.45, reach: -8, len: 58, color: rgb(175, 175, 170),
+    { id: 'hammer', type: 'hammer', name: 'Iron Hammer', kanji: 'I', unlock: 0, poise: 26, dmg: 1.25, post: 1.65, spd: 1.45, reach: -8, len: 58, color: rgb(175, 175, 170),
         combo: [new Attack('hammer1', 0.18, 0.12, 0.32, 84, 150, 17, 20, 120),
             new Attack('hammer2', 0.20, 0.12, 0.32, 84, 150, 17, 20, 120),
             new Attack('hammer3', 0.28, 0.14, 0.52, 96, 185, 27, 32, 170)],
         desc: 'Slow crushing blows break guards and shrug off light hits mid-swing.', info: 'Posture +65%  -  Hard to interrupt  -  Slow' },
-    { id: 'war-hammer', type: 'hammer', name: 'Ashen Warhammer', kanji: '戦鎚', unlock: 1, poise: 32, dmg: 1.38, post: 1.82, spd: 1.62, reach: -12, len: 64, color: rgb(195, 160, 125),
+    { id: 'war-hammer', type: 'hammer', name: 'Ashen Warhammer', kanji: 'II', unlock: 1, poise: 32, dmg: 1.38, post: 1.82, spd: 1.62, reach: -12, len: 64, color: rgb(195, 160, 125),
         combo: [new Attack('warHammer1', 0.20, 0.12, 0.36, 82, 158, 18, 22, 115),
             new Attack('warHammer2', 0.22, 0.12, 0.36, 82, 158, 18, 22, 115),
             new Attack('warHammer3', 0.31, 0.15, 0.56, 94, 195, 29, 35, 165)],
         desc: 'A massive two-handed head that batters any guard.', info: 'More damage and posture  -  Very slow  -  Short reach' },
-    { id: 'stone-hammer', type: 'hammer', name: 'Stone Maul', kanji: '石鎚', unlock: 3, poise: 38, dmg: 1.52, post: 1.95, spd: 1.78, reach: -16, len: 68, color: rgb(185, 185, 175),
+    { id: 'stone-hammer', type: 'hammer', name: 'Stone Maul', kanji: 'III', unlock: 3, poise: 38, dmg: 1.52, post: 1.95, spd: 1.78, reach: -16, len: 68, color: rgb(185, 185, 175),
         combo: [new Attack('stoneHammer1', 0.23, 0.13, 0.4, 78, 165, 20, 25, 105),
             new Attack('stoneHammer2', 0.24, 0.13, 0.4, 78, 165, 20, 25, 105),
             new Attack('stoneHammer3', 0.34, 0.16, 0.6, 92, 205, 32, 39, 155)],
         desc: 'A stone-headed maul with devastating but deliberate swings.', info: 'High damage and posture  -  Slowest  -  Shortest reach' },
-    { id: 'axe', type: 'axe', name: 'Woodsman Axe', kanji: '斧', unlock: 0, poise: 16, dmg: 1.18, post: 1.3, spd: 1.22, reach: -3, len: 52, color: rgb(205, 200, 190),
+    { id: 'axe', type: 'axe', name: 'Woodsman Axe', kanji: 'I', unlock: 0, poise: 16, dmg: 1.18, post: 1.3, spd: 1.22, reach: -3, len: 52, color: rgb(205, 200, 190),
         combo: [new Attack('axe1', 0.14, 0.11, 0.28, 84, 180, 17, 15, 170),
             new Attack('axe2', 0.14, 0.11, 0.28, 84, 180, 17, 15, 170),
             new Attack('axe3', 0.24, 0.14, 0.45, 98, 240, 27, 27, 220)],
@@ -110,66 +110,66 @@ const SWORDS = [
 ];
 
 const THROWABLES = [
-    { id: 'shuriken', name: 'Shuriken', kanji: '手裏剣', unlock: 0, max: 5, range: 250, damage: 12, posture: 10, color: rgb(185, 220, 240),
-        desc: 'Quick steel stars for distant targets.', info: '5 throws  -  Fast  -  Refill at shrines' },
-    { id: 'kunai', name: 'Kunai', kanji: '苦無', unlock: 0, max: 4, range: 270, damage: 20, posture: 12, color: rgb(225, 205, 170),
+    { id: 'shuriken', name: 'Throwing Daggers', kanji: 'I', unlock: 0, max: 5, range: 250, damage: 12, posture: 10, color: rgb(185, 220, 240),
+        desc: 'Quick steel daggers for distant targets.', info: '5 throws  -  Fast  -  Refill at shrines' },
+    { id: 'kunai', name: 'Grave Knives', kanji: 'II', unlock: 0, max: 4, range: 270, damage: 20, posture: 12, color: rgb(225, 205, 170),
         desc: 'A heavier knife with greater reach.', info: '4 throws  -  More damage  -  Refill at shrines' },
-    { id: 'throwingaxe', name: 'Throwing Axe', kanji: '飛斧', unlock: 0, max: 3, range: 210, damage: 28, posture: 28, color: rgb(230, 170, 130),
+    { id: 'throwingaxe', name: 'Throwing Axe', kanji: 'III', unlock: 0, max: 3, range: 210, damage: 28, posture: 28, color: rgb(230, 170, 130),
         desc: 'A short throw that batters guards.', info: '3 throws  -  High posture damage  -  Refill at shrines' },
 ];
 
 const ARMORS = [
-    { id: 'traveler', name: "Traveler's Garb", kanji: '旅装', unlock: 0, def: 1, move: 1, posture: 0, stealth: 1, shoulder: rgb(150, 32, 38),
-        desc: 'Worn cloth and a red mantle. Nothing to slow you down.', info: 'No modifiers' },
-    { id: 'shinobi', name: 'Shinobi Garb', kanji: '忍装束', unlock: 1, def: 1.1, move: 1.1, posture: -10, stealth: 0.6, shoulder: rgb(38, 38, 46),
-        desc: 'Dark, silent and light. Made for those who strike unseen.', info: 'Move +10%  -  Quieter  -  Damage taken +10%' },
-    { id: 'lamellar', name: 'Ashina Lamellar', kanji: '具足', unlock: 2, def: 0.78, move: 0.9, posture: 25, stealth: 1.2, shoulder: rgb(120, 104, 84),
-        desc: 'Lacquered plates that turn aside the blade.', info: 'Damage taken -22%  -  Posture +25  -  Slower, louder' },
-    { id: 'ashigaru', name: 'Ashigaru Cuirass', kanji: '足軽胴', unlock: 1, def: 0.9, move: 1.06, posture: 5, stealth: 1, shoulder: rgb(70, 92, 118),
+    { id: 'traveler', name: "Exile's Mail", kanji: 'I', unlock: 0, weight: 'medium', def: 1, move: 1, posture: 0, stealth: 1, shoulder: rgb(122, 128, 132),
+        desc: 'Tarnished mail beneath a weathered mantle.', info: 'Medium roll  -  Balanced protection' },
+    { id: 'shinobi', name: 'Raven Leathers', kanji: 'II', unlock: 1, weight: 'light', def: 1.1, move: 1.1, posture: -10, stealth: 0.6, shoulder: rgb(38, 38, 46),
+        desc: 'Dark, silent and light. Made for those who strike unseen.', info: 'Light roll  -  Move +10%  -  Damage taken +10%' },
+    { id: 'lamellar', name: 'Dusk Knight Plate', kanji: 'III', unlock: 2, weight: 'heavy', def: 0.78, move: 0.9, posture: 25, stealth: 1.2, shoulder: rgb(120, 104, 84),
+        desc: 'Dented plates from a kingdom that no longer answers.', info: 'Heavy roll  -  Damage taken -22%  -  Posture +25' },
+    { id: 'ashigaru', name: 'Pilgrim Cuirass', kanji: 'IV', unlock: 1, weight: 'light', def: 0.9, move: 1.06, posture: 5, stealth: 1, shoulder: rgb(70, 92, 118),
         affinity: 'spear', bonus: { reach: 10, spd: 0.92 },
         desc: 'A trim spearman\'s cuirass. Light on the feet, free at the arms.',
         info: 'Damage taken -10%  -  Move +6%  -  Spear: reach +10, thrusts 8% faster' },
-    { id: 'oyoroi', name: 'Iron Oyoroi', kanji: '大鎧', unlock: 2, def: 0.7, move: 0.86, posture: 35, stealth: 1.35, shoulder: rgb(84, 80, 78),
+    { id: 'oyoroi', name: 'Sepulchral Plate', kanji: 'V', unlock: 2, weight: 'heavy', def: 0.7, move: 0.86, posture: 35, stealth: 1.35, shoulder: rgb(84, 80, 78),
         affinity: 'hammer', bonus: { poise: 14, post: 1.12 },
         desc: 'Heavy iron plate made to wade through blows behind a maul.',
         info: 'Damage taken -30%  -  Posture +35  -  Slow  -  Hammer: poise +14, posture damage +12%' },
 ];
 
 const CHARMS = [
-    { id: 'none', name: 'No Charm', kanji: '無', unlock: 0, desc: 'Nothing hangs from your belt.', info: '-' },
-    { id: 'gourdseed', name: 'Gourd Seed', kanji: '瓢', unlock: 0, gourds: 1,
-        desc: 'A seed that swells into another healing gourd.', info: '+1 Healing Gourd (refilled at shrines)' },
-    { id: 'feather', name: "Kite's Feather", kanji: '羽', unlock: 1, deflect: 0.035,
+    { id: 'none', name: 'No Talisman', kanji: '-', unlock: 0, desc: 'Nothing hangs from your belt.', info: '-' },
+    { id: 'gourdseed', name: 'Amber Vessel', kanji: 'I', unlock: 0, gourds: 1,
+        desc: 'A vessel for one more draught of restorative amber.', info: '+1 Amber Flask (refilled at shrines)' },
+    { id: 'feather', name: 'Raven Feather', kanji: 'II', unlock: 1, deflect: 0.035,
         desc: 'Light as the wind. Your guard meets blades sooner.', info: 'Deflect window +35ms' },
-    { id: 'bell', name: 'Spirit Bell', kanji: '鈴', unlock: 1, charges: 1,
-        desc: 'Its chime holds the echo of every deflect.', info: '+1 max Combat Art charge' },
-    { id: 'ironheart', name: 'Iron Heart', kanji: '鉄心', unlock: 2, posture: 30,
+    { id: 'bell', name: 'Spirit Bell', kanji: 'III', unlock: 1, charges: 1,
+        desc: 'Its chime holds the echo of every parry.', info: '+1 max weapon-art focus' },
+    { id: 'ironheart', name: 'Iron Heart', kanji: 'IV', unlock: 2, posture: 30,
         desc: 'A cold stone that keeps your stance unbroken.', info: 'Posture +30' },
-    { id: 'onimask', name: 'Oni Mask', kanji: '鬼', unlock: 3, dmg: 1.2, def: 1.2,
-        desc: 'Wear the demon, fight as the demon.', info: 'Damage dealt +20%  -  Damage taken +20%' },
+    { id: 'onimask', name: 'Wraith Effigy', kanji: 'VI', unlock: 3, dmg: 1.2, def: 1.2,
+        desc: 'A broken oath made flesh. Its hunger is yours.', info: 'Damage dealt +20%  -  Damage taken +20%' },
 ];
 
 const EQUIP_SLOTS = [
-    { field: 'art', label: 'Combat Art', list: ARTS },
+    { field: 'art', label: 'Weapon Art', list: ARTS },
     { field: 'sword', label: 'Weapon', list: SWORDS },
     { field: 'throwable', label: 'Throw', list: THROWABLES },
     { field: 'armor', label: 'Armor', list: ARMORS },
-    { field: 'charm', label: 'Charm', list: CHARMS },
+    { field: 'charm', label: 'Talisman', list: CHARMS },
 ];
 
 const WEAPON_TYPES = [
     { id: 'all', label: 'All', name: 'weapon' },
-    { id: 'katana', label: 'Katanas', name: 'katana' },
+    { id: 'katana', label: 'Swords', name: 'sword' },
     { id: 'spear', label: 'Spears', name: 'spear' },
     { id: 'hammer', label: 'Hammers', name: 'hammer' },
     { id: 'axe', label: 'Axes', name: 'axe' },
 ];
 
 const LOOKS = [
-    { key: 'robe', label: 'Robe', colors: [rgb(40, 45, 72), rgb(28, 28, 32), rgb(96, 30, 34), rgb(38, 68, 48), rgb(112, 100, 80), rgb(205, 205, 210), rgb(72, 42, 94)] },
-    { key: 'scarf', label: 'Scarf', colors: [rgb(200, 30, 40), rgb(230, 200, 90), rgb(240, 240, 240), rgb(60, 120, 200), rgb(40, 40, 40), rgb(90, 180, 110), rgb(220, 120, 180)] },
-    { key: 'hatStyle', label: 'Headwear', names: ['Kasa', 'Jingasa', 'Oni Horns', 'Hood'] },
-    { key: 'hat', label: 'Headwear Color', colors: [rgb(206, 176, 116), rgb(64, 52, 40), rgb(38, 38, 46), rgb(150, 40, 40), rgb(210, 210, 200), rgb(70, 90, 60)] },
+    { key: 'robe', label: 'Surcoat', colors: [rgb(40, 45, 72), rgb(28, 28, 32), rgb(96, 30, 34), rgb(38, 68, 48), rgb(112, 100, 80), rgb(205, 205, 210), rgb(72, 42, 94)] },
+    { key: 'scarf', label: 'Mantle', colors: [rgb(132, 48, 42), rgb(185, 155, 88), rgb(195, 190, 174), rgb(60, 90, 120), rgb(40, 40, 40), rgb(90, 125, 92), rgb(132, 82, 108)] },
+    { key: 'hatStyle', label: 'Headwear', names: ['Visored Helm', 'Greathelm', 'Antler Crown', 'Hood'] },
+    { key: 'hat', label: 'Headwear Color', colors: [rgb(148, 143, 126), rgb(64, 52, 40), rgb(38, 38, 46), rgb(150, 40, 40), rgb(210, 210, 200), rgb(70, 90, 60)] },
 ];
 
 function findItem(list, id) { return list.find(i => i.id === id) || list[0]; }
@@ -257,6 +257,10 @@ function computeStats(lo, baseHp, baseGourds, skills) {
     const sw = lo.swordDef(), ar = lo.armorDef(), ch = lo.charmDef();
     const s = {
         maxHp: Math.min(baseHp, MAX_PLAYER_HP),
+        maxStamina: 100,
+        rollTime: ar.weight === 'heavy' ? 0.56 : ar.weight === 'light' ? 0.36 : DODGE_TIME,
+        rollSpeed: ar.weight === 'heavy' ? 430 : ar.weight === 'light' ? 780 : 660,
+        staminaCost: { katana: 16, spear: 18, hammer: 28, axe: 22 }[weaponType(sw)],
         maxPosture: 100 + ar.posture + (ch.posture || 0),
         gourds: Math.min(MAX_PLAYER_GOURDS, baseGourds + (ch.gourds || 0)),
         charges: BASE_ART_CHARGES + (ch.charges || 0),
@@ -273,7 +277,7 @@ function computeStats(lo, baseHp, baseGourds, skills) {
         deathblowHeal: 0,
         deflectPost: 1,
         deflectRecover: 0,
-        iframes: DODGE_IFRAMES,
+        iframes: ar.weight === 'heavy' ? 0.16 : ar.weight === 'light' ? 0.25 : DODGE_IFRAMES,
         dragonFlash: false,
         lastStand: false,
     };
@@ -311,8 +315,10 @@ function drawRonin(g, x, y, r, facing, lo, time) {
 const STAT_ROWS = [
     ['Vitality', s => s.maxHp, v => Math.round(v), 1],
     ['Posture', s => s.maxPosture, v => Math.round(v), 1],
-    ['Healing Gourds', s => s.gourds, v => v, 1],
-    ['Art Charges', s => s.charges, v => v, 1],
+    ['Stamina', s => s.maxStamina, v => Math.round(v), 1],
+    ['Roll recovery', s => s.rollTime * 1000, v => Math.round(v) + 'ms', -1],
+    ['Amber Flasks', s => s.gourds, v => v, 1],
+    ['Focus', s => s.charges, v => v, 1],
     ['Attack', s => s.dmg * 100, v => Math.round(v) + '%', 1],
     ['Posture Damage', s => s.post * 100, v => Math.round(v) + '%', 1],
     ['Swing Speed', s => 100 / s.spd, v => Math.round(v) + '%', 1],
@@ -457,13 +463,19 @@ class EquipMenu {
     learn(i) {
         const g = this.g, p = g.player, sk = skillAt(Math.floor(i / SKILL_TIERS), i % SKILL_TIERS), pre = skillPrereq(sk);
         if (g.skills.has(sk.id)) return;
+        const shrine = g.nearShrine();
+        if (!shrine || g.findRestBlockers(shrine).length > 0) {
+            this.note('Seek a safe shrine to learn skills');
+            g.sfx.play('BLOCK');
+            return;
+        }
         if (pre !== null && !g.skills.has(pre.id)) {
             this.note('Learn ' + pre.name + ' first');
             g.sfx.play('BLOCK');
             return;
         }
         if (g.skillPoints < sk.cost) {
-            this.note('Not enough skill points  -  earn EXP by defeating enemies');
+            this.note('Not enough skill points  -  earn echoes by defeating enemies');
             g.sfx.play('BLOCK');
             return;
         }
@@ -488,7 +500,7 @@ class EquipMenu {
     equip(i) {
         const g = this.g, slot = EQUIP_SLOTS[this.tab], it = slot.list[i];
         if (!this.unlocked(it)) {
-            this.note('Locked  -  slay ' + it.unlock + ' elite' + (it.unlock > 1 ? 's' : '') + ' to unlock');
+            this.note('Locked  -  defeat ' + it.unlock + ' lord' + (it.unlock > 1 ? 's' : '') + ' to unlock');
             g.sfx.play('BLOCK');
             return;
         }
@@ -554,7 +566,7 @@ class EquipMenu {
         const skillsTab = this.tab === SKILL_TAB;
         game.text(g, skillsTab ? 'SKILL TREE' : 'EQUIPMENT', X + 24, Y + 40, rgb(235, 200, 140), false);
         g.font = 'bold 24px ' + KANJI_FAMILY;
-        game.text(g, skillsTab ? '技' : '装備', X + (skillsTab ? 200 : 196), Y + 40, rgb(200, 60, 50), false);
+        game.text(g, 'THE LONG DUSK', X + 220, Y + 40, rgb(160, 143, 102), false);
         if (this.msgT > 0 && this.msg !== null) {
             g.font = 'bold 15px serif';
             this.rightText(g, this.msg, X + W - 24, Y + 38, rgb(255, 220, 150));
@@ -566,7 +578,7 @@ class EquipMenu {
             const r = { x: X + 24 + i * tw, y: Y + 58, w: tw - 6, h: 34, i };
             R.tabs.push(r);
             roundRectPath(g, r.x, r.y, r.w, r.h, 5);
-            g.fillStyle = i === this.tab ? 'rgb(130,32,32)' : 'rgb(46,36,33)';
+            g.fillStyle = i === this.tab ? 'rgb(96,79,50)' : 'rgb(34,36,33)';
             g.fill();
             g.font = 'bold 15px serif';
             game.text(g, l, r.x + r.w / 2, r.y + 22, i === this.tab ? rgb(255, 235, 210) : rgb(190, 175, 160), true);
@@ -574,8 +586,9 @@ class EquipMenu {
 
         const top = Y + 108, bottom = Y + H - 44;
         const preview = this.previewLoadout();
-        this.drawPreview(g, X + 24, top, 300, 200, preview);
-        this.drawStats(g, X + 24, top + 222, 300, preview, this.previewSkills());
+        const previewH = Math.min(160, Math.max(90, bottom - top - STAT_ROWS.length * 17 - 16));
+        this.drawPreview(g, X + 24, top, 300, previewH, preview);
+        this.drawStats(g, X + 24, top + previewH + 16, 300, preview, this.previewSkills());
         const lx = X + 344, lw = W - 368;
         if (this.tab < EQUIP_SLOTS.length) this.drawList(g, lx, top, lw, bottom - top, R);
         else if (skillsTab) this.drawSkills(g, lx, top, lw, bottom - top, R);
@@ -593,7 +606,7 @@ class EquipMenu {
         const t = this.g.realTime;
         g.save();
         roundRectPath(g, x, y, w, h, 8);
-        g.fillStyle = 'rgb(44,52,36)';
+        g.fillStyle = 'rgb(38,43,38)';
         g.fill();
         g.clip();
         g.fillStyle = 'rgba(255,215,140,0.08)';
@@ -625,12 +638,18 @@ class EquipMenu {
                 g.font = SMALL_FONT;
                 this.rightText(g, fmt(a) + '  \u2192', x + w - 12 - g.measureText(s).width - 8, yy, rgb(160, 150, 140));
             }
-            yy += 19;
+            yy += 17;
         }
     }
 
     drawList(g, x, y, w, h, R) {
         const game = this.g, lo = game.loadout, slot = EQUIP_SLOTS[this.tab];
+        const fit = (text, width) => {
+            if (g.measureText(text).width <= width) return text;
+            let short = text;
+            while (short.length && g.measureText(short + '...').width > width) short = short.slice(0, -1);
+            return short + '...';
+        };
         const indices = this.tabIndices(), list = indices.map(i => slot.list[i]);
         if (this.tab === 1) {
             const gap = 5, tabW = (w - gap * (WEAPON_TYPES.length - 1)) / WEAPON_TYPES.length;
@@ -671,13 +690,13 @@ class EquipMenu {
             g.font = 'bold ' + (it.kanji.length > 2 ? 17 : 24) + 'px ' + KANJI_FAMILY;
             game.text(g, it.kanji, x + 40, ry + 44, U.alpha(it.color || rgb(220, 90, 70), dim), true);
             g.font = 'bold 17px serif';
-            game.text(g, it.name, x + 84, ry + 24, U.alpha(rgb(245, 235, 215), dim), false);
+            game.text(g, fit(it.name, w - 220), x + 84, ry + 24, U.alpha(rgb(245, 235, 215), dim), false);
             g.font = SMALL_FONT;
-            game.text(g, it.desc, x + 84, ry + 44, U.alpha(rgb(200, 190, 175), dim), false);
+            game.text(g, fit(it.desc, w - 98), x + 84, ry + 44, U.alpha(rgb(200, 190, 175), dim), false);
             g.font = '12px sans-serif';
-            game.text(g, it.info, x + 84, ry + 62, U.alpha(rgb(140, 210, 200), dim), false);
+            game.text(g, fit(it.info, w - (it.cost !== undefined ? 205 : 98)), x + 84, ry + 62, U.alpha(rgb(140, 210, 200), dim), false);
             g.font = 'bold 13px sans-serif';
-            if (!this.unlocked(it)) this.rightText(g, 'Slay ' + it.unlock + ' elite' + (it.unlock > 1 ? 's' : ''), x + w - 12, ry + 24, rgb(200, 120, 110));
+            if (!this.unlocked(it)) this.rightText(g, 'Defeat ' + it.unlock + ' lord' + (it.unlock > 1 ? 's' : ''), x + w - 12, ry + 24, rgb(200, 120, 110));
             else if (weaponLocked) this.rightText(g, 'Requires ' + weaponTypeName(it.weapon), x + w - 12, ry + 24, rgb(220, 160, 110));
             else if (slot.field === 'armor' && it.affinity) {
                 const fits = armorFitsWeapon(it, lo.swordDef());
@@ -686,7 +705,7 @@ class EquipMenu {
                     fits ? rgb(130, 225, 140) : equipped ? rgb(240, 200, 110) : rgb(170, 160, 150));
             } else if (equipped) this.rightText(g, 'EQUIPPED', x + w - 12, ry + 24, rgb(240, 200, 110));
             if (it.cost !== undefined) {
-                this.rightText(g, 'Costs ' + it.cost + ' art charges', x + w - 12, ry + 62, U.alpha(rgb(255, 215, 110), dim));
+                this.rightText(g, 'Costs ' + it.cost + ' focus', x + w - 12, ry + 62, U.alpha(rgb(255, 215, 110), dim));
             }
         }
         g.font = HUD_FONT;
@@ -704,7 +723,7 @@ class EquipMenu {
         g.fillStyle = 'rgb(120,210,190)';
         g.fillRect(x, y + 2, 240 * U.clamp(game.exp / need, 0, 1), 8);
         g.font = SMALL_FONT;
-        game.text(g, 'EXP ' + Math.floor(game.exp) + ' / ' + need + '  to next point', x, y + 26, rgb(170, 225, 210), false);
+        game.text(g, 'Echoes ' + Math.floor(game.exp) + ' / ' + need + '  to next point', x, y + 26, rgb(205, 185, 135), false);
         g.font = 'bold 17px serif';
         this.rightText(g, 'Skill Points: ' + game.skillPoints, x + w - 6, y + 14,
             game.skillPoints > 0 ? rgb(255, 215, 110) : rgb(170, 160, 150));

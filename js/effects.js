@@ -144,20 +144,20 @@ class Effects {
         while (this.decals.length > 400) this.decals.shift();
     }
 
-    /** Keep a drifting cloud of sakura petals around the camera. */
+    /** Drifting ash and faint golden embers above the ruined realm. */
     ambient(cx, cy, vw, vh, dt, wind) {
         const rnd = this.rnd;
-        while (this.petals.length < 70) {
+        while (this.petals.length < 45) {
             this.petals.push({
                 x: cx + (rnd.nextDouble() - 0.5) * vw * 1.3,
                 y: cy + (rnd.nextDouble() - 0.5) * vh * 1.3,
                 vx: 25 + rnd.nextDouble() * 30,
                 vy: 10 + rnd.nextDouble() * 20,
                 life: 0, max: 0,
-                size: 2.5 + rnd.nextDouble() * 2.5,
+                size: 1.5 + rnd.nextDouble() * 2,
                 rot: rnd.nextDouble() * 6,
                 vr: (rnd.nextDouble() - 0.5) * 4,
-                c: rnd.nextInt(4) === 0 ? rgb(255, 240, 245) : rgb(255, 170 + rnd.nextInt(40), 200),
+                c: rnd.nextInt(5) === 0 ? rgb(214, 183, 112) : rgb(149, 149, 133, 140),
             });
             const p = this.petals[this.petals.length - 1];
             p.life = p.max = 6 + rnd.nextDouble() * 6;

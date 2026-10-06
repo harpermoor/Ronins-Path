@@ -44,8 +44,17 @@ const EA = {
     RYUSEI_CROSS: new Attack('fallen star', 1.0, .20, 1.0, 110, 310, 35, 35, 200).markPerilous(),
     OKAMI_CRESCENT: new Attack('hollow crescent', 1.05, .22, 1.05, 132, 320, 33, 22, 120).markPerilous(),
     DAIMYO_ASHFALL: withDash(new Attack('ashfall', 1.15, .23, 1.1, 152, 280, 44, 36, 290).markPerilous(), 340),
+    VEIL_REAP: withDash(new Attack('veil reaper', .85, .18, .85, 132, 250, 30, 26, 260).markPerilous(), 340),
+    BELL_TOLL: new Attack('funeral toll', 1.25, .25, 1.05, 190, 360, 34, 42, 0).markPerilous(),
+    THORN_WHEEL: new Attack('thorn wheel', .9, .22, .9, 158, 360, 28, 30, 80).markPerilous(),
+    CROWN_REAP: withDash(new Attack('crown reaper', .95, .2, .95, 150, 300, 32, 34, 220).markPerilous(), 300),
+    PALE_RITE: new Attack('pale rite', 1.15, .22, 1.0, 180, 360, 30, 28, 0).markPerilous(),
+    CINDER_TIDE: new Attack('cinder tide', 1.35, .3, 1.2, 225, 360, 38, 46, 0).markPerilous(),
 };
 const ELITE_SUPERS = [EA.KAGEMARU_VANISH, EA.GOZU_QUAKE, EA.TOMOE_LANCE, EA.RYUSEI_CROSS, EA.OKAMI_CRESCENT];
+const PHASE_SUPERS = [EA.VEIL_REAP, EA.BELL_TOLL, EA.THORN_WHEEL, EA.CROWN_REAP, EA.PALE_RITE];
+const ENEMY_TITLES = { RONIN: 'Hollow Swordsman', SPEAR: 'Thorn Sentinel', BRUTE: 'Gravebound Colossus' };
+const LORD_COLORS = [rgb(120, 145, 180), rgb(172, 133, 76), rgb(145, 70, 72), rgb(135, 108, 170), rgb(102, 160, 141)];
 
 // Enemy types: 'RONIN' | 'SPEAR' | 'BRUTE'
 // Enemy states: 'IDLE' | 'ALERT' | 'ENGAGE' | 'WINDUP' | 'ACTIVE' | 'RECOVER' | 'DODGE' | 'STUN' | 'BROKEN' | 'DEAD' | 'RETURN'
@@ -57,6 +66,7 @@ class Enemy extends Actor {
         this.elite = elite;
         this.vet = elite || !!vet;
         this.boss = !!boss;
+        this.bossPhase = 1;
         this.name = name;
         this.eliteStyle = elite && !boss ? ELITES.findIndex(([eliteName]) => eliteName === name) : -1;
         this.lives = 1;
@@ -68,6 +78,7 @@ class Enemy extends Actor {
         this.stDur = 0;
         this.combos = [];
         this.gap = [];
+        this.phaseCombos = [];
         this.combo = null;
         this.comboIdx = 0;
         this.atk = null;
@@ -135,7 +146,6 @@ class Enemy extends Actor {
                 this.blockChance = 0.7;
                 this.dodgeChance = 0.45;
             }
-            this.lives = 2;
         }
         if (this.boss) {
             this.r *= 1.65;
@@ -145,7 +155,6 @@ class Enemy extends Actor {
             this.detect = 700;
             this.blockChance = 0.8;
             this.dodgeChance = 0.3;
-            this.lives = 3;
             this.hyper = true;
         }
         if (!this.elite) {
@@ -271,35 +280,43 @@ class Enemy extends Actor {
                 break;
         }
         switch (this.eliteStyle) {
-            case 0: // Kagemaru: feints into a sudden piercing dash
+            case 0: // Veyr: feints into a sudden piercing dash.
                 this.add(E.R_BACKHAND, E.R_FAST, E.KAGEMARU_VANISH);
                 this.add(E.R_A, E.R_DELAY, E.KAGEMARU_VANISH);
                 this.addGap(E.R_DASH, E.R_BACKHAND, E.KAGEMARU_VANISH);
                 break;
-            case 1: // Gozu: a short uppercut leads into a huge ground strike
+            case 1: // Mourn: an uppercut leads into a ground strike.
                 this.add(E.BR_UPPERCUT, E.GOZU_QUAKE);
                 this.add(E.BR_SWEEP, E.BR_SMASH, E.GOZU_QUAKE);
                 this.addGap(E.BR_CHARGE, E.BR_UPPERCUT, E.GOZU_QUAKE);
                 break;
-            case 2: // Tomoe: hooks and short jabs set up a long crimson charge
+            case 2: // Seris: hooks and jabs set up a long charge.
                 this.add(E.SP_HOOK, E.SP_T2, E.TOMOE_LANCE);
                 this.add(E.SP_T1, E.SP_SWEEP, E.TOMOE_LANCE);
                 this.addGap(E.SP_DASH, E.SP_T2, E.TOMOE_LANCE);
                 break;
-            case 3: // Ryusei: delayed cuts turn into a wide falling-star slash
+            case 3: // Aster: delayed cuts turn into a falling-star slash.
                 this.add(E.R_FAST, E.R_BACKHAND, E.RYUSEI_CROSS);
                 this.add(E.R_A, E.R_DELAY, E.RYUSEI_CROSS);
                 this.addGap(E.R_DASH, E.R_SPIN, E.RYUSEI_CROSS);
                 break;
-            case 4: // Okami: switches from narrow thrusts to a broad crescent sweep
+            case 4: // The Prior switches from thrusts to a crescent sweep.
                 this.add(E.SP_T1, E.SP_HOOK, E.OKAMI_CRESCENT);
                 this.add(E.SP_FLURRY, E.SP_FLURRY, E.SP_T2, E.OKAMI_CRESCENT);
                 this.addGap(E.SP_DASH, E.SP_HOOK, E.OKAMI_CRESCENT);
                 break;
         }
+        const phaseMove = this.boss ? E.CINDER_TIDE : PHASE_SUPERS[this.eliteStyle];
+        if (phaseMove) {
+            const opener = this.type === 'BRUTE' ? E.BR_UPPERCUT : this.type === 'SPEAR' ? E.SP_HOOK : E.R_BACKHAND;
+            this.phaseCombos.push([this.scaled(phaseMove)], [this.scaled(opener), this.scaled(phaseMove)]);
+        }
     }
 
     pickCombo() {
+        if (this.bossPhase === 2 && this.phaseCombos.length && this.rnd.nextDouble() < 0.55) {
+            return this.phaseCombos[this.rnd.nextInt(this.phaseCombos.length)];
+        }
         if (this.target) {
             const p = this.target;
             const signature = this.boss ? EA.DAIMYO_ASHFALL : ELITE_SUPERS[this.eliteStyle];
@@ -329,7 +346,7 @@ class Enemy extends Actor {
                 const counters = this.combos.filter(c => c[0].windup <= minWindup + 0.08);
                 if (counters.length) return counters[this.rnd.nextInt(counters.length)];
             }
-            if (signature && this.rnd.nextDouble() < (this.lives === 1 ? 0.55 : this.boss && this.lives === 2 ? 0.4 : 0.22)) {
+            if (signature && this.rnd.nextDouble() < (this.bossPhase === 2 ? 0.55 : 0.22)) {
                 const finishers = this.combos.filter(c => c[c.length - 1].name === signature.name);
                 if (finishers.length) return finishers[this.rnd.nextInt(finishers.length)];
             }
@@ -387,6 +404,7 @@ class Enemy extends Actor {
         }
         const g = this.g, p = this.pickTarget();
         this.target = p;
+        if (this.elite && this.bossPhase === 1 && this.hp <= this.maxHp * 0.5) this.enterSecondPhase();
         this.stT += dt;
         this.attackCd -= dt;
         this.blockAnim -= dt;
@@ -451,7 +469,7 @@ class Enemy extends Actor {
                         this.beginAttack(1);
                     } else {
                         this.releaseToken();
-                        this.attackCd = this.elite ? (this.lives === 1 ? 0.16 : 0.22) + this.rnd.nextDouble() * (this.lives === 1 ? 0.36 : 0.45)
+                        this.attackCd = this.elite ? (this.bossPhase === 2 ? 0.3 : 0.5) + this.rnd.nextDouble() * 0.45
                             : this.vet ? 0.35 + this.rnd.nextDouble() * 0.65 : 0.55 + this.rnd.nextDouble() * 0.7;
                         this.setSt('ENGAGE');
                     }
@@ -482,6 +500,20 @@ class Enemy extends Actor {
                 break;
             }
         }
+    }
+
+    enterSecondPhase() {
+        this.bossPhase = 2;
+        this.posture = 0;
+        this.releaseToken();
+        this.combo = null;
+        this.setSt('STUN');
+        this.stDur = 1.2;
+        const c = this.auraColor();
+        this.g.fx.ring(this.x, this.y, 15, 190, 1.2, 6, c);
+        this.g.fx.text('OATH UNBOUND', this.x, this.y - 60, c, 22);
+        this.g.sfx.play('PERILOUS');
+        this.g.shake(8);
     }
 
     idle(dt, d, toP, p, pAlive) {
@@ -616,7 +648,9 @@ class Enemy extends Actor {
         this.setSt('WINDUP');
         // Every fighter varies timing slightly; veterans are substantially less predictable.
         const signature = this.boss ? EA.DAIMYO_ASHFALL : ELITE_SUPERS[this.eliteStyle];
-        const superMove = signature !== undefined && this.atk.name === signature.name;
+        const phaseMove = this.boss ? EA.CINDER_TIDE : PHASE_SUPERS[this.eliteStyle];
+        const superMove = (signature !== undefined && this.atk.name === signature.name)
+            || (phaseMove !== undefined && this.atk.name === phaseMove.name);
         const timing = this.vet ? 0.86 + this.rnd.nextDouble() * 0.28 : 0.92 + this.rnd.nextDouble() * 0.16;
         this.stDur = this.atk.windup * (superMove ? 1 : windupMul) * timing;
         if (superMove) {
@@ -633,7 +667,7 @@ class Enemy extends Actor {
     windup(dt, d, toP, p) {
         const g = this.g, atk = this.atk;
         const remaining = this.stDur - this.stT;
-        let turnRate = atk.thrust && remaining < 0.2 ? 2.0 : 6.5;
+        let turnRate = remaining < 0.22 ? 0 : 4.8;
         if (this.type === 'BRUTE') turnRate *= 0.7;
         this.facing = U.turn(this.facing, toP, dt * turnRate);
         if (d > atk.range * 0.7 + p.r) {
@@ -767,10 +801,7 @@ class Enemy extends Actor {
         g.fx.text(String(Math.trunc(dmg)), this.x + this.rnd.nextGaussian() * 6, this.y - 30, WHITE, 13);
         p.ki += 4;
         if (this.hp <= 0) {
-            if (this.elite) {
-                this.hp = 1;
-                this.breakPosture();
-            } else this.die(ang);
+            this.die(ang);
             return;
         }
         if (this.posture >= this.maxPosture) {
@@ -826,10 +857,7 @@ class Enemy extends Actor {
         g.fx.blood(this.x, this.y, ang, 14, 300);
         g.fx.text(String(Math.trunc(dmg)), this.x, this.y - 30, rgb(255, 230, 120), 15);
         if (this.hp <= 0) {
-            if (this.elite) {
-                this.hp = 1;
-                this.breakPosture();
-            } else this.die(ang);
+            this.die(ang);
         } else if (this.posture >= this.maxPosture) this.breakPosture();
         else if (!this.hyper) {
             this.releaseToken();
@@ -862,17 +890,22 @@ class Enemy extends Actor {
         this.tokenT = 0;
     }
 
-    resetToHome() {
-        if (this.st === 'DEAD') return;
+    resetToHome(revive = false) {
+        if (this.st === 'DEAD' && (!revive || this.elite)) return;
         this.x = this.homeX;
         this.y = this.homeY;
         this.hp = this.maxHp;
-        this.lives = this.boss ? 3 : this.elite ? 2 : this.lives;
+        this.lives = 1;
+        this.bossPhase = 1;
         this.posture = 0;
         this.aware = false;
         this.alive = true;
         this.beingExecuted = false;
         this.kbx = this.kby = 0;
+        this.atk = null;
+        this.combo = null;
+        this.attackCd = 0.8;
+        this.attackRead = this.blockStreak = this.flinchCount = 0;
         this.releaseToken();
         this.setSt('IDLE');
     }
@@ -893,6 +926,7 @@ class Enemy extends Actor {
             g2.restore();
             return;
         }
+        if (this.st === 'WINDUP' && this.atk) this.drawTelegraph(g2);
         Draw.shadow(g2, x, y, r);
         let drawR = r, sway = 0;
         if (this.st === 'BROKEN') {
@@ -913,7 +947,7 @@ class Enemy extends Actor {
             g2.fillStyle = css(rgb(255, 70, 40, 55 + Math.trunc(35 * Math.sin(time * 5))));
             fillCircle(g2, x, y, r * 2.1);
         } else if (this.elite) {
-            g2.fillStyle = css(rgb(120, 40, 170, 40 + Math.trunc(30 * Math.sin(time * 4))));
+            g2.fillStyle = css(U.alpha(this.auraColor(), 0.16 + 0.08 * Math.sin(time * 4)));
             fillCircle(g2, x, y, r * 1.8);
         }
         if (this.atk !== null && this.atk.perilous && (this.st === 'WINDUP' || this.st === 'ACTIVE')) {
@@ -931,7 +965,25 @@ class Enemy extends Actor {
             default: hatStyle = 2;
         }
         Draw.body(g2, x, y, drawR, this.facing + sway, robe, sh, hat, hatStyle, this.walkAnim);
+        if (this.elite || this.vet) Draw.mantle(g2, x, y, drawR, this.facing, this.auraColor());
+        if (this.type === 'RONIN') Draw.shield(g2, x, y, drawR, this.facing, sh, this.blockAnim > 0);
         this.drawWeapon(g2, time);
+    }
+
+    drawTelegraph(g) {
+        const a = this.atk, progress = U.clamp(this.stT / Math.max(this.stDur, 0.01), 0, 1);
+        const half = a.arc / 2, c = a.perilous ? this.auraColor() : rgb(194, 180, 137);
+        g.save();
+        g.beginPath();
+        g.moveTo(this.x, this.y);
+        g.arc(this.x, this.y, a.range, this.facing - half, this.facing + half);
+        g.closePath();
+        g.fillStyle = css(U.alpha(c, 0.04 + progress * 0.08));
+        g.fill();
+        g.strokeStyle = css(U.alpha(c, 0.2 + progress * 0.5));
+        setStroke(g, 1 + progress * 2, false);
+        g.stroke();
+        g.restore();
     }
 
     drawWeapon(g2, time) {
@@ -1004,13 +1056,17 @@ class Enemy extends Actor {
         switch (this.type) {
             case 'RONIN': return rgb(96, 88, 78);
             case 'SPEAR': return rgb(62, 74, 56);
-            default: return rgb(170, 52, 40);
+            default: return rgb(149, 143, 123);
         }
+    }
+
+    auraColor() {
+        return this.boss ? rgb(220, 120, 65) : LORD_COLORS[this.eliteStyle] || rgb(135, 130, 108);
     }
 
     shoulderColor() {
         if (this.boss) return rgb(145, 45, 30);
-        if (this.elite) return this.type === 'BRUTE' ? rgb(60, 20, 30) : rgb(90, 30, 110);
+        if (this.elite) return U.shade(this.auraColor(), this.bossPhase === 2 ? 1.3 : 0.8);
         switch (this.type) {
             case 'RONIN': return rgb(70, 70, 86);
             case 'SPEAR': return rgb(110, 44, 40);
@@ -1024,7 +1080,7 @@ class Enemy extends Actor {
         switch (this.type) {
             case 'RONIN': return rgb(150, 128, 88);
             case 'SPEAR': return rgb(38, 38, 40);
-            default: return rgb(150, 44, 34);
+            default: return rgb(106, 102, 86);
         }
     }
 
@@ -1049,7 +1105,7 @@ class Enemy extends Actor {
             g2.font = kanjiFont;
             g2.textAlign = 'center';
             g2.textBaseline = 'middle';
-            g2.fillText('\u5371', x, ky + 1);
+            g2.fillText('!', x, ky + 1);
             g2.textAlign = 'left';
             g2.textBaseline = 'alphabetic';
         }
@@ -1060,6 +1116,11 @@ class Enemy extends Actor {
             g2.fillStyle = 'rgb(200,40,40)';
             g2.fillRect(bx, by, w * U.clamp(this.hp / this.maxHp, 0, 1), 4);
             if (this.posture > 1) Draw.postureBar(g2, x, by + 7, w, 3, this.posture / this.maxPosture, this.st === 'BROKEN');
+            g2.font = '10px Georgia, serif';
+            g2.textAlign = 'center';
+            g2.fillStyle = 'rgb(205,193,161)';
+            g2.fillText(ENEMY_TITLES[this.type], x, by - 6);
+            g2.textAlign = 'left';
         }
     }
 }

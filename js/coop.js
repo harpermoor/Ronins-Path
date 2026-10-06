@@ -1,10 +1,11 @@
 'use strict';
 
 const COOP_ENEMY_FIELDS = ['x', 'y', 'facing', 'st', 'stT', 'stDur', 'hp', 'posture', 'lives', 'aware', 'deadT',
-    'walkAnim', 'hitFlash', 'blockAnim', 'showBars', 'perilousT', 'beingExecuted'];
+    'walkAnim', 'hitFlash', 'blockAnim', 'showBars', 'perilousT', 'beingExecuted', 'bossPhase'];
 const COOP_PLAYER_FIELDS = ['x', 'y', 'facing', 'st', 'stT', 'phase', 'combo', 'guarding', 'guardHeld', 'sprinting',
     'walkAnim', 'scarf', 'swingSign', 'stabAttack', 'hurtFlash', 'invuln', 'vx', 'vy', 'hp', 'maxHp', 'maxGourds', 'maxPosture',
-    'posture', 'deflectStreak', 'deflectPost', 'dmgTaken', 'guardWindow', 'stealth', 'dodgeIframes', 'poiseLeft', 'artHitsLeft'];
+    'posture', 'deflectStreak', 'deflectPost', 'dmgTaken', 'guardWindow', 'stealth', 'dodgeIframes', 'poiseLeft', 'artHitsLeft',
+    'maxStamina', 'stamina', 'staminaCd', 'rollTime', 'rollSpeed', 'sprintExhausted'];
 const COOP_SYNC_INTERVAL = 0.05;
 
 class Coop {
@@ -31,6 +32,13 @@ class Coop {
         this.link.on('coop-reset', d => { if (!this.host) this.receiveReset(d); });
         this.link.on('coop-world', d => { if (!this.host) this.receiveWorld(d); });
         this.link.on('coop-impact', d => { if (!this.host) this.receiveImpact(d); });
+        this.link.on('coop-rest', (d, c) => {
+            if (!this.host || !c) return;
+            const p = this.bodies.get(c.idx);
+            if (!p || p.st !== 'FREE') return;
+            const shrine = game.world.shrines.find(s => U.dist(s.x, s.y + 20, p.x, p.y) < 110);
+            if (shrine && game.findRestBlockers(shrine, p).length === 0) game.restEnemies();
+        });
         this.link.onPeerClose = c => this.onPeerClose(c);
         this.link.onClose = () => {
             this.link.close();
@@ -107,7 +115,16 @@ class Coop {
         for (const key of names) {
             if (key === 'st') {
                 if (typeof data[key] === 'string' && data[key].length < 20) obj[key] = data[key];
-            } else if (Number.isFinite(data[key])) obj[key] = key === 'artHitsLeft' ? U.clamp(Math.floor(data[key]), 0, 2) : data[key];
+            } else if (Number.isFinite(data[key])) {
+                const v = data[key];
+                obj[key] = key === 'artHitsLeft' ? U.clamp(Math.floor(v), 0, 2)
+                    : key === 'maxStamina' ? U.clamp(v, 50, 200)
+                        : key === 'stamina' ? U.clamp(v, 0, obj.maxStamina)
+                            : key === 'staminaCd' ? U.clamp(v, 0, 2)
+                                : key === 'rollTime' ? U.clamp(v, 0.3, 0.65)
+                                    : key === 'rollSpeed' ? U.clamp(v, 300, 900)
+                                        : key === 'bossPhase' ? U.clamp(Math.trunc(v), 1, 2) : v;
+            }
             else if (typeof obj[key] === 'boolean' && typeof data[key] === 'boolean') obj[key] = data[key];
         }
     }
@@ -231,6 +248,9 @@ class Coop {
             e.st = 'DEAD';
             e.hp = 0;
         }
+        const lord = game.enemies.find(e => e.elite && e.aware && e.st !== 'DEAD'
+            && e.st !== 'RETURN' && e.st !== 'IDLE' && e.distTo(game.player) < 1300);
+        if (lord && game.boss !== lord) game.engageBoss(lord);
         for (const e of newlyDead) {
             game.gainExp(expForKill(e), e.x, e.y);
         }
@@ -264,7 +284,7 @@ class Coop {
         for (const [k, b] of this.bodies) if (b === p) id = k;
         const c = this.connFor(id);
         if (c === null) return;
-        c.send({ t: 'coop-impact', result, hp: p.hp, posture: p.posture, ki: p.ki,
+        c.send({ t: 'coop-impact', result, hp: p.hp, posture: p.posture, ki: p.ki, stamina: p.stamina, staminaCd: p.staminaCd,
             artCharges: p.artCharges, st: p.st, stT: p.stT, staggerDur: p.staggerDur, guarding: p.guarding,
             vx: p.vx, vy: p.vy, invuln: p.invuln, poiseLeft: p.poiseLeft, artHitsLeft: p.artHitsLeft, deflectStreak: p.deflectStreak,
             sourceX, sourceY, perilous });
@@ -275,6 +295,8 @@ class Coop {
         if (p.st === 'DEAD' || !Number.isFinite(d.hp) || !Number.isFinite(d.posture)) return;
         p.hp = U.clamp(d.hp, 0, p.maxHp);
         p.posture = U.clamp(d.posture, 0, p.maxPosture);
+        if (Number.isFinite(d.stamina)) p.stamina = U.clamp(d.stamina, 0, p.maxStamina);
+        if (Number.isFinite(d.staminaCd)) p.staminaCd = U.clamp(d.staminaCd, 0, 2);
         if (Number.isFinite(d.ki)) p.ki = U.clamp(d.ki, 0, 100);
         if (Number.isFinite(d.artCharges)) p.artCharges = U.clamp(d.artCharges, 0, p.maxArtCharges);
         if (Number.isFinite(d.vx)) p.vx = U.clamp(d.vx, -1000, 1000);
@@ -449,7 +471,7 @@ class Coop {
                 || Math.abs(U.angDiff(p.facing, p.angleTo(e))) > a.arc / 2
                     + Math.asin(Math.min(1, e.r / Math.max(p.distTo(e), 1))) + 0.5) return;
             e.takeHit(p, a);
-        } else if (d.kind === 'deathblow' && (e.st === 'BROKEN' || game.stealthable(e)) && p.distTo(e) < 120 + e.r) {
+        } else if (d.kind === 'deathblow' && (e.st === 'BROKEN' || game.stealthable(e, p)) && p.distTo(e) < 120 + e.r) {
             game.executeDeathblow(p, e);
         } else if (d.kind === 'mikiri' && e.atk && e.atk.thrust && p.distTo(e) < e.atk.range + 80) {
             game.onMikiri(p, e);

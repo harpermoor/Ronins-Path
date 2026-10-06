@@ -8,9 +8,12 @@ The single-player runtime is centered on `Game` in `js/game.js`. It owns the upd
 
 Online play has two paths. `js/net.js` wraps WebSocket connections to the Node relay in `server/server.js`; short room IDs route messages without inbound router ports. The relay forwards gameplay messages but does not simulate or persist game state. `js/coop.js` uses the host as authority for shared world/enemy state. `js/duel.js` runs a deterministic, delayed-input simulation with periodic state correction. `js/settings.js` validates host-selected match rules. A change to synchronized state should be checked against the corresponding serialized/synchronized field lists and protocol version, not just the local gameplay code.
 
+Keep `NET_VERSION` synchronized in `js/net.js` and `server/server.js` (currently 12), and redeploy the hosted relay alongside incompatible client updates. Shared `Player` combat changes must preserve deterministic duel updates and correction buffers as well as co-op snapshots. The host controls shared ordinary-foe revival; death echoes are local player/session state, and host saves contain only the host's fall site.
+
 ## Data and code conventions
 
 - Save data is a compact snapshot, not a serialized world: `js/save.js` rebuilds the world from its seed, then applies progress. Validate and clamp persisted or received data before applying it. Bump `SAVE_VERSION` when changing the save format incompatibly.
+- Save version 4 preserves stamina and recoverable death echoes and accepts versions 1–3. Preserve existing equipment IDs and seeded world positions when changing display names or visuals. Only unconverted experience becomes fallen echoes on death; earned skill points and skills remain safe.
 - Equipment/loadout preferences and match settings use separate `localStorage` keys and have their own sanitization paths (`js/loadout.js`, `js/settings.js`); keep those concerns separate from journey progress.
 - Procedural generation and duel synchronization depend on deterministic random/state evolution. Preserve seeded RNG use and deterministic update order in code that affects the world or multiplayer combat.
 - Browser JavaScript uses `'use strict'`, semicolons, and browser-native globals rather than imports/exports or a package-managed module system. The Node relay uses CommonJS and the `ws` dependency. Shared helpers such as clamping, geometry, and seeded randomness live in `js/util.js`.
@@ -30,6 +33,7 @@ npm test
 ```sh
 node tests/enemies.test.js
 node tests/weapons.test.js
+node tests/soulslike.test.js
 node tests/relay.test.js
 ```
 

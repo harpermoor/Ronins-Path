@@ -10,8 +10,8 @@
         #menu {
             position: fixed; inset: 0; display: flex; align-items: flex-start; justify-content: center;
             overflow: auto; box-sizing: border-box; padding: 24px 0;
-            background: radial-gradient(ellipse at 18% 14%, rgba(114, 43, 30, 0.24), transparent 42%),
-                radial-gradient(ellipse at 82% 86%, rgba(133, 97, 45, 0.13), transparent 36%), #0b0908;
+            background: radial-gradient(ellipse at 78% 14%, rgba(152, 113, 61, 0.14), transparent 38%),
+                radial-gradient(ellipse at 12% 88%, rgba(100, 49, 36, 0.16), transparent 42%), #090a0a;
             font-family: Georgia, 'Times New Roman', serif; color: #eadfcf;
         }
         #menu[hidden], #menu .panel[hidden] { display: none; }
@@ -19,8 +19,8 @@
             display: flex; flex-direction: column; align-items: center; gap: 14px; width: min(520px, 92vw);
             max-height: calc(100vh - 48px); overflow-y: auto; box-sizing: border-box; padding: 12px 0; text-align: center;
         }
-        #menu h1 { margin: 0; font-size: 58px; color: #e03c32; letter-spacing: 2px; text-shadow: 3px 3px 0 #000; }
-        #menu h2 { margin: 0 0 6px; font-size: 32px; color: #e03c32; }
+        #menu h1 { margin: 0; font-size: 58px; color: #c99458; letter-spacing: 2px; text-shadow: 3px 3px 0 #000; }
+        #menu h2 { margin: 0 0 6px; font-size: 32px; color: #c99458; }
         #menu .kanji { font-size: 30px; color: #c9b48f; margin-bottom: 18px; font-family: 'Yu Mincho', 'MS Mincho', 'Noto Serif JP', serif; }
         #menu p { margin: 0; color: #c9bba5; font-size: 15px; line-height: 1.45; }
         #menu button {
@@ -63,28 +63,30 @@
         #menu .main-panel {
             width: min(980px, calc(100vw - 40px)); max-height: calc(100vh - 48px); align-items: stretch;
             gap: 18px; padding: clamp(22px, 5vh, 48px) clamp(20px, 5vw, 56px);
-            text-align: left; background: linear-gradient(135deg, rgba(27, 21, 18, 0.97), rgba(15, 13, 12, 0.97));
-            border: 1px solid #544032; border-radius: 10px; box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+            text-align: left; background: linear-gradient(135deg, rgba(25, 25, 22, 0.98), rgba(13, 15, 15, 0.98));
+            border: 1px solid #4b4437; border-radius: 3px; box-shadow: 0 24px 80px rgba(0, 0, 0, 0.7);
         }
         #menu .main-panel::before {
-            content: ""; display: block; width: 48px; height: 3px; background: #b84936;
-            box-shadow: 20px 0 0 #70543a;
+            content: ""; display: block; width: 48px; height: 2px; background: #c49a63;
+            box-shadow: 20px 0 0 #75583c;
         }
         #menu .menu-brand { display: grid; gap: 5px; }
         #menu .menu-brand h1 { font-size: clamp(42px, 8vw, 72px); line-height: 0.98; letter-spacing: 0.08em; }
-        #menu .menu-brand h1 span { color: #d8c6a7; }
-        #menu .menu-brand .kanji { margin: 0; font-size: 22px; color: #a88b65; }
-        #menu .menu-tagline { color: #c9bba5; font-size: 16px; letter-spacing: 0.04em; }
+        #menu .menu-brand h1 span { color: #e2d7bd; }
+        #menu .menu-brand .kanji { margin: 0; font-size: 22px; color: #9a8667; }
+        #menu .menu-tagline { color: #c7b994; font-size: 16px; letter-spacing: 0.08em; }
+        #menu .world-preface { max-width: 720px; padding: 14px 17px; color: #b8b2a4; font: 14px/1.65 Georgia, serif;
+            border-left: 2px solid #98734c; background: linear-gradient(90deg, rgba(124, 94, 58, 0.11), transparent 82%); }
         #menu .menu-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-        #menu .menu-group { display: grid; align-content: start; gap: 9px; padding: 16px; background: rgba(0, 0, 0, 0.2); border: 1px solid #352a23; border-radius: 7px; }
-        #menu .menu-group h2 { margin: 0 0 3px; color: #d6b987; font-size: 17px; letter-spacing: 0.06em; text-transform: uppercase; }
+        #menu .menu-group { display: grid; align-content: start; gap: 9px; padding: 16px; background: rgba(0, 0, 0, 0.24); border: 1px solid #36352f; border-radius: 2px; }
+        #menu .menu-group h2 { margin: 0 0 3px; color: #c6a675; font-size: 17px; letter-spacing: 0.06em; text-transform: uppercase; }
         #menu .menu-group > p { margin: 0 0 5px; min-height: 40px; color: #9f9180; font-size: 13px; }
         #menu .menu-choice { display: grid; gap: 4px; min-height: 58px; padding: 10px 13px; text-align: left; }
         #menu .menu-choice.secondary { min-height: 44px; background: transparent; border-color: #44372e; font-size: 15px; }
-        #menu .menu-choice.primary { background: linear-gradient(135deg, #712e25, #3f1c18); border-color: #a7533f; }
+        #menu .menu-choice.primary { background: linear-gradient(135deg, #514333, #2c2821); border-color: #91734b; }
         #menu .choice-title { font-size: 16px; }
         #menu .choice-copy { color: #b5a595; font: 12px/1.3 Arial, sans-serif; font-weight: normal; }
-        #menu .menu-choice.primary .choice-copy { color: #e1c9b6; }
+        #menu .menu-choice.primary .choice-copy { color: #ddd0b7; }
         #menu .tutorial-card { padding: 12px; background: rgba(0, 0, 0, 0.2); border: 1px solid #44372e; border-radius: 5px; }
         #menu .tutorial-card[hidden] { display: none; }
         #menu .tutorial-card h3, #menu .changelog h2 {
@@ -128,13 +130,14 @@
         <div class="panel main-panel" id="menu-main" hidden>
             <header class="menu-brand">
                 <h1>RONIN'S <span>PATH</span></h1>
-                <div class="kanji">浪人の道</div>
+                <div class="kanji">THE LONG DUSK</div>
             </header>
-            <p class="menu-tagline">A lone blade. A land in conflict.</p>
+            <p class="menu-tagline">A kingdom at dusk. One blade against the dark.</p>
+            <p class="world-preface">Five oathbound lords guard a broken realm. Follow the ruined roads, seek sanctuary in the last golden shrines, and unseat the Cinder Regent. Fall, and your unspent echoes remain where you died. Fall again before reclaiming them, and they are gone.</p>
             <div class="menu-actions">
                 <section class="menu-group">
-                    <h2>Your journey</h2>
-                    <p>Explore, master your weapons, and carve a path through the land.</p>
+                    <h2>The long dusk</h2>
+                    <p>Explore a wounded realm, master your weapons, and make your own way through its wilds.</p>
                     <button class="menu-choice primary" id="btn-journey">
                         <span class="choice-title">Begin Journey</span>
                         <span class="choice-copy">Continue your saved adventure or start a new one.</span>
@@ -147,9 +150,13 @@
                         <ul>
                             <li><strong>Move:</strong> WASD or arrow keys; aim with the mouse.</li>
                             <li><strong>Lock on:</strong> C or middle mouse toggles targeting the nearest enemy.</li>
-                            <li><strong>Fight:</strong> Left-click to attack; time right-click or K to deflect.</li>
-                            <li><strong>Evade:</strong> Tap Space or L to dodge; hold while moving to sprint.</li>
-                            <li><strong>Explore:</strong> Press E at shrines to rest. Use Q to heal and Tab for gear and skills.</li>
+                            <li><strong>Fight:</strong> Click or J for a light attack; hold left-click for a heavy strike. Swings commit you until late recovery.</li>
+                            <li><strong>Guard:</strong> Hold right-click or K to block; a well-timed tap parries. Red attacks usually need a roll.</li>
+                            <li><strong>Endure:</strong> Attacks, rolls, sprinting, and blocks cost stamina. Lower your guard to recover faster.</li>
+                            <li><strong>Evade:</strong> Tap Space or L to roll; hold while moving to sprint. Heavy plate slows your roll and shortens invincibility.</li>
+                            <li><strong>Restore:</strong> Q drinks an Amber Flask. E rests at a shrine, refilling flasks and weapon-art focus but reviving lesser foes.</li>
+                            <li><strong>Reclaim:</strong> E retrieves your fallen echoes. The golden map marker leads to them; a second death replaces them.</li>
+                            <li><strong>Grow:</strong> Tab opens gear and skills. Break a foe's stance for a critical strike; defeat lords to unlock equipment.</li>
                             <li><strong>Learn:</strong> Press Esc for the full controls and pause options.</li>
                         </ul>
                     </section>
@@ -178,8 +185,8 @@
             <section class="changelog" aria-labelledby="changelog-title">
                 <h2 id="changelog-title">Recent updates</h2>
                 <ul>
-                    <li>Multiplayer rooms now use hosted relay IDs, with no router setup needed.</li>
-                    <li>Co-op movement and enemy attack, hit, and deflect feedback are smoother.</li>
+                    <li>Stamina combat, armor-weight rolls, and recoverable death echoes reshape the journey.</li>
+                    <li>Six original lords, second-phase attacks, ruined sanctuaries, and armored silhouettes.</li>
                 </ul>
             </section>
             <footer class="menu-footer">
@@ -195,8 +202,8 @@
                 <label>Rounds to win<input id="set-rounds" type="number" min="1" max="9" step="1"></label>
                 <label>Max health<input id="set-hp" type="number" min="25" max="400" step="5"></label>
                 <label>Posture<input id="set-posture" type="number" min="50" max="400" step="5"></label>
-                <label>Healing gourds<input id="set-gourds" type="number" min="0" max="5" step="1"></label>
-                <label>Ability charges<input id="set-charges" type="number" min="0" max="8" step="1"></label>
+                <label>Amber flasks<input id="set-gourds" type="number" min="0" max="5" step="1"></label>
+                <label>Weapon-art focus<input id="set-charges" type="number" min="0" max="8" step="1"></label>
                 <label>Speed %<input id="set-speed" type="number" min="50" max="200" step="5"></label>
                 <label>Parry window ms<input id="set-parry" type="number" min="80" max="400" step="10"></label>
                 <label>Map size<select id="set-arena"><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option><option value="huge">Huge</option></select></label>

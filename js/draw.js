@@ -7,7 +7,7 @@ const Draw = {
         fillEllipse(g, x - r * 1.1 + 4, y - r * 0.9 + 6, r * 2.2, r * 1.9);
     },
 
-    /** Body + shoulders + hat. hatStyle: 0 kasa (straw), 1 jingasa (flat dark), 2 horns (oni), 3 hood. */
+    /** Armored silhouettes: visored helm, greathelm, antler crown, or hood. */
     body(g, x, y, r, facing, robe, shoulder, hat, hatStyle, walk) {
         g.save();
         g.translate(x, y);
@@ -27,46 +27,51 @@ const Draw = {
         // torso
         g.fillStyle = css(robe);
         fillEllipse(g, -r * 0.8, -r * 0.8, r * 1.6, r * 1.6);
+        g.fillStyle = css(U.shade(shoulder, 0.8));
+        roundRectPath(g, -r * 0.48, -r * 0.65, r * 0.75, r * 1.3, r * 0.12);
+        g.fill();
+        g.strokeStyle = css(U.shade(shoulder, 1.4));
+        setStroke(g, 1, false);
+        strokeLine(g, -r * 0.25, -r * 0.6, -r * 0.25, r * 0.6);
         // head / hat
         switch (hatStyle) {
             case 0: {
-                const hr = r * 0.95;
                 g.fillStyle = css(hat);
-                fillEllipse(g, -hr, -hr, hr * 2, hr * 2);
-                g.strokeStyle = css(U.shade(hat, 0.75));
-                for (let i = 0; i < 8; i++) {
-                    const a = i * Math.PI / 4;
-                    strokeLine(g, 0, 0, Math.cos(a) * hr, Math.sin(a) * hr);
-                }
-                strokeEllipse(g, -hr * 0.55, -hr * 0.55, hr * 1.1, hr * 1.1);
-                g.fillStyle = css(U.shade(hat, 1.15));
-                fillEllipse(g, -r * 0.15, -r * 0.15, r * 0.3, r * 0.3);
+                fillEllipse(g, -r * 0.65, -r * 0.57, r * 1.3, r * 1.14);
+                g.fillStyle = css(U.shade(hat, 1.35));
+                g.beginPath();
+                g.moveTo(-r * 0.5, 0);
+                g.lineTo(r * 0.76, -r * 0.36);
+                g.lineTo(r * 0.88, 0);
+                g.lineTo(r * 0.76, r * 0.36);
+                g.closePath();
+                g.fill();
+                g.strokeStyle = 'rgb(22,24,25)';
+                setStroke(g, 2.5, false);
+                strokeLine(g, r * 0.58, -r * 0.29, r * 0.58, r * 0.29);
                 break;
             }
             case 1: {
-                const hr = r * 0.9;
                 g.fillStyle = css(hat);
-                fillEllipse(g, -hr, -hr, hr * 2, hr * 2);
-                g.fillStyle = 'rgb(220,200,160)';
-                fillEllipse(g, -r * 0.22, -r * 0.22, r * 0.44, r * 0.44);
+                roundRectPath(g, -r * 0.63, -r * 0.64, r * 1.35, r * 1.28, r * 0.15);
+                g.fill();
+                g.fillStyle = 'rgb(25,27,28)';
+                g.fillRect(r * 0.35, -r * 0.48, r * 0.15, r * 0.96);
+                g.strokeStyle = 'rgb(188,165,112)';
+                setStroke(g, 1.5, false);
+                strokeLine(g, -r * 0.53, 0, r * 0.65, 0);
                 break;
             }
             case 2: {
                 g.fillStyle = css(hat);
                 fillEllipse(g, -r * 0.5, -r * 0.5, r, r);
-                g.fillStyle = 'rgb(235,225,200)';
-                g.beginPath();
-                g.moveTo(r * 0.1, -r * 0.35);
-                g.lineTo(r * 0.7, -r * 0.6);
-                g.lineTo(r * 0.2, -r * 0.1);
-                g.closePath();
-                g.fill();
-                g.beginPath();
-                g.moveTo(r * 0.1, r * 0.35);
-                g.lineTo(r * 0.7, r * 0.6);
-                g.lineTo(r * 0.2, r * 0.1);
-                g.closePath();
-                g.fill();
+                g.strokeStyle = 'rgb(175,163,132)';
+                setStroke(g, r * 0.12, true);
+                for (const side of [-1, 1]) {
+                    strokeLine(g, 0, side * r * 0.4, -r * 0.8, side * r);
+                    strokeLine(g, -r * 0.8, side * r, -r * 0.4, side * r * 1.3);
+                    strokeLine(g, -r * 0.55, side * r * 0.8, -r, side * r * 0.65);
+                }
                 g.fillStyle = 'rgb(255,230,80)';
                 fillEllipse(g, r * 0.25, -r * 0.2, r * 0.12, r * 0.12);
                 fillEllipse(g, r * 0.25, r * 0.08, r * 0.12, r * 0.12);
@@ -75,14 +80,53 @@ const Draw = {
             default:
                 g.fillStyle = css(hat);
                 fillEllipse(g, -r * 0.62, -r * 0.62, r * 1.24, r * 1.24);
-                g.fillStyle = 'rgb(200,60,220)';
+                g.fillStyle = 'rgb(195,177,128)';
                 fillEllipse(g, r * 0.3, -r * 0.22, r * 0.14, r * 0.12);
                 fillEllipse(g, r * 0.3, r * 0.1, r * 0.14, r * 0.12);
         }
         g.restore();
     },
 
+    mantle(g, x, y, r, facing, c) {
+        g.save();
+        g.translate(x, y);
+        g.rotate(facing);
+        g.fillStyle = css(U.alpha(U.shade(c, 0.55), 0.85));
+        g.beginPath();
+        g.moveTo(-r * 0.5, -r * 0.95);
+        g.lineTo(-r * 2, -r * 1.25);
+        g.lineTo(-r * 1.65, 0);
+        g.lineTo(-r * 2, r * 1.25);
+        g.lineTo(-r * 0.5, r * 0.95);
+        g.closePath();
+        g.fill();
+        g.restore();
+    },
+
+    shield(g, x, y, r, facing, c, raised) {
+        g.save();
+        g.translate(x, y);
+        g.rotate(facing);
+        g.translate(raised ? r * 0.8 : 0, -r * 1.05);
+        g.fillStyle = css(U.shade(c, 0.7));
+        g.strokeStyle = 'rgb(164,151,116)';
+        setStroke(g, 1.5, false);
+        g.beginPath();
+        g.moveTo(-r * 0.6, -r * 0.5);
+        g.lineTo(r * 0.7, -r * 0.5);
+        g.lineTo(r * 0.7, r * 0.45);
+        g.lineTo(0, r * 0.8);
+        g.lineTo(-r * 0.6, r * 0.45);
+        g.closePath();
+        g.fill();
+        g.stroke();
+        g.fillStyle = 'rgb(192,174,130)';
+        fillCircle(g, 0, 0, r * 0.16);
+        g.restore();
+    },
+
     scarf(g, x, y, r, facing, phase, c) {
+        this.mantle(g, x, y, r, facing, c);
         const back = facing + Math.PI;
         const sx = x + Math.cos(back) * r * 0.5, sy = y + Math.sin(back) * r * 0.5;
         g.beginPath();
@@ -92,7 +136,7 @@ const Draw = {
             const w = Math.sin(phase - i * 0.9) * i * 1.6;
             g.lineTo(sx + Math.cos(back) * d + Math.cos(back + Math.PI / 2) * w, sy + Math.sin(back) * d + Math.sin(back + Math.PI / 2) * w);
         }
-        setStroke(g, 4, true);
+        setStroke(g, 3, true);
         g.strokeStyle = css(c);
         g.stroke();
     },
@@ -125,10 +169,16 @@ const Draw = {
         strokeLine(g, hx - c * 4, hy - s * 4, hx + c * 10, hy + s * 10);
         setStroke(g, 3, false);
         g.strokeStyle = 'rgb(200,170,60)';
-        strokeLine(g, hx + c * 10 - s * 4, hy + s * 10 + c * 4, hx + c * 10 + s * 4, hy + s * 10 - c * 4);
-        setStroke(g, 3, true);
-        g.strokeStyle = css(blade);
-        strokeLine(g, hx + c * 11, hy + s * 11, hx + c * len, hy + s * len);
+        strokeLine(g, hx + c * 10 - s * 7, hy + s * 10 + c * 7, hx + c * 10 + s * 7, hy + s * 10 - c * 7);
+        g.fillStyle = css(blade);
+        g.beginPath();
+        g.moveTo(hx + c * 11 - s * 3, hy + s * 11 + c * 3);
+        g.lineTo(hx + c * (len - 8) - s * 2.5, hy + s * (len - 8) + c * 2.5);
+        g.lineTo(hx + c * len, hy + s * len);
+        g.lineTo(hx + c * (len - 8) + s * 2.5, hy + s * (len - 8) - c * 2.5);
+        g.lineTo(hx + c * 11 + s * 3, hy + s * 11 - c * 3);
+        g.closePath();
+        g.fill();
         setStroke(g, 1, false);
         g.strokeStyle = 'rgba(255,255,255,0.784)';
         strokeLine(g, hx + c * 12 - s, hy + s * 12 + c, hx + c * (len - 2) - s, hy + s * (len - 2) + c);

@@ -121,13 +121,13 @@ respawnBoss.posture = 20;
 respawnBoss.aware = true;
 defeatedElite.st = 'DEAD';
 const respawnGame = { player: { respawn() {} }, lastShrine: { x: 0, y: 0 }, enemies: [respawnElite, respawnBoss, defeatedElite],
-    coop: null, boss: respawnBoss, banner() {}, saveSoon() {} };
+    coop: null, boss: respawnBoss, banner() {}, saveSoon() {}, restEnemies: Game.prototype.restEnemies };
 Game.prototype.respawn.call(respawnGame);
 assert.equal(respawnElite.hp, respawnElite.maxHp);
-assert.equal(respawnElite.lives, 2);
+assert.equal(respawnElite.lives, 1);
 assert.equal(respawnElite.posture, 0);
 assert.equal(respawnBoss.hp, respawnBoss.maxHp);
-assert.equal(respawnBoss.lives, 3);
+assert.equal(respawnBoss.lives, 1);
 assert.equal(respawnBoss.posture, 0);
 assert.equal(defeatedElite.st, 'DEAD');
 assert.equal(respawnGame.boss, null);
@@ -225,7 +225,7 @@ latestGame.skills = new Set();
 SaveGame.apply(latestGame, { v: 3, dead: [1], player: {} });
 assert.notEqual(latestGame.enemies[0].st, 'DEAD');
 assert.equal(latestGame.enemies[1].st, 'DEAD');
-assert.equal(vm.runInContext('SAVE_VERSION', context), 3);
+assert.equal(vm.runInContext('SAVE_VERSION', context), 4);
 
 const combatGame = { difficulty: difficultyFor(null, 1, 0), time: 0,
     fx: new Proxy({}, { get: () => () => {} }), sfx: { play() {} },
