@@ -22,10 +22,10 @@ const CLASH_TIME_LIMIT = 20;
 function clashParams(ngPlus) {
     const ng = U.clamp(ngPlus | 0, 0, NG_PLUS_MAX);
     return {
-        step: Math.max(0.06, 0.09 - 0.004 * ng),
-        penalty: 0.06 + 0.015 * ng,
-        enemyPush: 0.13 + 0.008 * ng,
-        radius: Math.max(16, 38 - 2.5 * ng),
+        step: Math.max(0.12, 0.18 - 0.008 * ng),
+        penalty: 0.03 + 0.008 * ng,
+        enemyPush: 0.02 + 0.004 * ng,
+        radius: Math.max(28, 48 - 2.5 * ng),
         targets: 3 + (ng >= 3 ? 1 : 0) + (ng >= 6 ? 1 : 0),
     };
 }
@@ -322,9 +322,9 @@ class Game {
         }
         if (Math.random() < dt * 20) this.fx.sparks(mx, my, c.ang + Math.PI / 2, TAU, 2, 260, rgb(255, 200, 110));
         this.fx.update(dt);
-        if (c.progress >= 1) this.endClash(true);
+        if (c.timeLeft <= 0) this.endClash(false, true);
+        else if (c.progress >= 1) this.endClash(true);
         else if (c.progress <= 0) this.endClash(false);
-        else if (c.timeLeft <= 0) this.endClash(false, true);
     }
 
     endClash(won, timedOut) {
@@ -333,7 +333,24 @@ class Game {
         p.toFree();
         e.lastDamageT = this.time;
         e.showBars = 4;
-        if (won) {
+        if (timedOut) {
+            p.st = 'STAGGER';
+            p.stT = 0;
+            p.staggerDur = 1.1;
+            p.invuln = 0.3;
+            p.vx = -Math.cos(ang) * 360;
+            p.vy = -Math.sin(ang) * 360;
+            e.setSt('STUN');
+            e.stDur = 1.1;
+            e.attackCd = 1.2;
+            e.kbx = Math.cos(ang) * 360;
+            e.kby = Math.sin(ang) * 360;
+            this.fx.text('CLASH DRAW', (p.x + e.x) / 2, (p.y + e.y) / 2 - 60, rgb(255, 225, 140), 22);
+            this.fx.ring((p.x + e.x) / 2, (p.y + e.y) / 2, 8, 150, 0.4, 5, rgb(255, 235, 180));
+            this.sfx.play('CLANG');
+            this.shake(12);
+            this.hitstop(0.12);
+        } else if (won) {
             this.fx.text('CLASH WON', p.x, p.y - 60, rgb(255, 225, 140), 22);
             this.sfx.play('PARRY');
             this.shake(12);
@@ -354,7 +371,7 @@ class Game {
                 this.fx.text('OPENING', e.x, e.y - 40, rgb(255, 235, 170), 15);
             }
         } else {
-            this.fx.text(timedOut ? 'TIME EXPIRED' : 'OVERPOWERED', p.x, p.y - 60, rgb(220, 110, 255), 20);
+            this.fx.text('OVERPOWERED', p.x, p.y - 60, rgb(220, 110, 255), 20);
             this.sfx.play('HEAVY');
             e.setSt('ENGAGE');
             e.attackCd = 0;
@@ -515,6 +532,7 @@ class Game {
     tick(dt) {
         const inp = this.input, player = this.player, world = this.world, fx = this.fx;
         this.realTime += dt;
+        fx.updateImpact(dt);
         this.pauseFeedback.hidden = !this.paused;
         this.saveNoteT -= dt;
         this.newGameConfirmT -= dt;
@@ -898,6 +916,7 @@ class Game {
     }
 
     onMikiri(p, e) {
+        this.fx.impact((p.x + e.x) / 2, (p.y + e.y) / 2, 'mikiri');
         if (this.coop && this.coop.settings.friendlyFire && this.coop.party.includes(e)) {
             this.coop.playerMikiri(p, e);
             return;
@@ -1107,6 +1126,7 @@ class Game {
             else draw();
         }
         this.fx.drawTexts(g);
+        player.drawLock(g, this.realTime);
         g.restore();
 
         this.drawParryBurst(g, sw, sh, z);
@@ -1118,6 +1138,7 @@ class Game {
         this.drawHud(g, sw, sh, db);
         if (this.coop) this.coop.drawStatus(g, sw);
         if (this.menu.open) this.menu.draw(g, sw, sh);
+        this.fx.drawImpact(g, sw, sh, this.camX, this.camY, z);
     }
 
     /** Ground ring around the nearby shrine: gold when it is safe to rest, red with enemy markers when not. */
@@ -1626,11 +1647,13 @@ class Game {
         const rows = [
             ['WASD', 'Move'],
             ['Mouse', 'Aim'],
+            ['C / Middle mouse', 'Toggle lock-on'],
             ['LMB / J', 'Attack (3-hit combo)'],
             ['Hold LMB', 'Heavy strike'],
             ['RMB / K', 'Tap: deflect   Hold: block'],
             ['Space / L', 'Tap: dodge   Hold: sprint'],
             ['Dodge into thrust', 'Mikiri counter'],
+            ['Red sweep', 'Deflect with a tighter tap'],
             ['Block + Atk / R', 'Combat Art'],
             ['F', 'Iai Flash (full Ki)'],
             ['G', 'Dragon Flash (full Ki)'],

@@ -83,6 +83,8 @@ class Player extends Actor {
         this.comboGrace = 0;
         this.poise = 0;
         this.poiseLeft = 0;
+        this.artHitsLeft = 0;
+        this.lockTarget = null;
         this.lastDmgTaken = 0;
         // guard / deflect
         this.guarding = false;
@@ -192,6 +194,9 @@ class Player extends Actor {
     }
 
     readInput(inp, wx, wy) {
+        const aim = this.lockAim(inp, wx, wy, this.g.enemies);
+        wx = aim.x;
+        wy = aim.y;
         let mx = 0, my = 0;
         if (inp.down('KeyW') || inp.down('ArrowUp')) my -= 1;
         if (inp.down('KeyS') || inp.down('ArrowDown')) my += 1;
@@ -220,6 +225,43 @@ class Player extends Actor {
         if (inp.hit('KeyR')) this.bufArt = 0.2;
         if (inp.hit('KeyG')) this.bufDragon = 0.15;
         if (inp.hit('KeyT')) this.bufThrow = 0.2;
+    }
+
+    lockAim(inp, wx, wy, foes) {
+        const valid = e => e !== this && e.st !== 'DEAD' && !e.gone && !e.beingExecuted && this.distTo(e) <= 650;
+        if (this.st === 'DEAD' || (this.lockTarget && (!foes.includes(this.lockTarget) || !valid(this.lockTarget)))) this.lockTarget = null;
+        if (this.st !== 'DEAD' && (inp.hit('KeyC') || inp.mouseHit(2))) {
+            if (this.lockTarget) this.lockTarget = null;
+            else {
+                let nearest = 550;
+                for (const e of foes) {
+                    const d = this.distTo(e);
+                    if (valid(e) && d < nearest) {
+                        nearest = d;
+                        this.lockTarget = e;
+                    }
+                }
+            }
+        }
+        return this.lockTarget || { x: wx, y: wy };
+    }
+
+    drawLock(g2, time) {
+        const e = this.lockTarget;
+        if (!e || e.st === 'DEAD' || e.gone || this.st === 'DEAD') return;
+        const r = e.r + 12 + Math.sin(time * 6) * 2;
+        g2.save();
+        g2.strokeStyle = '#ffe0a0';
+        g2.lineWidth = 2;
+        for (let i = 0; i < 4; i++) {
+            const a = i * Math.PI / 2 + Math.PI / 4;
+            g2.beginPath();
+            g2.arc(e.x, e.y, r, a - 0.2, a + 0.2);
+            g2.stroke();
+        }
+        g2.fillStyle = '#ffe0a0';
+        fillCircle(g2, e.x, e.y - r - 8, 3);
+        g2.restore();
     }
 
     update(dt) {
@@ -541,6 +583,7 @@ class Player extends Actor {
         this.guarding = false;
         this.facing = aimAng;
         this.poiseLeft = this.artPoise(a);
+        this.artHitsLeft = 2;
         g.fx.text(a.name, this.x, this.y - 50, a.color, 17);
         g.fx.ring(this.x, this.y, 8, 60, 0.3, 3, a.color);
         g.sfx.play('DODGE');
@@ -552,10 +595,12 @@ class Player extends Actor {
         return this.poise * (a.weapon === 'hammer' ? 5 : 2.5);
     }
 
-    /** True while a hammer art can still shrug off blows (until its last strike finishes). */
+    /** Every art withstands two hits; hammers can carry on using their remaining poise. */
     artArmored(perilous) {
         const a = this.curArt;
-        if (this.st !== 'ART' || !a || this.poiseLeft <= 0) return false;
+        if (this.st !== 'ART' || !a || this.stT >= a.dur) return false;
+        if (this.artHitsLeft > 0) return true;
+        if (this.poiseLeft <= 0) return false;
         if (perilous && a.weapon !== 'hammer') return false;
         const last = a.hits[a.hits.length - 1];
         return this.stT <= last.t + 0.1;
@@ -572,8 +617,26 @@ class Player extends Actor {
 
     artUpdate(dt, aimAng) {
         const g = this.g, a = this.curArt, t = this.stT;
+        let approach = null;
+        if (t < a.hits[0].t && a.hits[0].atk.range < 200) {
+            let nearest = 360;
+            for (const e of (g.foes || g.enemies)) {
+                if (e.st === 'DEAD' || e.gone || e.beingExecuted) continue;
+                const d = this.distTo(e);
+                if (d < nearest && Math.abs(U.angDiff(aimAng, this.angleTo(e))) < 1.2) {
+                    nearest = d;
+                    approach = e;
+                }
+            }
+            if (approach) aimAng = this.angleTo(approach);
+        }
         if (t < a.hits[0].t) this.facing = U.turn(this.facing, aimAng, dt * 9);
-        if (a.lunge && t >= a.lunge[0] && t < a.lunge[1] && !g.enemyInFront(this, this.facing, this.r + 20)) {
+        if (approach && !g.enemyInFront(this, this.facing, this.r + 20)) {
+            const step = Math.min(Math.max(420, a.lunge ? a.lunge[2] : 0) * dt,
+                Math.max(0, this.distTo(approach) - this.r - approach.r - 10));
+            this.move(g.world, Math.cos(this.facing) * step, Math.sin(this.facing) * step);
+            if (a.trail) g.fx.wisp(this.x, this.y, a.color);
+        } else if (!approach && a.lunge && t >= a.lunge[0] && t < a.lunge[1] && !g.enemyInFront(this, this.facing, this.r + 20)) {
             this.move(g.world, Math.cos(this.facing) * a.lunge[2] * dt, Math.sin(this.facing) * a.lunge[2] * dt);
             if (a.trail) g.fx.wisp(this.x, this.y, a.color);
         }
@@ -734,15 +797,16 @@ class Player extends Actor {
     }
 
     /** Called when an attack reaches the player. Returns P_IGNORE, P_DEFLECT, P_BLOCK or P_HIT. */
-    receive(sx, sy, dmg, post, perilous) {
+    receive(sx, sy, dmg, post, perilous, sweep = false) {
         const g = this.g;
         if (this.st === 'DEAD' || this.invulnerable()) return P_IGNORE;
         dmg *= this.dmgTaken;
         const ang = Math.atan2(sy - this.y, sx - this.x);
         const cx = this.x + Math.cos(ang) * (this.r + 12), cy = this.y + Math.sin(ang) * (this.r + 12);
         const front = Math.abs(U.angDiff(this.facing, ang)) < 105 * DEG;
-        if (!perilous && this.st === 'FREE' && this.guarding && front) {
-            if (g.time - this.guardStart <= this.guardWindow) {
+        const sweepParry = perilous && sweep && g.time - this.guardStart <= this.guardWindow * 0.5;
+        if ((!perilous || sweepParry) && this.st === 'FREE' && this.guarding && front) {
+            if (g.time - this.guardStart <= this.guardWindow * (sweepParry ? 0.5 : 1)) {
                 this.posture = Math.min(this.maxPosture - 1, this.posture + post * 0.12);
                 this.spam = 0;
                 this.deflectStreak++;
@@ -768,6 +832,7 @@ class Player extends Actor {
                 g.zoomKick(0.035 + k * 0.008);
                 g.flash(rgb(255, 235, 180), 0.14 + k * 0.02);
                 g.parryBurst(cx, cy, k);
+                if (sweepParry) g.fx.impact(cx, cy, 'sweep');
                 const s = this.deflectStreak > 1 ? 'DEFLECT x' + this.deflectStreak : 'DEFLECT';
                 g.fx.text(s, this.x, this.y - 42, this.deflectStreak >= 4 ? rgb(255, 250, 200) : rgb(255, 215, 90), 16 + k * 3);
                 return P_DEFLECT;
@@ -807,8 +872,10 @@ class Player extends Actor {
         this.deflectStreak = 0;
         // poise: a heavy weapon mid-windup or mid-swing takes the blow and keeps going (perilous attacks still interrupt)
         const swingPoise = !perilous && this.st === 'ATTACK' && this.phase <= 1;
-        if ((swingPoise || artArmor) && this.poiseLeft > 0 && dmg <= this.poiseLeft) {
-            this.poiseLeft -= dmg;
+        if ((artArmor && (this.artHitsLeft > 0 || dmg <= this.poiseLeft))
+            || (swingPoise && this.poiseLeft > 0 && dmg <= this.poiseLeft)) {
+            if (artArmor) this.artHitsLeft = Math.max(0, this.artHitsLeft - 1);
+            this.poiseLeft = Math.max(0, this.poiseLeft - dmg);
             this.invuln = 0.2;
             this.move(g.world, -Math.cos(ang) * 4, -Math.sin(ang) * 4);
             g.fx.blood(this.x, this.y, ang + Math.PI, 7, 200);
@@ -871,6 +938,8 @@ class Player extends Actor {
     }
 
     respawn(sx, sy) {
+        this.lockTarget = null;
+        this.artHitsLeft = 0;
         this.x = sx;
         this.y = sy;
         this.hp = this.maxHp;

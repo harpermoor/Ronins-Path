@@ -306,9 +306,10 @@ const ng0 = clashParams(0), ng7 = clashParams(7);
 assert(ng7.step < ng0.step && ng7.penalty > ng0.penalty && ng7.targets > ng0.targets);
 assert(ng0.enemyPush > 0 && ng7.enemyPush > ng0.enemyPush);
 assert(ng7.radius < ng0.radius && ng0.targets > 1);
-assert(ng0.step < 0.095 && ng7.step < 0.07);
-assert(ng0.step > 0.08 && ng0.enemyPush < 0.14 && ng0.radius > 36);
-assert(ng0.radius >= 16 && ng7.radius >= 16);
+assert(ng0.step >= 0.18 && ng7.step >= 0.12);
+assert(ng0.enemyPush <= 0.02 && ng7.enemyPush < 0.05);
+assert(ng0.radius >= 48 && ng7.radius >= 28);
+assert(ng0.penalty < 0.06 && ng7.penalty < 0.165);
 const clashPlayerForQte = { x: 0, y: 0, st: 'CLASH' };
 const clashEnemyForQte = { x: 100, y: 0, st: 'CLASH' };
 let qteMouseHit = false, qteMouseX = 100, qteMouseY = 400;
@@ -355,9 +356,9 @@ assert.equal(qteGame.clash.progress, progressAfterHit - 0.5 * ng0.enemyPush);
 assert.equal(qteGame.clash.targets.length, ng0.targets);
 
 const timeoutText = [];
-const timeoutPlayer = { st: 'CLASH', posture: 0, maxPosture: 100, invuln: 1,
-    toFree() { this.st = 'FREE'; }, receive() {} };
-const timeoutEnemy = { st: 'CLASH', dmgScale: 1, posture: 0, maxPosture: 100,
+const timeoutPlayer = { x: 0, y: 0, hp: 100, st: 'CLASH', posture: 0, maxPosture: 100, invuln: 1,
+    toFree() { this.st = 'FREE'; }, receive() { assert.fail('A timeout must not damage the player'); } };
+const timeoutEnemy = { x: 100, y: 0, hp: 100, st: 'CLASH', dmgScale: 1, posture: 0, maxPosture: 100,
     setSt(state) { this.st = state; } };
 const timeoutGame = Object.assign(Object.create(Game.prototype), {
     clash: { e: timeoutEnemy, params: Object.assign({}, ng0, { enemyPush: 0 }), progress: 0.5,
@@ -372,9 +373,18 @@ const timeoutGame = Object.assign(Object.create(Game.prototype), {
 });
 timeoutGame.tickClash(1 / 60);
 assert.equal(timeoutGame.clash, null);
-assert.equal(timeoutPlayer.st, 'FREE');
-assert.equal(timeoutEnemy.st, 'ENGAGE');
-assert(timeoutText.includes('TIME EXPIRED'));
+assert.equal(timeoutPlayer.st, 'STAGGER');
+assert.equal(timeoutEnemy.st, 'STUN');
+assert.equal(timeoutPlayer.staggerDur, 1.1);
+assert.equal(timeoutEnemy.stDur, 1.1);
+assert.equal(timeoutPlayer.vx, -360);
+assert.equal(timeoutEnemy.kbx, 360);
+assert.equal(timeoutPlayer.hp, 100);
+assert.equal(timeoutPlayer.posture, 0);
+assert.equal(timeoutEnemy.hp, 100);
+assert(timeoutText.includes('CLASH DRAW'));
+assert(EA.R_SWEEP.sweep && EA.R_SWEEP.copy(1, 1).sweep);
+assert(!EA.R_THRUST.sweep);
 const clashPlayer = Object.assign({}, attacker, { st: 'ATTACK', facing: 0 });
 const clashGame = Object.assign(Object.create(combatGame), { player: clashPlayer, coop: null, clash: null,
     clashes: 0, startClash(e) { this.clashes++; this.clash = { e }; e.setSt('CLASH'); } });

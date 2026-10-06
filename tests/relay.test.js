@@ -76,13 +76,13 @@ async function checkBrowserClient(wsUrl, httpUrl) {
     host.onPeerOpen = resolvePeer;
     host.onPeerClose = resolveClose;
     host.on('hello', (data, conn) => {
-        assert.equal(data.v, 10);
+        assert.equal(data.v, 11);
         conn.idx = 1;
         conn.send({ t: 'lobby', n: 2 });
     });
     guest.on('lobby', data => resolveLobby(data));
     guest.on('start', data => resolveStart(data));
-    guest.onOpen = () => guest.send({ t: 'hello', v: 10 });
+    guest.onOpen = () => guest.send({ t: 'hello', v: 11 });
     host.host(resolveCode, error => { throw error; });
     guest.join(await codeReady, error => { throw error; });
     const [conn, lobby] = await Promise.all([peerReady, lobbyReady]);
@@ -126,14 +126,14 @@ async function waitForServer(url, child) {
         const host = connect(wsUrl);
         peers.push(host);
         await host.open();
-        host.send({ op: 'create', v: 10, coop: false });
+        host.send({ op: 'create', v: 11, coop: false });
         const created = await host.waitFor(msg => msg.sys === 'created');
         assert.match(created.code, /^[A-Z2-9]{8}$/);
 
         const wrongMode = connect(wsUrl);
         peers.push(wrongMode);
         await wrongMode.open();
-        wrongMode.send({ op: 'join', v: 10, code: created.code, coop: true });
+        wrongMode.send({ op: 'join', v: 11, code: created.code, coop: true });
         assert.equal((await wrongMode.waitFor(msg => msg.sys === 'error')).code, 'mode-mismatch');
 
         const oldVersion = connect(wsUrl);
@@ -145,14 +145,14 @@ async function waitForServer(url, child) {
         const guest1 = connect(wsUrl);
         peers.push(guest1);
         await guest1.open();
-        guest1.send({ op: 'join', v: 10, code: created.code, coop: false });
+        guest1.send({ op: 'join', v: 11, code: created.code, coop: false });
         assert.equal((await guest1.waitFor(msg => msg.sys === 'joined')).code, created.code);
         const opened1 = await host.waitFor(msg => msg.sys === 'peer-open');
 
         const guest2 = connect(wsUrl);
         peers.push(guest2);
         await guest2.open();
-        guest2.send({ op: 'join', v: 10, code: created.code, coop: false });
+        guest2.send({ op: 'join', v: 11, code: created.code, coop: false });
         await guest2.waitFor(msg => msg.sys === 'joined');
         const opened2 = await host.waitFor(msg => msg.sys === 'peer-open');
 
@@ -174,7 +174,7 @@ async function waitForServer(url, child) {
         const late = connect(wsUrl);
         peers.push(late);
         await late.open();
-        late.send({ op: 'join', v: 10, code: created.code, coop: false });
+        late.send({ op: 'join', v: 11, code: created.code, coop: false });
         assert.equal((await late.waitFor(msg => msg.sys === 'error')).code, 'room-full');
 
         guest2.socket.close();

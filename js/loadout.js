@@ -16,9 +16,9 @@ function artAtk(name, range, arc, dmg, post, pierce) {
 const ARTS = [
     {
         id: 'whirlwind', name: 'Whirlwind Slash', kanji: '旋風', cost: 2, unlock: 0, color: rgb(170, 230, 255), spin: true,
-        desc: 'Spin and cut everything around you, twice.', info: 'Hits all around  -  2 cuts',
+        desc: 'Spin and cut a wide area around you, twice.', info: 'Wide area  -  2 cuts',
         dur: 0.7, lunge: [0.08, 0.42, 90],
-        hits: [{ t: 0.18, atk: artAtk('whirl1', 102, 360, 24, 28) }, { t: 0.36, atk: artAtk('whirl2', 102, 360, 30, 36) }],
+        hits: [{ t: 0.18, atk: artAtk('whirl1', 150, 360, 24, 28) }, { t: 0.36, atk: artAtk('whirl2', 150, 360, 30, 36) }],
         blade: t => 1.4 - U.clamp((t - 0.1) / 0.34, 0, 1) * TAU * 2,
     },
     {
@@ -293,6 +293,7 @@ function scaledAttack(a, s) {
         a.posture * s.post, a.lunge);
     b.perilous = !!a.perilous;
     b.thrust = !!a.thrust;
+    b.sweep = !!a.sweep;
     b.art = !!a.art;
     b.heavy = !!a.heavy;
     b.pierce = !!a.pierce;

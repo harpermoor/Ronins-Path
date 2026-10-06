@@ -170,15 +170,18 @@ class Attack {
         this.lunge = lunge;
         this.perilous = false;
         this.thrust = false;
+        this.sweep = false;
         this.dash = 0;
     }
     markPerilous() { this.perilous = true; return this; }
     markThrust() { this.thrust = true; return this; }
+    markSweep() { this.sweep = true; return this; }
     copy(windupMul, dmgMul) {
         const a = new Attack(this.name, this.windup * windupMul, this.active, this.recovery * Math.max(0.6, windupMul), this.range,
             this.arc / DEG, this.damage * dmgMul, this.posture * dmgMul, this.lunge);
         a.perilous = this.perilous;
         a.thrust = this.thrust;
+        a.sweep = this.sweep;
         a.dash = this.dash;
         return a;
     }

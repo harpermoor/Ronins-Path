@@ -4,7 +4,7 @@ const COOP_ENEMY_FIELDS = ['x', 'y', 'facing', 'st', 'stT', 'stDur', 'hp', 'post
     'walkAnim', 'hitFlash', 'blockAnim', 'showBars', 'perilousT', 'beingExecuted'];
 const COOP_PLAYER_FIELDS = ['x', 'y', 'facing', 'st', 'stT', 'phase', 'combo', 'guarding', 'guardHeld', 'sprinting',
     'walkAnim', 'scarf', 'swingSign', 'stabAttack', 'hurtFlash', 'invuln', 'vx', 'vy', 'hp', 'maxHp', 'maxGourds', 'maxPosture',
-    'posture', 'deflectStreak', 'deflectPost', 'dmgTaken', 'guardWindow', 'stealth', 'dodgeIframes', 'poiseLeft'];
+    'posture', 'deflectStreak', 'deflectPost', 'dmgTaken', 'guardWindow', 'stealth', 'dodgeIframes', 'poiseLeft', 'artHitsLeft'];
 const COOP_SYNC_INTERVAL = 0.05;
 
 class Coop {
@@ -107,7 +107,7 @@ class Coop {
         for (const key of names) {
             if (key === 'st') {
                 if (typeof data[key] === 'string' && data[key].length < 20) obj[key] = data[key];
-            } else if (Number.isFinite(data[key])) obj[key] = data[key];
+            } else if (Number.isFinite(data[key])) obj[key] = key === 'artHitsLeft' ? U.clamp(Math.floor(data[key]), 0, 2) : data[key];
             else if (typeof obj[key] === 'boolean' && typeof data[key] === 'boolean') obj[key] = data[key];
         }
     }
@@ -266,7 +266,7 @@ class Coop {
         if (c === null) return;
         c.send({ t: 'coop-impact', result, hp: p.hp, posture: p.posture, ki: p.ki,
             artCharges: p.artCharges, st: p.st, stT: p.stT, staggerDur: p.staggerDur, guarding: p.guarding,
-            vx: p.vx, vy: p.vy, invuln: p.invuln, poiseLeft: p.poiseLeft, deflectStreak: p.deflectStreak,
+            vx: p.vx, vy: p.vy, invuln: p.invuln, poiseLeft: p.poiseLeft, artHitsLeft: p.artHitsLeft, deflectStreak: p.deflectStreak,
             sourceX, sourceY, perilous });
     }
 
@@ -298,6 +298,7 @@ class Coop {
             this.game.zoomKick(0.035 + k * 0.008);
             this.game.flash(rgb(255, 235, 180), 0.14 + k * 0.02);
             this.game.sfx.play('PARRY');
+            if (d.perilous) this.game.fx.impact(cx, cy, 'sweep');
             const text = p.deflectStreak > 1 ? 'DEFLECT x' + p.deflectStreak : 'DEFLECT';
             this.game.fx.text(text, p.x, p.y - 42, rgb(255, 215, 90), 16 + k * 3);
         } else if (d.result === P_BLOCK) {
@@ -322,6 +323,7 @@ class Coop {
             this.game.fx.blood(p.x, p.y, ang + Math.PI, 12, 260);
             this.game.sfx.play('HURT');
             if (Number.isFinite(d.poiseLeft)) p.poiseLeft = U.clamp(Math.min(p.poiseLeft, d.poiseLeft), 0, p.poise * 5);
+            if (Number.isFinite(d.artHitsLeft)) p.artHitsLeft = U.clamp(Math.floor(Math.min(p.artHitsLeft, d.artHitsLeft)), 0, 2);
             if (d.st === 'ATTACK' || d.st === 'ART') {
                 this.game.fx.sparks(p.x + Math.cos(ang) * (p.r + 12), p.y + Math.sin(ang) * (p.r + 12),
                     ang, 1.2, 10, 300, rgb(255, 170, 90));
@@ -373,6 +375,7 @@ class Coop {
         p.gainArtCharge();
         this.game.fx.sparks((p.x + attacker.x) / 2, (p.y + attacker.y) / 2, a + Math.PI, 3, 40, 600, rgb(140, 220, 255));
         this.game.fx.text('MIKIRI COUNTER', p.x, p.y - 48, rgb(140, 220, 255), 20);
+        this.game.fx.impact((p.x + attacker.x) / 2, (p.y + attacker.y) / 2, 'mikiri');
         this.game.sfx.play('CLANG');
         this.game.hitstop(0.12);
         this.game.shake(11);

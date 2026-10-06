@@ -14,6 +14,55 @@ class Effects {
         this.texts = [];
         this.decals = [];
         this.rnd = new Rng(Date.now());
+        this.impactFrame = null;
+    }
+
+    impact(x, y, kind) {
+        this.impactFrame = { x, y, kind, left: 0.16 };
+    }
+
+    updateImpact(dt) {
+        if (this.impactFrame && (this.impactFrame.left -= dt) <= 0) this.impactFrame = null;
+    }
+
+    drawImpact(g, sw, sh, camX, camY, z) {
+        const f = this.impactFrame;
+        if (!f) return;
+        const t = 1 - f.left / 0.16, bright = t < 0.25;
+        const x = U.clamp((f.x - camX) * z + sw / 2, sw * 0.2, sw * 0.8);
+        const y = U.clamp((f.y - camY) * z + sh / 2, sh * 0.2, sh * 0.8);
+        const reach = Math.hypot(sw, sh), sweep = f.kind === 'sweep';
+        g.save();
+        g.globalAlpha = Math.min(1, f.left / 0.04);
+        g.fillStyle = bright ? '#fff8e8' : '#080b14';
+        g.fillRect(0, 0, sw, sh);
+        g.strokeStyle = bright ? '#080b14' : sweep ? '#ffb75e' : '#a6eeff';
+        g.lineWidth = 2;
+        for (let i = 0; i < 32; i++) {
+            const a = i * TAU / 32 + (i % 3) * 0.025;
+            const inner = 90 + (i % 5) * 22 + t * 140;
+            g.beginPath();
+            g.moveTo(x + Math.cos(a) * inner, y + Math.sin(a) * inner);
+            g.lineTo(x + Math.cos(a + 0.015) * reach, y + Math.sin(a + 0.015) * reach);
+            g.stroke();
+        }
+        g.lineWidth = 12 * (1 - t) + 2;
+        g.beginPath();
+        g.arc(x, y, 50 + t * 260, 0, TAU);
+        g.stroke();
+        g.translate(x, y);
+        g.rotate(sweep ? -0.4 : -0.85);
+        g.fillStyle = bright ? '#080b14' : '#fff8e8';
+        g.beginPath();
+        g.moveTo(-reach, -8);
+        g.lineTo(-40, -18);
+        g.lineTo(reach, 0);
+        g.lineTo(40, 18);
+        g.closePath();
+        g.fill();
+        g.rotate(sweep ? 0.8 : 1.7);
+        g.fillRect(-reach, -2, reach * 2, 4);
+        g.restore();
     }
 
     add(kind, x, y, vx, vy, life, size, c, drag) {

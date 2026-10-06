@@ -32,7 +32,7 @@ const EA = {
     BR_PER: new Attack('crush', 1.0, .25, 1.0, 130, 300, 38, 0, 90).markPerilous(),
     R_DASH: withDash(new Attack('dash', .50, .12, .55, 80, 120, 18, 22, 320), 430),
     R_SPIN: new Attack('spin', .55, .16, .60, 80, 300, 16, 22, 120),
-    R_SWEEP: new Attack('lowsweep', .75, .16, .70, 92, 220, 24, 0, 60).markPerilous(),
+    R_SWEEP: new Attack('lowsweep', .75, .16, .70, 92, 220, 24, 0, 60).markPerilous().markSweep(),
     SP_DASH: withDash(new Attack('charge', .55, .16, .60, 128, 26, 16, 18, 300).markThrust(), 460),
     SP_SPIN: new Attack('whirl', .60, .18, .65, 112, 340, 15, 22, 60),
     SP_FLURRY: new Attack('flurry', .18, .10, .30, 116, 22, 8, 10, 120).markThrust(),
@@ -667,7 +667,7 @@ class Enemy extends Actor {
         if (!this.atkHit && p.st !== 'DEAD') {
             const tol = atk.arc / 2 + Math.asin(Math.min(1, p.r / Math.max(d, 1)));
             if (d <= atk.range + p.r && Math.abs(U.angDiff(this.facing, toP)) <= tol) {
-                const res = p.receive(this.x, this.y, atk.damage * this.dmgScale, atk.posture * this.dmgScale, atk.perilous);
+                const res = p.receive(this.x, this.y, atk.damage * this.dmgScale, atk.posture * this.dmgScale, atk.perilous, atk.sweep);
                 if (g.coop && g.coop.host && p !== g.player && res !== P_IGNORE)
                     g.coop.impact(p, res, this.x, this.y, atk.perilous);
                 if (res !== P_IGNORE) this.atkHit = true;

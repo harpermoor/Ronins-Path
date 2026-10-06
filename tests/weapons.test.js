@@ -20,6 +20,7 @@ const { lo, g, p, shrine, fxEvents } = vm.runInContext(`(() => {
         playerHitCheck() {}, shake() {}, hitstop() {}, zoomKick() {} };
     return { lo, g, p: new Player(g, 0, 0), shrine, fxEvents };
 })()`, context);
+const Game = vm.runInContext('Game', context);
 
 assert.equal(p.throws, 5);
 assert.equal(vm.runInContext('PLAYER_DAMAGE_SCALE', context), 0.94);
@@ -122,7 +123,7 @@ p.invuln = 0;
 p.receive(50, 0, 14, 10, false);
 assert.equal(p.st, 'STAGGER');
 p.toFree();
-// hammer combat arts: the hammer shrugs off blows mid-art; Earthshaker even withstands perilous strikes
+// All combat arts withstand two hits; hammer arts retain their extra armor.
 const hitDuringArt = (sword, art, dmg, perilous) => {
     lo.sword = sword;
     lo.art = art;
@@ -142,14 +143,169 @@ assert.equal(hitDuringArt('hammer', 'earthshaker', 30, true)[0], 'ART');
 assert.equal(hitDuringArt('hammer', 'earthshaker', 60, false)[0], 'ART');
 assert(hitDuringArt('hammer', 'earthshaker', 30, false)[1] < hitDuringArt('hammer', 'whirlwind', 30, false)[1]);
 assert.equal(hitDuringArt('hammer', 'whirlwind', 30, false)[0], 'ART');
-assert.equal(hitDuringArt('hammer', 'whirlwind', 30, true)[0], 'STAGGER');
-assert.equal(hitDuringArt('wanderer', 'whirlwind', 14, false)[0], 'STAGGER');
+assert.equal(hitDuringArt('hammer', 'whirlwind', 30, true)[0], 'ART');
+assert.equal(hitDuringArt('wanderer', 'whirlwind', 14, false)[0], 'ART');
+for (const art of vm.runInContext('ARTS', context)) {
+    lo.sword = art.weapon || 'wanderer';
+    lo.art = art.id;
+    p.applyLoadout();
+    p.hp = p.maxHp;
+    p.invuln = 0;
+    p.artCharges = 10;
+    p.tryArt(0);
+    p.stT = art.dur - 0.02;
+    for (let i = 0; i < 2; i++) {
+        p.invuln = 0;
+        assert.equal(p.receive(50, 0, 10, 10, true), P_HIT_RESULT);
+        assert.equal(p.st, 'ART', art.id + ' resists hits even during recovery');
+        assert.equal(p.artHitsLeft, 1 - i);
+    }
+    assert(p.hp < p.maxHp);
+    p.invuln = 0;
+    p.receive(50, 0, 10, 10, true);
+    assert.equal(p.st, 'STAGGER', art.id + ' has spent its two-hit armor');
+    p.toFree();
+}
 lo.art = 'whirlwind';
 const statsFor = id => { lo.sword = id; return vm.runInContext('computeStats', context)(lo, 100, 3, new Set()).poise; };
 assert(statsFor('stone-hammer') > statsFor('war-hammer') && statsFor('war-hammer') > statsFor('hammer'));
 assert(statsFor('hammer') > statsFor('axe') && statsFor('axe') > statsFor('odachi') && statsFor('odachi') > statsFor('wanderer'));
 lo.sword = 'wanderer';
 p.applyLoadout();
+
+// Close-range arts approach a foe without passing through it; Mortal Draw stays planted.
+for (const art of vm.runInContext('ARTS.filter(a => a.hits[0].atk.range < 200)', context)) {
+    lo.sword = art.weapon || 'wanderer';
+    lo.art = art.id;
+    p.applyLoadout();
+    p.x = p.y = 0;
+    p.artCharges = 10;
+    p.tryArt(0);
+    g.enemies = [{ x: 180, y: 0, r: 15, st: 'ENGAGE' }];
+    const before = p.distTo(g.enemies[0]);
+    p.stT = 0.1;
+    p.artUpdate(0.05, 0);
+    assert(p.distTo(g.enemies[0]) < before, art.id + ' moves toward its target');
+    p.x = 139;
+    p.artUpdate(0.05, 0);
+    assert(p.x <= 140, art.id + ' stops short of the enemy body');
+    p.toFree();
+}
+lo.sword = 'wanderer';
+lo.art = 'mortal';
+p.applyLoadout();
+p.x = p.y = 0;
+p.artCharges = 10;
+p.tryArt(0);
+p.stT = 0.1;
+p.artUpdate(0.05, 0);
+assert.equal(p.x, 0);
+p.toFree();
+lo.art = 'whirlwind';
+p.applyLoadout();
+let wideHits = 0;
+g.coop = null;
+g.enemies = [{ x: -140, y: 0, r: 15, st: 'ENGAGE', takeHit() { wideHits++; } }];
+p.facing = 0;
+p.hitSet.clear();
+Game.prototype.playerHitCheck.call(g, p, p.artAtks[0]);
+assert.equal(wideHits, 1, 'Whirlwind hits behind the player beyond its old radius');
+
+// Lock-on is an input-level aim assist, so duels send ordinary synchronized aim coordinates.
+const lockInput = { hit: key => key === 'KeyC', mouseHit: () => false, down: () => false,
+    mouseDown: () => false, mouseHeldFor: () => 0, endTick() {} };
+const nearLock = { x: 100, y: 0, r: 15, st: 'FREE' };
+const farLock = { x: 200, y: 0, r: 15, st: 'FREE' };
+g.enemies = [farLock, nearLock];
+p.readInput(lockInput, -200, 100);
+assert.equal(p.lockTarget, nearLock);
+assert.equal(p.aimX, 100);
+lockInput.hit = () => false;
+nearLock.y = 80;
+p.readInput(lockInput, -200, 100);
+assert.equal(p.aimY, 80);
+const DuelForLock = vm.runInContext('Duel', context);
+const lockDuel = { input: lockInput, players: [p, nearLock], localIdx: 0, canvas: { width: 800, height: 600 },
+    camX: 0, camY: 0, zoom: () => 1, mouseAttackPending: false };
+lockInput.mx = lockInput.my = 0;
+const lockedSample = DuelForLock.prototype.sampleLocal.call(lockDuel);
+assert.equal(lockedSample[2], 100);
+assert.equal(lockedSample[3], 80);
+lockInput.hit = key => key === 'KeyC';
+p.readInput(lockInput, -200, 100);
+assert.equal(p.lockTarget, null);
+assert.equal(p.aimX, -200);
+lockInput.hit = () => false;
+lockInput.mouseHit = button => button === 2;
+p.readInput(lockInput, 0, 0);
+assert.equal(p.lockTarget, nearLock);
+lockInput.mouseHit = () => false;
+nearLock.st = 'DEAD';
+p.readInput(lockInput, 0, 0);
+assert.equal(p.lockTarget, null);
+p.lockTarget = farLock;
+farLock.x = 651;
+p.readInput(lockInput, 0, 0);
+assert.equal(p.lockTarget, null);
+p.lockTarget = nearLock;
+g.enemies = [];
+p.readInput(lockInput, 0, 0);
+assert.equal(p.lockTarget, null, 'Removed targets release the lock');
+
+// Red sweeps deflect only in the half-window; thrusts and other perilous moves remain unguardable.
+g.parryBurst = () => {};
+const defend = (age, perilous, sweep, sourceX = 50) => {
+    p.toFree();
+    p.x = p.y = 0;
+    p.facing = 0;
+    p.hp = p.maxHp;
+    p.invuln = 0;
+    p.posture = 0;
+    p.guarding = true;
+    p.guardWindow = 0.18;
+    g.time = 0;
+    p.guardStart = -age;
+    fxEvents.length = 0;
+    return p.receive(sourceX, 0, 14, 10, perilous, sweep);
+};
+const deflectResult = vm.runInContext('P_DEFLECT', context);
+assert.equal(defend(0.09, true, true), deflectResult);
+assert(fxEvents.some(e => e.name === 'impact' && e.args[2] === 'sweep'));
+assert.equal(defend(0.09001, true, true), P_HIT_RESULT);
+assert(!fxEvents.some(e => e.name === 'impact'));
+assert.equal(defend(0.19, true, true), P_HIT_RESULT);
+assert.equal(defend(0.01, true, false), P_HIT_RESULT);
+assert.equal(defend(0.01, true, true, -50), P_HIT_RESULT);
+assert.equal(defend(0.1, false, false), deflectResult);
+assert(!fxEvents.some(e => e.name === 'impact'));
+assert.equal(defend(0.19, false, false), vm.runInContext('P_BLOCK', context));
+p.toFree();
+p.guarding = false;
+
+// Impact frames fill the screen, switch contrast, and expire on real time during hitstop.
+effects.impact(0, 0, 'mikiri');
+const fills = [];
+const impactCanvas = new Proxy({ fillRect(x, y, w, h) { fills.push({ x, y, w, h, color: this.fillStyle }); } },
+    { get: (obj, key) => key in obj ? obj[key] : () => {} });
+effects.drawImpact(impactCanvas, 800, 600, 0, 0, 1);
+assert(fills.some(f => f.w === 800 && f.h === 600 && f.color === '#fff8e8'));
+effects.updateImpact(0.05);
+effects.drawImpact(impactCanvas, 800, 600, 0, 0, 1);
+assert(fills.some(f => f.w === 800 && f.h === 600 && f.color === '#080b14'));
+effects.updateImpact(0.12);
+assert.equal(effects.impactFrame, null);
+g.slowmo = () => {};
+const mikiriFoe = { x: 100, y: 0, posture: 0, maxPosture: 100, releaseToken() {}, setSt(st) { this.st = st; } };
+fxEvents.length = 0;
+Game.prototype.onMikiri.call(g, p, mikiriFoe);
+assert(fxEvents.some(e => e.name === 'impact' && e.args[2] === 'mikiri'));
+let guestMikiri = false;
+g.coop = { host: false, settings: { friendlyFire: false }, action() { guestMikiri = true; } };
+fxEvents.length = 0;
+Game.prototype.onMikiri.call(g, p, mikiriFoe);
+assert(guestMikiri);
+assert(fxEvents.some(e => e.name === 'impact' && e.args[2] === 'mikiri'));
+g.coop = null;
 
 // weapon-tuned armor: bonuses only apply with the matching weapon type
 const stats = () => vm.runInContext('computeStats', context)(lo, 100, 3, new Set());
@@ -254,7 +410,6 @@ g.world.solidAt = () => false;
 let struck = 0;
 near.takeHit = () => { struck++; };
 g.enemies = [near, far];
-const Game = vm.runInContext('Game', context);
 Game.prototype.projectileHitCheck.call(g, p, p.throwAtk);
 assert.equal(struck, 1);
 g.world.solidAt = x => x >= 60 && x <= 70;
@@ -299,19 +454,24 @@ assert.equal(vm.runInContext('sanitizeInput', context)([0, 0, 0, 0, 2048])[4], 2
 assert(vm.runInContext('PLAYER_SYNC', context).includes('throws'));
 assert(vm.runInContext('PLAYER_SYNC', context).includes('poiseLeft'));
 assert(vm.runInContext('COOP_PLAYER_FIELDS', context).includes('poiseLeft'));
-assert.equal(vm.runInContext('NET_VERSION', context), 10);
+assert(vm.runInContext('PLAYER_SYNC', context).includes('artHitsLeft'));
+assert(vm.runInContext('COOP_PLAYER_FIELDS', context).includes('artHitsLeft'));
+assert.equal(vm.runInContext('NET_VERSION', context), 11);
 assert.equal(vm.runInContext('COOP_SYNC_INTERVAL', context), 0.05);
 const Duel = vm.runInContext('Duel', context);
 const duel = { n: 1, players: [p] };
 p.st = 'THROW';
 p.throwDone = true;
 p.throws = 1;
+p.artHitsLeft = 1;
 const packed = Duel.prototype.packPlayer.call(duel, p);
 p.throwDone = false;
 p.throws = 0;
+p.artHitsLeft = 0;
 Duel.prototype.unpackPlayer.call(duel, p, packed);
 assert.equal(p.throwDone, true);
 assert.equal(p.throws, 1);
+assert.equal(p.artHitsLeft, 1);
 p.toFree();
 p.throws = 0;
 g.nearShrine = () => shrine;
@@ -329,12 +489,26 @@ Object.assign(g, { parryBurst() {}, hitstop() {}, shake() {}, zoomKick() {}, fla
 fxEvents.length = 0;
 Coop.prototype.receiveImpact.call({ game: g }, {
     result: vm.runInContext('P_DEFLECT', context), hp: p.hp, posture: p.posture, ki: p.ki,
-    artCharges: p.artCharges, st: p.st, deflectStreak: 2, sourceX: p.x + 20, sourceY: p.y,
+    artCharges: p.artCharges, st: p.st, deflectStreak: 2, sourceX: p.x + 20, sourceY: p.y, perilous: true,
 });
 assert(p.guardFlash > 0);
 assert(fxEvents.some(e => e.name === 'sparks'));
 assert(fxEvents.some(e => e.name === 'ring'));
 assert(fxEvents.some(e => e.name === 'text'));
+assert(fxEvents.some(e => e.name === 'impact' && e.args[2] === 'sweep'));
+p.st = 'ART';
+p.artHitsLeft = 2;
+Coop.prototype.receiveImpact.call({ game: g }, {
+    result: vm.runInContext('P_HIT', context), hp: p.hp - 10, posture: p.posture,
+    st: 'ART', invuln: 0.2, artHitsLeft: 1, sourceX: p.x + 20, sourceY: p.y,
+});
+assert.equal(p.st, 'ART');
+assert.equal(p.artHitsLeft, 1);
+const armorState = { artHitsLeft: 0 };
+Coop.apply(armorState, { artHitsLeft: 500 }, ['artHitsLeft']);
+assert.equal(armorState.artHitsLeft, 2);
+Coop.apply(armorState, { artHitsLeft: -1 }, ['artHitsLeft']);
+assert.equal(armorState.artHitsLeft, 0);
 Coop.prototype.receiveImpact.call({ game: g }, {
     result: vm.runInContext('P_HIT', context), hp: p.hp - 10, posture: p.posture + 5, ki: p.ki,
     artCharges: p.artCharges, st: 'STAGGER', stT: 0.08, staggerDur: 0.55, guarding: false,

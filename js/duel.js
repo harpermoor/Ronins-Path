@@ -20,7 +20,7 @@ const PLAYER_SYNC = ['x', 'y', 'facing', 'st', 'stT', 'vx', 'vy', 'moveX', 'move
     'comboGrace', 'guarding', 'guardStart', 'guardWindow', 'spam', 'deflectStreak', 'deflectStreakT', 'guardFlash', 'dodgeDx', 'dodgeDy',
     'dodgeHeld', 'sprinting', 'invuln', 'staggerDur', 'hurtFlash', 'postureCd', 'walkAnim', 'scarf', 'hp', 'posture', 'gourds',
     'artCharges', 'healed', 'ki', 'dbDone', 'iaiSx', 'iaiSy', 'iaiDx', 'iaiDy', 'iaiDone', 'iaiLine', 'deadT', 'beingExecuted', 'brokenT',
-    'stabAttack', 'bufThrow', 'throwDone', 'throws', 'gone', 'poiseLeft'];
+    'stabAttack', 'bufThrow', 'throwDone', 'throws', 'gone', 'poiseLeft', 'artHitsLeft'];
 const YOU_COLOR = rgb(110, 190, 255), FOE_COLOR = rgb(255, 95, 80);
 const FFA_COLORS = [rgb(255, 95, 80), rgb(120, 220, 120), rgb(255, 205, 80), rgb(205, 135, 255), rgb(90, 225, 215), rgb(255, 140, 200),
     rgb(255, 160, 70), rgb(225, 225, 225)];
@@ -294,7 +294,10 @@ class Duel {
     // ================= networking =================
     sampleLocal() {
         const inp = this.input, z = this.zoom();
-        const wx = (inp.mx - this.canvas.width / 2) / z + this.camX, wy = (inp.my - this.canvas.height / 2) / z + this.camY;
+        const p = this.players[this.localIdx];
+        const aim = p.lockAim(inp, (inp.mx - this.canvas.width / 2) / z + this.camX,
+            (inp.my - this.canvas.height / 2) / z + this.camY, this.players);
+        const wx = aim.x, wy = aim.y;
         let mx = 0, my = 0, b = 0;
         if (inp.down('KeyW') || inp.down('ArrowUp')) my -= 1;
         if (inp.down('KeyS') || inp.down('ArrowDown')) my += 1;
@@ -718,6 +721,7 @@ class Duel {
         this.shake(11);
         this.slowmo(0.35);
         this.flash(rgb(180, 230, 255), 0.2);
+        this.fx.impact((p.x + foe.x) / 2, (p.y + foe.y) / 2, 'mikiri');
         if (foe.posture >= foe.maxPosture) this.breakPosture(foe);
     }
 
@@ -853,7 +857,7 @@ class Duel {
             const k = PLAYER_SYNC[i], v = a[i];
             if (typeof v !== typeof p[k] || (typeof v === 'number' && !Number.isFinite(v))) continue;
             if (k === 'st' && !PLAYER_STATES.includes(v)) continue;
-            p[k] = v;
+            p[k] = k === 'artHitsLeft' ? U.clamp(Math.floor(v), 0, 2) : v;
         }
         const at = i => (Number.isInteger(i) && i >= 0 && i < this.n ? this.players[i] : null);
         p.cur = p.stabAttack ? p.stabAtk : (p.combo >= 0 && p.combo < p.comboAtk.length ? p.comboAtk[p.combo] : null);
@@ -896,6 +900,7 @@ class Duel {
         this.parryT -= el;
         this.zoomKickV *= Math.exp(-el * 5);
         this.flashA = Math.max(0, this.flashA - el * 2.5);
+        this.realFx.updateImpact(el);
         for (let i = 0; i < this.n; i++) {
             const q = this.players[i];
             this.hpGhost[i] = this.hpGhost[i] > q.hp ? Math.max(q.hp, this.hpGhost[i] - el * 40) : q.hp;
@@ -931,6 +936,7 @@ class Duel {
         this.realFx.drawPetals(g);
         for (const p of order) this.drawTag(g, p);
         this.realFx.drawTexts(g);
+        this.players[this.localIdx].drawLock(g, this.realTime);
         g.restore();
 
         this.drawParryBurst(g, sw, sh, z);
@@ -940,6 +946,7 @@ class Duel {
             g.fillRect(0, 0, sw, sh);
         }
         this.drawHud(g, sw, sh);
+        this.realFx.drawImpact(g, sw, sh, this.camX, this.camY, z);
     }
 
     drawArena(g, l, t, r, b) {

@@ -1,7 +1,7 @@
 'use strict';
 
 /** WebSocket room relay. All peers make outbound connections; room IDs are relay-side port identifiers. */
-const NET_VERSION = 10;
+const NET_VERSION = 11;
 const NET_URL_KEY = 'roninsPath.relayUrl.v1';
 const NET_PING_EVERY_MS = 1000;
 

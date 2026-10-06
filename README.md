@@ -8,6 +8,14 @@ https://harpermoor.github.io/Ronins-Path/
 =====================
 I appreciate all feedback. I want this game to be peak and I can't have alla the ideas myself.
 =====================
+## Combat controls
+
+Press **C** or **middle mouse** to lock onto the nearest enemy within 550 units; press again to unlock. Locked aim tracks the target until it dies or moves beyond 650 units. Movement remains manual, and lock-on works in solo, co-op, and duels.
+
+Close-range combat arts advance toward nearby enemies in your aim direction. All combat arts can absorb two hits without being interrupted (you still take damage); hammer arts retain their additional poise. Whirlwind Slash now reaches a wider area.
+
+Red sweeps can be deflected, but require a tap within half the normal parry window; holding block will not stop them. Mikiri counters and successful red-sweep deflects trigger a brief full-screen impact effect. Sword clashes need fewer clicks and have larger targets; a timeout stuns and knocks back both fighters without dealing damage.
+
 ## Multiplayer relay
 
 https://ronins-path-relay.onrender.com/
