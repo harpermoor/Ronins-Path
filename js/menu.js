@@ -19,6 +19,25 @@
         lo.load();
         return Object.assign({}, lo.look);
     })();
+    const difficultySelect = $('journey-difficulty');
+    const difficultyNote = $('difficulty-note');
+    const difficultyDescriptions = {
+        loser: 'Loser: enemies are much less durable and deal less damage.',
+        ashigaru: 'Ashigaru: a forgiving challenge with weakened enemies.',
+        kachi: 'Kachi: balanced enemy strength.',
+        hatamoto: 'Hatamoto: tougher foes that hit harder.',
+        daimyo: 'Daimyo: the land offers no mercy.',
+        buddha: 'Buddha: extreme trial. Enemies have 12x health, 10x posture, and 8x damage. A single mistake can end your journey.',
+    };
+    const updateJourneyDifficulty = () => {
+        const tier = sanitizeJourneyDifficulty(difficultySelect.value);
+        difficultySelect.value = tier;
+        difficultyNote.textContent = difficultyDescriptions[tier];
+        JourneySettings.saveDifficulty(tier);
+    };
+    difficultySelect.value = JourneySettings.readDifficulty();
+    updateJourneyDifficulty();
+    difficultySelect.onchange = updateJourneyDifficulty;
 
     const show = id => {
         for (const p of PANELS) $(p).hidden = p !== id;
@@ -124,7 +143,7 @@
     $('btn-journey').onclick = () => {
         menu.hidden = true;
         canvas.focus();
-        startJourney(canvas);
+        startJourney(canvas, sanitizeJourneyDifficulty(difficultySelect.value));
     };
     $('btn-tutorial').onclick = () => {
         const card = $('tutorial-card');

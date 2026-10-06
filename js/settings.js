@@ -10,6 +10,36 @@ const ARENA_SIZES = { small: 400, medium: 560, large: 760, huge: 980 };
 const ARENA_ORDER = ['small', 'medium', 'large', 'huge'];
 const DUEL_SETTINGS_KEY = 'roninsPath.duelSettings.v1';
 const COOP_SETTINGS_KEY = 'roninsPath.coopSettings.v1';
+const JOURNEY_DIFFICULTY_KEY = 'roninsPath.journeyDifficulty.v1';
+const JOURNEY_DIFFICULTIES = {
+    loser: { name: 'Loser', enemyHp: 0.65, enemyPosture: 0.7, enemyDmg: 0.55 },
+    ashigaru: { name: 'Ashigaru', enemyHp: 0.85, enemyPosture: 0.9, enemyDmg: 0.8 },
+    kachi: { name: 'Kachi', enemyHp: 1, enemyPosture: 1, enemyDmg: 1 },
+    hatamoto: { name: 'Hatamoto', enemyHp: 1.3, enemyPosture: 1.2, enemyDmg: 1.3 },
+    daimyo: { name: 'Daimyo', enemyHp: 1.65, enemyPosture: 1.5, enemyDmg: 1.65 },
+    buddha: { name: 'Buddha', enemyHp: 12, enemyPosture: 10, enemyDmg: 8 },
+};
+const JOURNEY_DIFFICULTY_ORDER = ['loser', 'ashigaru', 'kachi', 'hatamoto', 'daimyo', 'buddha'];
+
+function sanitizeJourneyDifficulty(value) {
+    return Object.prototype.hasOwnProperty.call(JOURNEY_DIFFICULTIES, value) ? value : 'kachi';
+}
+
+const JourneySettings = {
+    readDifficulty() {
+        try {
+            return sanitizeJourneyDifficulty(localStorage.getItem(JOURNEY_DIFFICULTY_KEY));
+        } catch (e) {
+            return 'kachi';
+        }
+    },
+
+    saveDifficulty(value) {
+        try {
+            localStorage.setItem(JOURNEY_DIFFICULTY_KEY, sanitizeJourneyDifficulty(value));
+        } catch (e) { /* storage unavailable */ }
+    },
+};
 
 function settingInt(v, lo, hi, def) {
     const n = typeof v === 'string' ? parseInt(v, 10) : v;
@@ -64,15 +94,16 @@ function describeCoopSettings(s) {
  * Enemy multipliers for a party of `players` on New Game +`ngPlus`.
  * Co-op settings may be null for a solo journey, where only the New Game + tier matters.
  */
-function difficultyFor(coop, players, ngPlus) {
+function difficultyFor(coop, players, ngPlus, tier) {
     const extra = Math.max(0, (players | 0) - 1);
     const ng = U.clamp(ngPlus | 0, 0, NG_PLUS_MAX);
+    const rank = JOURNEY_DIFFICULTIES[sanitizeJourneyDifficulty(tier)];
     const party = 1 + (coop ? coop.enemyScale / 100 : 0) * extra;
     return {
         ngPlus: ng,
-        enemyHp: party * (1 + 0.22 * ng),
-        enemyPosture: party * (1 + 0.14 * ng),
-        enemyDmg: 1 + 0.1 * ng,
+        enemyHp: rank.enemyHp * party * (1 + 0.22 * ng),
+        enemyPosture: rank.enemyPosture * party * (1 + 0.14 * ng),
+        enemyDmg: rank.enemyDmg * (1 + 0.1 * ng),
         enemyCount: 1 + (coop ? coop.countScale / 100 : 0) * extra + 0.05 * ng,
     };
 }

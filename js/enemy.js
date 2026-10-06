@@ -367,6 +367,8 @@ class Enemy extends Actor {
     /** In co-op the host is authoritative, so it steers every enemy at the closest party member still on their feet. */
     pickTarget() {
         const g = this.g, me = g.player;
+        if (this.dodgeAfterimage && g.time < this.dodgeAfterimage.expires) return this.dodgeAfterimage;
+        this.dodgeAfterimage = null;
         if (!g.coop || !g.coop.host) return me;
         let best = me, bd = me.st === 'DEAD' ? Infinity : this.distTo(me);
         for (const b of g.coop.party) {
@@ -670,7 +672,8 @@ class Enemy extends Actor {
                 if (g.coop && g.coop.host && p !== g.player && res !== P_IGNORE)
                     g.coop.impact(p, res, this.x, this.y, atk.perilous);
                 if (res !== P_IGNORE) this.atkHit = true;
-                if (res === P_DEFLECT) this.onDeflected();
+                if (res === P_DEFLECT || res === P_PERFECT) this.onDeflected(res === P_PERFECT);
+                else if (res === P_PERFECT_DODGE) this.onPerfectDodge(p);
                 else if (res === P_BLOCK) {
                     this.kbx = -Math.cos(this.facing) * 60;
                     this.kby = -Math.sin(this.facing) * 60;
@@ -684,10 +687,10 @@ class Enemy extends Actor {
         }
     }
 
-    onDeflected() {
+    onDeflected(perfect) {
         const g = this.g, p = this.target || g.player, last = this.comboIdx + 1 >= this.combo.length;
         const chain = 1 + 0.08 * Math.min(p.deflectStreak - 1, 5);
-        this.posture += (this.atk.posture * 1.3 + 6) * p.deflectPost * chain;
+        this.posture += (this.atk.posture * (perfect ? 2 : 1.3) + (perfect ? 12 : 6)) * p.deflectPost * chain;
         this.lastDamageT = g.time;
         this.showBars = 3;
         this.hitFlash = 0.07;
@@ -698,14 +701,30 @@ class Enemy extends Actor {
             this.breakPosture();
             return;
         }
-        if (last) {
+
+        if (perfect || last) {
             this.setSt('STUN');
-            this.stDur = this.elite ? 0.5 : 0.8;
+            this.stDur = perfect ? (this.elite ? 0.65 : 0.9) : (this.elite ? 0.5 : 0.8);
             this.releaseToken();
             this.attackCd = 0.6;
             g.slowmo(0.16);
-            g.fx.text('OPENING', this.x, this.y - 40, rgb(255, 235, 170), 15);
+            g.fx.text(perfect ? 'PERFECT OPENING' : 'OPENING', this.x, this.y - 40, rgb(255, 235, 170), 15);
         }
+    }
+
+    onPerfectDodge(p) {
+        const g = this.g, away = p.angleTo(this);
+        this.dodgeAfterimage = p.afterimage || null;
+        this.posture += 18;
+        this.postureCd = 1.0;
+        this.kbx = Math.cos(away) * 190;
+        this.kby = Math.sin(away) * 190;
+        this.setSt('STUN');
+        this.stDur = this.elite ? 0.45 : 0.65;
+        this.releaseToken();
+        this.attackCd = 0.6;
+        g.fx.text('COUNTER OPENING', this.x, this.y - 40, rgb(190, 235, 255), 14);
+        if (this.posture >= this.maxPosture) this.breakPosture();
     }
 
     /** Player sword connects. */
@@ -862,16 +881,26 @@ class Enemy extends Actor {
         this.tokenT = 0;
     }
 
-    resetToHome() {
+    resetToHome(keepPosition = false) {
         if (this.st === 'DEAD') return;
-        this.x = this.homeX;
-        this.y = this.homeY;
+        if (!keepPosition) {
+            this.x = this.homeX;
+            this.y = this.homeY;
+        }
         this.hp = this.maxHp;
         this.lives = this.boss ? 3 : this.elite ? 2 : this.lives;
         this.posture = 0;
         this.aware = false;
         this.alive = true;
         this.beingExecuted = false;
+        this.dodgeAfterimage = null;
+        this.combo = null;
+        this.atk = null;
+        this.attackCd = 0.5;
+        this.pressureT = 0;
+        this.wanderX = this.x;
+        this.wanderY = this.y;
+        this.wanderT = 2;
         this.kbx = this.kby = 0;
         this.releaseToken();
         this.setSt('IDLE');

@@ -79,6 +79,12 @@
         #menu .menu-group { display: grid; align-content: start; gap: 9px; padding: 16px; background: rgba(0, 0, 0, 0.2); border: 1px solid #352a23; border-radius: 7px; }
         #menu .menu-group h2 { margin: 0 0 3px; color: #d6b987; font-size: 17px; letter-spacing: 0.06em; text-transform: uppercase; }
         #menu .menu-group > p { margin: 0 0 5px; min-height: 40px; color: #9f9180; font-size: 13px; }
+        #menu .difficulty-choice { display: grid; gap: 6px; color: #c9bba5; font-size: 13px; }
+        #menu .difficulty-choice select {
+            width: 100%; box-sizing: border-box; padding: 9px; font: 15px Georgia, serif; color: #f4e9d8;
+            background: #1a1210; border: 1px solid #6b5443; border-radius: 4px;
+        }
+        #menu .difficulty-note { min-height: 0 !important; font-size: 12px !important; }
         #menu .menu-choice { display: grid; gap: 4px; min-height: 58px; padding: 10px 13px; text-align: left; }
         #menu .menu-choice.secondary { min-height: 44px; background: transparent; border-color: #44372e; font-size: 15px; }
         #menu .menu-choice.primary { background: linear-gradient(135deg, #712e25, #3f1c18); border-color: #a7533f; }
@@ -135,6 +141,17 @@
                 <section class="menu-group">
                     <h2>Your journey</h2>
                     <p>Explore, master your weapons, and carve a path through the land.</p>
+                    <label class="difficulty-choice" for="journey-difficulty">Journey difficulty
+                        <select id="journey-difficulty">
+                            <option value="loser">Loser</option>
+                            <option value="ashigaru">Ashigaru</option>
+                            <option value="kachi">Kachi</option>
+                            <option value="hatamoto">Hatamoto</option>
+                            <option value="daimyo">Daimyo</option>
+                            <option value="buddha">Buddha (Extreme)</option>
+                        </select>
+                    </label>
+                    <p class="difficulty-note" id="difficulty-note">Kachi: balanced enemy strength.</p>
                     <button class="menu-choice primary" id="btn-journey">
                         <span class="choice-title">Begin Journey</span>
                         <span class="choice-copy">Continue your saved adventure or start a new one.</span>
@@ -147,9 +164,9 @@
                         <ul>
                             <li><strong>Move:</strong> WASD or arrow keys; aim with the mouse.</li>
                             <li><strong>Lock on:</strong> C or middle mouse toggles targeting the nearest enemy.</li>
-                            <li><strong>Fight:</strong> Left-click to attack; time right-click or K to deflect.</li>
-                            <li><strong>Evade:</strong> Tap Space or L to dodge; hold while moving to sprint.</li>
-                            <li><strong>Explore:</strong> Press E at shrines to rest. Use Q to heal and Tab for gear and skills.</li>
+                            <li><strong>Fight:</strong> Left-click to attack; time right-click or K to deflect. A precise deflect within 30 ms is a perfect parry that staggers foes.</li>
+                            <li><strong>Evade:</strong> Tap Space or L to dodge; evade an attack in the first 50 ms of your dodge to trigger a perfect dodge counter and leave an afterimage that distracts the attacker. Hold while moving to sprint.</li>
+                            <li><strong>Explore:</strong> Press E at safe shrines to rest, upgrade skills, and fast travel to discovered shrines. Use Q to heal and Tab for equipment.</li>
                             <li><strong>Learn:</strong> Press Esc for the full controls and pause options.</li>
                         </ul>
                     </section>

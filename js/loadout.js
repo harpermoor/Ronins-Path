@@ -343,8 +343,10 @@ class EquipMenu {
         this.msgT = 0;
     }
 
-    show() {
+    show(atShrine = false) {
         const lo = this.g.loadout;
+        this.atShrine = atShrine;
+        if (atShrine) this.tab = SKILL_TAB;
         this.open = true;
         EQUIP_SLOTS.forEach((s, i) => { this.sel[i] = Math.max(0, s.list.findIndex(it => it.id === lo[s.field])); });
         this.weaponTypeTab = Math.max(0, WEAPON_TYPES.findIndex(t => t.id === weaponType(lo.swordDef())));
@@ -390,8 +392,8 @@ class EquipMenu {
             return;
         }
         const nTabs = EQUIP_SLOTS.length + 2, prevTab = this.tab;
-        if (inp.hit('KeyQ')) this.tab = (this.tab + nTabs - 1) % nTabs;
-        if (inp.hit('KeyE')) this.tab = (this.tab + 1) % nTabs;
+        if (!this.atShrine && inp.hit('KeyQ')) this.tab = (this.tab + nTabs - 1) % nTabs;
+        if (!this.atShrine && inp.hit('KeyE')) this.tab = (this.tab + 1) % nTabs;
         const appearance = this.tab === LOOK_TAB, skillsTab = this.tab === SKILL_TAB;
         if (this.tab === 1) {
             if (inp.hit('KeyA') || inp.hit('ArrowLeft')) {
@@ -455,6 +457,11 @@ class EquipMenu {
     }
 
     learn(i) {
+        if (!this.atShrine || !this.g.canUseShrine()) {
+            this.note('Visit a safe shrine to upgrade skills');
+            this.g.sfx.play('BLOCK');
+            return;
+        }
         const g = this.g, p = g.player, sk = skillAt(Math.floor(i / SKILL_TIERS), i % SKILL_TIERS), pre = skillPrereq(sk);
         if (g.skills.has(sk.id)) return;
         if (pre !== null && !g.skills.has(pre.id)) {
@@ -563,6 +570,7 @@ class EquipMenu {
         const labels = EQUIP_SLOTS.map(s => s.label).concat('Appearance', game.skillPoints > 0 ? 'Skills (' + game.skillPoints + ')' : 'Skills');
         const tw = (W - 48) / labels.length;
         labels.forEach((l, i) => {
+            if (this.atShrine && i !== SKILL_TAB) return;
             const r = { x: X + 24 + i * tw, y: Y + 58, w: tw - 6, h: 34, i };
             R.tabs.push(r);
             roundRectPath(g, r.x, r.y, r.w, r.h, 5);
@@ -584,7 +592,9 @@ class EquipMenu {
         g.font = SMALL_FONT;
         const hint = this.tab === 1 ? 'W/S select     A/D weapon type     Enter / Click equip     Q/E menu tab     Tab close'
             : this.tab < EQUIP_SLOTS.length ? 'W/S select     Enter / Click equip     Q/E switch tab     Tab close'
-            : skillsTab ? 'WASD select     Click to select, click again or Enter to learn     Q/E switch tab     Tab close'
+            : skillsTab ? this.atShrine
+                ? 'WASD select     Enter / click again to learn     Esc / Tab back to shrine'
+                : 'WASD select     Visit a shrine to learn     Q/E switch tab     Tab close'
                 : 'W/S select     A/D or click to change     Q/E switch tab     Tab close';
         game.text(g, hint, X + W / 2, Y + H - 16, rgb(180, 165, 145), true);
     }
@@ -767,6 +777,9 @@ class EquipMenu {
         if (owned) {
             status = 'LEARNED';
             c = rgb(240, 200, 110);
+        } else if (!this.atShrine) {
+            status = 'Visit a safe shrine to upgrade this skill';
+            c = rgb(200, 170, 110);
         } else if (pre !== null && !skills.has(pre.id)) {
             status = 'Requires ' + pre.name;
             c = rgb(200, 120, 110);

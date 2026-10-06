@@ -2,6 +2,7 @@
 
 /** Particles, slash trails, rings, floating text and ground decals. */
 const FX_DOT = 0, FX_SPARK = 1, FX_PETAL = 2, FX_BLOOD = 3, FX_EMBER = 4, FX_DUST = 5, FX_WISP = 6;
+const IMPACT_FRAME_DURATION = 0.45;
 
 class Effects {
     constructor() {
@@ -18,7 +19,7 @@ class Effects {
     }
 
     impact(x, y, kind) {
-        this.impactFrame = { x, y, kind, left: 0.16 };
+        this.impactFrame = { x, y, kind, left: IMPACT_FRAME_DURATION };
     }
 
     updateImpact(dt) {
@@ -28,14 +29,16 @@ class Effects {
     drawImpact(g, sw, sh, camX, camY, z) {
         const f = this.impactFrame;
         if (!f) return;
-        const t = 1 - f.left / 0.16, bright = t < 0.25;
+        const t = 1 - f.left / IMPACT_FRAME_DURATION, bright = t < 0.2;
         const x = U.clamp((f.x - camX) * z + sw / 2, sw * 0.2, sw * 0.8);
         const y = U.clamp((f.y - camY) * z + sh / 2, sh * 0.2, sh * 0.8);
         const reach = Math.hypot(sw, sh), sweep = f.kind === 'sweep';
         g.save();
-        g.globalAlpha = Math.min(1, f.left / 0.04);
+        const fade = U.clamp(f.left / 0.09, 0, 1);
+        g.globalAlpha = (bright ? 0.5 : 0.42) * fade;
         g.fillStyle = bright ? '#fff8e8' : '#080b14';
         g.fillRect(0, 0, sw, sh);
+        g.globalAlpha = 0.72 * fade;
         g.strokeStyle = bright ? '#080b14' : sweep ? '#ffb75e' : '#a6eeff';
         g.lineWidth = 2;
         for (let i = 0; i < 32; i++) {

@@ -1,4 +1,5 @@
 # Copilot instructions
+After each prompt, let the user know what files were changed.
 
 ## Project structure and architecture
 

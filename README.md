@@ -16,6 +16,16 @@ Close-range combat arts advance toward nearby enemies in your aim direction. All
 
 Red sweeps can be deflected, but require a tap within half the normal parry window; holding block will not stop them. Mikiri counters and successful red-sweep deflects trigger a brief full-screen impact effect.
 
+After a solo death, resurrecting at a shrine fully heals surviving camp defenders and restores their posture without teleporting or removing them. Defeated enemies stay dead. In co-op, individual resurrections leave the shared encounter unchanged.
+
+## Shrine and pause menus
+
+**Buddha** is an extreme solo journey difficulty, far beyond Daimyo: enemies have **12x health, 10x posture, and 8x damage** relative to Kachi, with New Game+ multipliers applied on top. Select it under Journey difficulty before entering your journey.
+
+Press **E** at a safe shrine to rest, upgrade skills, or fast travel to another discovered shrine. Skill points can only be spent through the shrine menu; the equipment skill tree is view-only elsewhere. Fast travel is blocked when enemies threaten either shrine and does not reset the shared world or other players.
+
+Use **arrow keys** and **Enter**, or click, to navigate shrine and pause menus. **Escape** closes the menu; closing the shrine skill tree returns to the shrine menu. The pause menu scales to fit smaller screens.
+
 ## Multiplayer relay
 
 https://ronins-path-relay.onrender.com/

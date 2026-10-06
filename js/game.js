@@ -13,6 +13,12 @@ const SUB_FONT = 'italic 20px serif';
 const KANJI_FAMILY = "'Yu Mincho','MS Mincho','Hiragino Mincho ProN','Noto Serif JP','Noto Serif CJK JP',serif";
 const KANJI_FONT = 'bold 26px ' + KANJI_FAMILY;
 const BIG_KANJI = 'bold 150px ' + KANJI_FAMILY;
+const LOSER_DEATH_TAUNTS = [
+    'The Ashen Daimyo calls that a warm-up. He is being generous.',
+    'Even the bandits saw that coming.',
+    'A shrine can restore your health, not your timing.',
+    'The elders will remember that dodge. Mostly because it missed.',
+];
 // Living enemies inside this radius of a shrine prevent resting; aware enemies hunting the player block from further out.
 const REST_SAFE_R = 480;
 const REST_HUNT_R = 900;
@@ -33,7 +39,8 @@ class Game {
         this.coopSettings = o.coopSettings || null;
         this.partySize = U.clamp(o.partySize || 1, 1, MAX_MATCH_PLAYERS);
         this.ngPlus = U.clamp(o.ngPlus || (save && Number.isInteger(save.ngPlus) ? save.ngPlus : 0), 0, NG_PLUS_MAX);
-        this.difficulty = difficultyFor(this.coopSettings, this.partySize, this.ngPlus);
+        this.difficultyTier = sanitizeJourneyDifficulty(o.difficultyTier);
+        this.difficulty = difficultyFor(this.coopSettings, this.partySize, this.ngPlus, this.difficultyTier);
 
         this.time = 0;
         this.realTime = 0;
@@ -47,6 +54,10 @@ class Game {
         this.flashColor = WHITE;
         this.paused = false;
         this.pauseRects = [];
+        this.pauseSelection = 0;
+        this.shrineMenu = null;
+        this.shrineRects = [];
+        this.shrineSelection = 0;
         this.kills = 0;
         this.elitesSlain = 0;
         this.totalElites = 0;
@@ -72,6 +83,8 @@ class Game {
         this.pointsEarned = 0;
         this.skillPoints = 0;
         this.lastExpLoss = 0;
+        this.deathCount = 0;
+        this.lastDeathTaunt = null;
         this.parryT = 0;
         this.parryX = 0;
         this.parryY = 0;
@@ -330,6 +343,7 @@ class Game {
         this.newGameConfirmT -= dt;
         this.resetMapConfirmT -= dt;
         if (this.paused) {
+            if (this.navigateMenu(inp, this.pauseRects, 'pauseSelection', action => this.activatePauseAction(action))) return;
             if (inp.hit('Tab') || inp.hit('KeyI')) {
                 this.activatePauseAction('equipment');
                 return;
@@ -350,16 +364,14 @@ class Game {
                 if (inp.hit('Semicolon')) this.activatePauseAction('count-down');
                 if (inp.hit('Quote')) this.activatePauseAction('count-up');
             }
-            if (inp.mouseHit(1)) {
-                const hit = this.pauseRects.find(r => inp.mx >= r.x && inp.mx <= r.x + r.w && inp.my >= r.y && inp.my <= r.y + r.h);
-                if (hit && !hit.disabled) {
-                    this.activatePauseAction(hit.action);
-                    return;
-                }
-            }
         }
         if (this.menu.open) {
             this.menu.tick(inp, dt);
+            return;
+        }
+        if (this.shrineMenu) {
+            if (inp.hit('Escape') || inp.hit('KeyE')) this.shrineMenu = null;
+            else this.navigateMenu(inp, this.shrineRects, 'shrineSelection', action => this.activateShrineAction(action));
             return;
         }
         if ((inp.hit('Tab') || inp.hit('KeyI')) && !this.paused && player.st !== 'DEAD') {
@@ -374,6 +386,7 @@ class Game {
         const wx = (inp.mx - sw / 2) / z + this.camX, wy = (inp.my - sh / 2) / z + this.camY;
         player.readInput(inp, wx, wy);
         if (inp.hit('KeyE')) this.interact();
+        if (this.shrineMenu) return;
 
         this.shakeAmt *= Math.exp(-dt * 9);
         this.parryT -= dt;
@@ -453,19 +466,97 @@ class Game {
                 for (const e of blockers) this.fx.text('!', e.x, e.y - 36, rgb(255, 80, 60), 22);
                 return;
             }
-            this.lastShrine = s;
-            s.discovered = true;
-            player.hp = player.maxHp;
-            player.gourds = player.maxGourds;
-            player.throws = player.maxThrows;
-            player.posture = 0;
-            player.lastStandUsed = false;
-            this.sfx.play('SHRINE');
-            this.fx.ring(s.x, s.y, 20, 160, 1.0, 4, rgb(255, 220, 140));
-            this.fx.heal(player.x, player.y);
-            this.banner('Rested', s.name + '  -  HP, gourds & throws restored', rgb(255, 220, 140));
-            this.saveNow(true);
+            this.shrineMenu = s;
+            this.shrineSelection = 0;
+            this.shrineRects = [];
+            this.restAtShrine(s);
         }
+    }
+
+    canUseShrine() {
+        const s = this.shrineMenu;
+        return !!s && this.world.shrines.includes(s) && this.player.st === 'FREE'
+            && U.dist(s.x, s.y + 20, this.player.x, this.player.y) < 110
+            && this.findRestBlockers(s).length === 0;
+    }
+
+    restAtShrine(s) {
+        const player = this.player;
+        this.lastShrine = s;
+        s.discovered = true;
+        player.hp = player.maxHp;
+        player.gourds = player.maxGourds;
+        player.throws = player.maxThrows;
+        player.posture = 0;
+        player.lastStandUsed = false;
+        this.sfx.play('SHRINE');
+        this.fx.ring(s.x, s.y, 20, 160, 1.0, 4, rgb(255, 220, 140));
+        this.fx.heal(player.x, player.y);
+        this.banner('Rested', s.name + '  -  HP, gourds & throws restored', rgb(255, 220, 140));
+        this.saveNow(true);
+    }
+
+    activateShrineAction(action) {
+        if (action === 'leave') {
+            this.shrineMenu = null;
+            return;
+        }
+        if (!this.canUseShrine()) {
+            this.note('Shrine unavailable - enemies nearby or you are too far away', false);
+            this.sfx.play('BLOCK');
+            return;
+        }
+        if (action === 'skills') {
+            this.menu.show(true);
+        } else if (action === 'rest') {
+            this.restAtShrine(this.shrineMenu);
+        } else if (action.startsWith('travel:')) {
+            const s = this.world.shrines[Number(action.slice(7))];
+            if (!s || !s.discovered || s === this.shrineMenu) {
+                this.note('Fast travel requires another discovered shrine', false);
+                return;
+            }
+            if (this.findRestBlockers(s).length > 0) {
+                this.note('Fast travel blocked - enemies near the destination', false);
+                this.sfx.play('BLOCK');
+                return;
+            }
+            const p = this.player;
+            p.x = s.x;
+            p.y = s.y + 60;
+            p.vx = p.vy = 0;
+            p.lockTarget = null;
+            p.afterimage = null;
+            this.world.resolve(p);
+            this.camX = p.x;
+            this.camY = p.y;
+            this.boss = null;
+            this.shrineMenu = s;
+            this.shrineSelection = 0;
+            this.shrineRects = [];
+            this.restAtShrine(s);
+            this.banner('Fast Travel', s.name, rgb(255, 220, 140));
+        }
+    }
+
+    navigateMenu(inp, rects, selection, activate) {
+        const buttons = rects.filter(r => !r.disabled);
+        if (!buttons.length) return false;
+        this[selection] = U.clamp(this[selection], 0, buttons.length - 1);
+        if (inp.hit('ArrowUp')) this[selection] = (this[selection] + buttons.length - 1) % buttons.length;
+        if (inp.hit('ArrowDown')) this[selection] = (this[selection] + 1) % buttons.length;
+        if (inp.hit('Enter') || inp.hit('NumpadEnter')) {
+            activate(buttons[this[selection]].action);
+            return true;
+        }
+        if (inp.mouseHit(1)) {
+            const hit = buttons.find(r => inp.mx >= r.x && inp.mx <= r.x + r.w && inp.my >= r.y && inp.my <= r.y + r.h);
+            if (hit) {
+                activate(hit.action);
+                return true;
+            }
+        }
+        return false;
     }
 
     findRestBlockers(s) {
@@ -485,9 +576,12 @@ class Game {
     }
 
     respawn() {
+        this.shrineMenu = null;
         const player = this.player;
         player.respawn(this.lastShrine.x, this.lastShrine.y + 60);
-        if (!this.coop) for (const e of this.enemies) if (e.aware || e.elite) e.resetToHome();
+        if (!this.coop) for (const e of this.enemies) {
+            if (e.camp !== null || e.aware || e.elite) e.resetToHome(e.camp !== null);
+        }
         this.boss = null;
         this.camX = player.x;
         this.camY = player.y;
@@ -509,7 +603,7 @@ class Game {
         const previous = this.difficulty;
         this.coopSettings = sanitizeCoopSettings(settings);
         this.coop.settings = this.coopSettings;
-        this.difficulty = difficultyFor(this.coopSettings, this.partySize, this.ngPlus);
+        this.difficulty = difficultyFor(this.coopSettings, this.partySize, this.ngPlus, this.difficultyTier);
         const hpRatio = this.difficulty.enemyHp / previous.enemyHp;
         const postureRatio = this.difficulty.enemyPosture / previous.enemyPosture;
         for (const e of this.enemies) {
@@ -522,11 +616,12 @@ class Game {
     }
 
     resetMap(seedOverride, ngOverride, remote) {
+        this.shrineMenu = null;
         const player = this.player, newSeed = Number.isFinite(seedOverride) ? seedOverride : Math.floor(Math.random() * 2 ** 48);
         const ascend = ngOverride === undefined && this.bossDefeated && this.ngPlus < NG_PLUS_MAX;
         if (Number.isInteger(ngOverride)) this.ngPlus = U.clamp(ngOverride, 0, NG_PLUS_MAX);
         else if (ascend) this.ngPlus++;
-        this.difficulty = difficultyFor(this.coopSettings, this.partySize, this.ngPlus);
+        this.difficulty = difficultyFor(this.coopSettings, this.partySize, this.ngPlus, this.difficultyTier);
         this.seed = newSeed;
         this.rnd = new Rng(newSeed);
         this.world = new World(newSeed);
@@ -860,6 +955,9 @@ class Game {
         this.slowmo(1.0);
         this.shake(12);
         this.boss = null;
+        this.deathCount++;
+        this.lastDeathTaunt = this.difficultyTier === 'loser'
+            ? LOSER_DEATH_TAUNTS[(this.deathCount - 1) % LOSER_DEATH_TAUNTS.length] : null;
         // as in Sekiro, death costs half of the EXP not yet turned into a skill point
         this.lastExpLoss = Math.floor(this.exp / 2);
         this.exp -= this.lastExpLoss;
@@ -898,6 +996,7 @@ class Game {
             else draw();
         }
         if (this.coop !== null) this.coop.draw(g);
+        player.drawAfterimage(g, this.time);
         player.draw(g, this.time);
         this.fx.drawWorld(g);
         world.drawCanopies(g, vis, player.x, player.y, this.time);
@@ -1096,7 +1195,7 @@ class Game {
                 promptColor = rgb(255, 90, 80);
             } else if (ns !== null) {
                 const n = this.restBlockers.length;
-                if (n === 0) prompt = '[E]  Rest at ' + ns.name;
+                if (n === 0) prompt = '[E]  Shrine menu - ' + ns.name;
                 else {
                     prompt = 'Cannot rest  -  ' + n + (n === 1 ? ' enemy' : ' enemies') + ' nearby';
                     promptColor = rgb(255, 90, 70);
@@ -1111,11 +1210,12 @@ class Game {
         // --- top-left info ---
         const cleared = world.camps.filter(c => c.cleared).length;
         g.font = 'bold 22px serif';
-        this.text(g, world.biomeName(p.x, p.y) + (this.ngPlus > 0 ? '   -   NG+' + this.ngPlus : ''), 24, 36, rgb(245, 235, 215), false);
+        this.text(g, world.biomeName(p.x, p.y) + '   -   ' + JOURNEY_DIFFICULTIES[this.difficultyTier].name
+            + (this.ngPlus > 0 ? '   -   NG+' + this.ngPlus : ''), 24, 36, rgb(245, 235, 215), false);
         g.font = SMALL_FONT;
         this.text(g, 'Elites slain ' + this.elitesSlain + '/' + this.totalElites + '     Camps cleared ' + cleared + '/' + world.camps.length
             + '     Kills ' + this.kills, 24, 58, rgb(220, 210, 190), false);
-        this.text(g, '[Tab] equipment & skills   [Esc] pause & controls', 24, 78, rgb(180, 170, 150), false);
+        this.text(g, '[Tab] equipment   [E] shrine skills & travel   [Esc] pause', 24, 78, rgb(180, 170, 150), false);
         const need = expForNextPoint(this.pointsEarned);
         g.fillStyle = 'rgba(0,0,0,0.6)';
         g.fillRect(24, 88, 204, 7);
@@ -1124,7 +1224,7 @@ class Game {
         this.text(g, 'EXP ' + Math.floor(this.exp) + '/' + need, 24, 112, rgb(160, 220, 205), false);
         if (this.skillPoints > 0) {
             g.font = 'bold 13px sans-serif';
-            this.text(g, this.skillPoints + ' skill point' + (this.skillPoints > 1 ? 's' : '') + ' [Tab]', 130, 112,
+            this.text(g, this.skillPoints + ' skill point' + (this.skillPoints > 1 ? 's' : '') + ' - visit a shrine', 130, 112,
                 rgb(255, 220, 120, Math.trunc(170 + 85 * Math.sin(this.realTime * 4))), false);
         }
         if (p.deflectStreak >= 2) {
@@ -1163,10 +1263,15 @@ class Game {
                     g.font = HUD_FONT;
                     this.text(g, 'Lost ' + this.lastExpLoss + ' EXP', sw / 2, sh / 2 + 168, rgb(200, 140, 140), true);
                 }
+                if (this.lastDeathTaunt !== null) {
+                    g.font = HUD_FONT;
+                    this.text(g, this.lastDeathTaunt, sw / 2, sh / 2 + 196, rgb(225, 175, 145), true);
+                }
             }
         }
 
         if (this.paused) this.drawPauseMenu(g, sw, sh);
+        if (this.shrineMenu && !this.menu.open) this.drawShrineMenu(g, sw, sh);
         if (this.saveNoteT > 0 && this.saveNote !== null) {
             g.font = HUD_FONT;
             const a = U.clamp(this.saveNoteT * 2, 0, 1);
@@ -1204,6 +1309,67 @@ class Game {
     }
 
     drawPauseMenu(g, sw, sh) {
+        const scale = Math.min(1, sw / 1000, sh / 700);
+        g.save();
+        g.scale(scale, scale);
+        this.drawPausePanel(g, sw / scale, sh / scale);
+        const buttons = this.pauseRects.filter(r => !r.disabled);
+        const selected = buttons[this.pauseSelection];
+        if (selected) {
+            setStroke(g, 2, false);
+            g.strokeStyle = 'rgb(255,215,140)';
+            g.strokeRect(selected.x - 2, selected.y - 2, selected.w + 4, selected.h + 4);
+        }
+        g.restore();
+        for (const r of this.pauseRects) {
+            r.x *= scale; r.y *= scale; r.w *= scale; r.h *= scale;
+        }
+    }
+
+    drawShrineMenu(g, sw, sh) {
+        const shrines = this.world.shrines, W = 660, H = 260 + shrines.length * 58;
+        const scale = Math.min(1, (sw - 20) / W, (sh - 20) / H);
+        const X = (sw / scale - W) / 2, Y = (sh / scale - H) / 2;
+        g.fillStyle = 'rgba(5,4,4,0.8)';
+        g.fillRect(0, 0, sw, sh);
+        g.save();
+        g.scale(scale, scale);
+        roundRectPath(g, X, Y, W, H, 10);
+        g.fillStyle = 'rgb(25,20,17)';
+        g.fill();
+        g.font = 'bold 28px serif';
+        this.text(g, this.shrineMenu.name, X + 24, Y + 40, rgb(255,220,150), false);
+        g.font = HUD_FONT;
+        this.text(g, 'Skill points: ' + this.skillPoints + '   |   Safe refuge', X + 24, Y + 68, rgb(190,180,160), false);
+        const pauseRects = this.pauseRects;
+        this.pauseRects = [];
+        this.pauseButton(g, 'skills', 'Upgrade Skills', 'Spend your earned skill points here.', X + 24, Y + 84, 300, 52, { primary: true });
+        this.pauseButton(g, 'rest', 'Rest', 'Restore health, gourds, and throws.', X + 336, Y + 84, 300, 52);
+        g.font = 'bold 18px serif';
+        this.text(g, 'FAST TRAVEL', X + 24, Y + 165, rgb(220,190,135), false);
+        shrines.forEach((s, i) => {
+            const here = s === this.shrineMenu;
+            this.pauseButton(g, 'travel:' + i, s.discovered ? s.name : 'Undiscovered Shrine',
+                here ? 'You are here.' : s.discovered ? 'Travel and rest at this shrine.' : 'Explore the world to unlock this destination.',
+                X + 24, Y + 180 + i * 58, W - 48, 52, { disabled: here || !s.discovered });
+        });
+        this.pauseButton(g, 'leave', 'Return to Journey', 'Esc / E closes this menu. Arrow keys select; Enter confirms.',
+            X + 24, Y + H - 64, W - 48, 52);
+        this.shrineRects = this.pauseRects;
+        this.pauseRects = pauseRects;
+        const selected = this.shrineRects.filter(r => !r.disabled)[this.shrineSelection];
+        if (selected) {
+            setStroke(g, 2, false);
+            g.strokeStyle = 'rgb(255,215,140)';
+            g.strokeRect(selected.x - 2, selected.y - 2, selected.w + 4, selected.h + 4);
+        }
+        g.restore();
+        for (const r of this.shrineRects) {
+            r.x *= scale; r.y *= scale; r.w *= scale; r.h *= scale;
+        }
+    }
+
+    drawPausePanel(g, sw, sh) {
         this.pauseRects = [];
         g.fillStyle = 'rgba(5,4,4,0.82)';
         g.fillRect(0, 0, sw, sh);
@@ -1247,7 +1413,7 @@ class Game {
         const pauseStatus = 'JOURNEY PAUSED';
         this.text(g, pauseStatus, X + W - 28 - g.measureText(pauseStatus).width / 2, Y + 54, rgb(213,91,70), true);
         g.font = '12px sans-serif';
-        const pauseHint = 'Esc resumes the game';
+        const pauseHint = 'Arrows select | Enter confirms | Esc resumes';
         this.text(g, pauseHint, X + W - 28 - g.measureText(pauseHint).width / 2, Y + 76, rgb(157,143,130), true);
 
         const pad = 28, gap = 18, top = Y + 116;
@@ -1266,7 +1432,7 @@ class Game {
         this.pauseButton(g, 'save', 'Save Now', this.guestJourney ? 'Unavailable to co-op guests.' : 'Write your current progress to this browser.',
             rx, y, colW, 52, { key: 'S', disabled: this.guestJourney });
         y += 60;
-        this.pauseButton(g, 'equipment', 'Equipment & Skills', 'Change gear, appearance, combat arts, and skills.', lx, y, colW, 52, { key: 'TAB' });
+        this.pauseButton(g, 'equipment', 'Equipment', 'Change gear and arts. Upgrade skills at shrines.', lx, y, colW, 52, { key: 'TAB' });
         this.pauseButton(g, 'export', 'Export Save File', this.guestJourney ? 'Unavailable to co-op guests.' : 'Create a portable backup of your journey.',
             rx, y, colW, 52, { key: 'X', disabled: this.guestJourney });
         y += 60;
@@ -1440,9 +1606,9 @@ class Game {
             ['G', 'Dragon Flash (full Ki)'],
             ['T', 'Throw weapon'],
             ['Q', 'Drink healing gourd'],
-            ['E', 'Rest at shrine / revive'],
+            ['E', 'Shrine menu / revive'],
             ['Block + walk', 'Sneak (stealth deathblow)'],
-            ['Tab / I', 'Equipment & skills'],
+            ['Tab / I', 'Equipment / view skills'],
             ['Esc', 'Pause / resume'],
         ];
         // measure everything so text stays inside the panel: wrap long descriptions, shrink the font if still too tall
@@ -1490,12 +1656,12 @@ class Game {
 }
 
 // ---------------- boot (called from the main menu) ----------------
-function startJourney(canvas) {
+function startJourney(canvas, difficultyTier) {
     const params = new URLSearchParams(location.search);
     const save = SaveGame.read();
     let seed;
     if (params.has('seed') && Number.isFinite(Number(params.get('seed')))) seed = Number(params.get('seed'));
     else if (save !== null) seed = save.seed;
     else seed = Math.floor(Math.random() * 2 ** 48);
-    new Game(seed, canvas, save !== null && save.seed === seed ? save : null).run();
+    new Game(seed, canvas, save !== null && save.seed === seed ? save : null, { difficultyTier }).run();
 }

@@ -14,7 +14,45 @@ const { Enemy, Game, EA, difficultyFor, ENEMY_DAMAGE_SCALE, NORMAL_ENEMY_HP_SCAL
     '({ Enemy, Game, EA, difficultyFor, ENEMY_DAMAGE_SCALE, NORMAL_ENEMY_HP_SCALE, NORMAL_ENEMY_POSTURE_SCALE, '
         + 'NORMAL_ENEMY_DAMAGE_SCALE, NORMAL_ENEMY_SPEED_SCALE })', context);
 
+assert.equal(vm.runInContext('sanitizeJourneyDifficulty("ronin")', context), 'kachi');
+assert.equal(vm.runInContext('JOURNEY_DIFFICULTY_ORDER.includes("ronin")', context), false);
+assert.equal(difficultyFor(null, 1, 0, 'loser').enemyHp, 0.65);
+assert.equal(difficultyFor(null, 1, 0, 'loser').enemyDmg, 0.55);
+assert.equal(difficultyFor(null, 1, 0, 'daimyo').enemyHp, 1.65);
+assert.equal(difficultyFor(null, 1, 0, 'daimyo').enemyDmg, 1.65);
+assert.equal(vm.runInContext('sanitizeJourneyDifficulty("buddha")', context), 'buddha');
+assert.equal(vm.runInContext('JOURNEY_DIFFICULTY_ORDER.at(-1)', context), 'buddha');
+const buddhaDifficulty = difficultyFor(null, 1, 0, 'buddha');
+assert.equal(buddhaDifficulty.enemyHp, 12);
+assert.equal(buddhaDifficulty.enemyPosture, 10);
+assert.equal(buddhaDifficulty.enemyDmg, 8);
+const buddhaNg = difficultyFor(null, 1, 2, 'buddha');
+assert.equal(buddhaNg.enemyHp, 12 * 1.44);
+assert.equal(buddhaNg.enemyPosture, 10 * 1.28);
+assert.equal(buddhaNg.enemyDmg, 8 * 1.2);
+
 const game = { difficulty: difficultyFor(null, 1, 0) };
+for (const elite of [false, true]) {
+    const normal = new Enemy(game, 'RONIN', 100, 100, elite, null, 90);
+    const extreme = new Enemy({ difficulty: buddhaDifficulty }, 'RONIN', 100, 100, elite, null, 90);
+    assert.equal(extreme.maxHp, normal.maxHp * 12);
+    assert.equal(extreme.maxPosture, normal.maxPosture * 10);
+    assert.equal(extreme.dmgScale, normal.dmgScale * 8);
+}
+const perfectDodgeEnemy = new Enemy(game, 'RONIN', 100, 100, false, null, 91);
+const originalTarget = { x: 0, y: 0, st: 'FREE' };
+perfectDodgeEnemy.g = { time: 1, player: originalTarget, fx: { text() {} } };
+const shadowTarget = { x: 0, y: 100, expires: 3 };
+const dodger = { x: 0, y: 100, afterimage: shadowTarget,
+    angleTo(target) { return Math.atan2(target.y - this.y, target.x - this.x); } };
+perfectDodgeEnemy.onPerfectDodge(dodger);
+assert.equal(perfectDodgeEnemy.st, 'STUN');
+assert.equal(perfectDodgeEnemy.stDur, 0.65);
+assert.equal(perfectDodgeEnemy.posture, 18);
+assert(perfectDodgeEnemy.kbx > 0, 'perfect dodge knocks the attacker away to create a counter opening');
+assert.equal(perfectDodgeEnemy.pickTarget(), shadowTarget, 'attacker locks on to the afterimage');
+perfectDodgeEnemy.g.time = 3;
+assert.equal(perfectDodgeEnemy.pickTarget(), originalTarget, 'attacker returns to the player after two seconds');
 const types = [
     ['RONIN', 82, 82, 150, 'backhand'],
     ['SPEAR', 72, 72, 140, 'hook'],
@@ -112,6 +150,27 @@ assert(daimyo.dodgeChance > 0);
 const respawnElite = new Enemy(game, 'RONIN', 4000, 4000, true, eliteNames[0][0], 8);
 const respawnBoss = new Enemy(game, 'RONIN', 4000, 4000, true, 'The Ashen Daimyo', 9, true, true);
 const defeatedElite = new Enemy(game, 'SPEAR', 5000, 5000, true, eliteNames[1][0], 10);
+const camp = { members: [], cleared: false };
+const campDefender = new Enemy(game, 'RONIN', 100, 100, false, null, 11);
+const quietDefender = new Enemy(game, 'SPEAR', 150, 100, false, null, 12);
+const defeatedDefender = new Enemy(game, 'BRUTE', 200, 100, false, null, 13);
+for (const foe of [campDefender, quietDefender, defeatedDefender]) {
+    foe.camp = camp;
+    camp.members.push(foe);
+    foe.hp = 1;
+    foe.posture = 20;
+}
+campDefender.x = 300;
+campDefender.y = 350;
+campDefender.aware = true;
+campDefender.st = 'WINDUP';
+campDefender.combo = [EA.R_A];
+campDefender.atk = EA.R_A;
+campDefender.hasToken = true;
+campDefender.dodgeAfterimage = shadowTarget;
+defeatedDefender.hp = 0;
+defeatedDefender.st = 'DEAD';
+defeatedDefender.alive = false;
 respawnElite.hp = 1;
 respawnElite.lives = 1;
 respawnElite.posture = 20;
@@ -120,7 +179,8 @@ respawnBoss.lives = 1;
 respawnBoss.posture = 20;
 respawnBoss.aware = true;
 defeatedElite.st = 'DEAD';
-const respawnGame = { player: { respawn() {} }, lastShrine: { x: 0, y: 0 }, enemies: [respawnElite, respawnBoss, defeatedElite],
+const respawnGame = { player: { respawn() {} }, lastShrine: { x: 0, y: 0 },
+    enemies: [respawnElite, respawnBoss, defeatedElite, ...camp.members],
     coop: null, boss: respawnBoss, banner() {}, saveSoon() {} };
 Game.prototype.respawn.call(respawnGame);
 assert.equal(respawnElite.hp, respawnElite.maxHp);
@@ -131,6 +191,26 @@ assert.equal(respawnBoss.lives, 3);
 assert.equal(respawnBoss.posture, 0);
 assert.equal(defeatedElite.st, 'DEAD');
 assert.equal(respawnGame.boss, null);
+assert.equal(respawnGame.enemies.length, 6, 'resurrection must not remove camp defenders');
+assert.equal(camp.members.length, 3);
+assert.equal(camp.cleared, false);
+for (const foe of [campDefender, quietDefender]) {
+    assert.equal(foe.hp, foe.maxHp, 'all surviving camp defenders heal, even if unaware');
+    assert.equal(foe.posture, 0);
+    assert.equal(foe.st, 'IDLE');
+    assert.equal(foe.alive, true);
+}
+assert.equal(campDefender.x, 300, 'camp survivors must not teleport on resurrection');
+assert.equal(campDefender.y, 350);
+assert.equal(campDefender.wanderX, 300);
+assert.equal(campDefender.wanderY, 350);
+assert.equal(campDefender.hasToken, false);
+assert.equal(campDefender.combo, null);
+assert.equal(campDefender.atk, null);
+assert.equal(campDefender.dodgeAfterimage, null);
+assert.equal(defeatedDefender.st, 'DEAD');
+assert.equal(defeatedDefender.hp, 0);
+assert.equal(defeatedDefender.alive, false);
 
 const mapBoss = new Enemy(game, 'RONIN', 5000, 6000, true, 'The Ashen Daimyo', 11, true, true);
 const mapFillStyles = [];

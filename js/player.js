@@ -1,7 +1,9 @@
 'use strict';
 
-const P_IGNORE = 0, P_DEFLECT = 1, P_BLOCK = 2, P_HIT = 3;
+const P_IGNORE = 0, P_DEFLECT = 1, P_BLOCK = 2, P_HIT = 3, P_PERFECT = 4, P_PERFECT_DODGE = 5;
 const PERFECT_WINDOW = 0.18, DODGE_TIME = 0.34, DODGE_IFRAMES = 0.25;
+const PERFECT_PARRY_WINDOW = 0.03;
+const PERFECT_DODGE_WINDOW = 0.05;
 const HEAVY_STAB_HOLD = 0.36;
 const P_COMBO = [
     new Attack('cut1', 0.08, 0.09, 0.20, 84, 150, 14, 12, 190),
@@ -97,6 +99,9 @@ class Player extends Actor {
         // misc
         this.dodgeDx = 0;
         this.dodgeDy = 0;
+        this.dodgeStartX = x;
+        this.dodgeStartY = y;
+        this.afterimage = null;
         this.dodgeHeld = false;
         this.sprinting = false;
         this.invuln = 0;
@@ -683,6 +688,8 @@ class Player extends Actor {
 
     startDodge() {
         const g = this.g;
+        this.dodgeStartX = this.x;
+        this.dodgeStartY = this.y;
         let dx = this.moveX, dy = this.moveY;
         if (dx === 0 && dy === 0) {
             dx = Math.cos(this.facing);
@@ -702,6 +709,49 @@ class Player extends Actor {
             this.facing = this.angleTo(m);
             g.onMikiri(this, m);
         }
+    }
+
+    leaveDodgeAfterimage() {
+        const g = this.g;
+        const image = {
+            x: this.dodgeStartX,
+            y: this.dodgeStartY,
+            facing: this.facing,
+            r: this.r,
+            st: 'FREE',
+            swingId: -1,
+            guarding: false,
+            spam: 0,
+            stealth: 1,
+            vx: 0,
+            vy: 0,
+            curArt: { spin: false },
+            expires: g.time + 2,
+            distTo(target) { return U.dist(this.x, this.y, target.x, target.y); },
+            angleTo(target) { return Math.atan2(target.y - this.y, target.x - this.x); },
+            untargetable() { return false; },
+            sneaking() { return true; },
+            receive() { return P_IGNORE; },
+            recoil() {},
+        };
+        this.afterimage = image;
+        return image;
+    }
+
+    drawAfterimage(g2, time) {
+        const image = this.afterimage, remaining = image ? image.expires - this.g.time : 0;
+        if (!image || remaining <= 0) return;
+        const lo = this.g.loadout, x = image.x, y = image.y, r = this.r;
+        g2.save();
+        g2.globalAlpha = 0.32 * U.clamp(remaining / 0.3, 0, 1);
+        Draw.shadow(g2, x, y, r);
+        Draw.scarf(g2, x, y, r, image.facing, this.scarf, lo.color('scarf'));
+        Draw.body(g2, x, y, r, image.facing, lo.color('robe'), lo.armorDef().shoulder,
+            lo.color('hat'), lo.look.hatStyle, this.walkAnim);
+        const hx = x + Math.cos(image.facing + 0.9) * r * 0.9;
+        const hy = y + Math.sin(image.facing + 0.9) * r * 0.9;
+        Draw.weapon(g2, hx, hy, image.facing + 0.55, this.sword, rgb(175, 225, 255));
+        g2.restore();
     }
 
     startDeathblow(e) {
@@ -799,20 +849,44 @@ class Player extends Actor {
     /** Called when an attack reaches the player. Returns P_IGNORE, P_DEFLECT, P_BLOCK or P_HIT. */
     receive(sx, sy, dmg, post, perilous, sweep = false) {
         const g = this.g;
-        if (this.st === 'DEAD' || this.invulnerable()) return P_IGNORE;
+        if (this.st === 'DEAD') return P_IGNORE;
+        if (this.st === 'DODGE' && this.stT < this.dodgeIframes) {
+            if (this.stT <= PERFECT_DODGE_WINDOW) {
+                const ang = Math.atan2(sy - this.y, sx - this.x);
+                const cx = this.x + Math.cos(ang) * (this.r + 12), cy = this.y + Math.sin(ang) * (this.r + 12);
+                this.leaveDodgeAfterimage();
+                this.ki = Math.min(100, this.ki + 18);
+                this.gainArtCharge();
+                g.fx.sparks(cx, cy, ang, 2.2, 24, 520, rgb(160, 220, 255));
+                g.fx.ring(cx, cy, 8, 105, 0.22, 4, rgb(190, 235, 255));
+                g.fx.text('PERFECT DODGE', this.x, this.y - 42, rgb(190, 235, 255), 20);
+                g.fx.impact(cx, cy, 'dodge');
+                g.sfx.play('CLANG');
+                g.hitstop(0.075);
+                g.slowmo(0.14);
+                g.flash(rgb(180, 230, 255), 0.16);
+                return P_PERFECT_DODGE;
+            }
+            return P_IGNORE;
+        }
+        if (this.invulnerable()) return P_IGNORE;
         dmg *= this.dmgTaken;
         const ang = Math.atan2(sy - this.y, sx - this.x);
         const cx = this.x + Math.cos(ang) * (this.r + 12), cy = this.y + Math.sin(ang) * (this.r + 12);
         const front = Math.abs(U.angDiff(this.facing, ang)) < 105 * DEG;
-        const sweepParry = perilous && sweep && g.time - this.guardStart <= this.guardWindow * 0.5;
+        const guardAge = g.time - this.guardStart;
+        const sweepParry = perilous && sweep && guardAge <= this.guardWindow * 0.5;
         if ((!perilous || sweepParry) && this.st === 'FREE' && this.guarding && front) {
-            if (g.time - this.guardStart <= this.guardWindow * (sweepParry ? 0.5 : 1)) {
-                this.posture = Math.min(this.maxPosture - 1, this.posture + post * 0.12);
+            if (guardAge <= this.guardWindow * (sweepParry ? 0.5 : 1)) {
+                const perfect = guardAge >= 0
+                    && guardAge <= Math.min(PERFECT_PARRY_WINDOW, this.guardWindow * (sweepParry ? 0.5 : 1));
+                this.posture = Math.min(this.maxPosture - 1, this.posture + (perfect ? 0 : post * 0.12));
                 this.spam = 0;
                 this.deflectStreak++;
                 this.deflectStreakT = 1.6;
-                this.ki = Math.min(100, this.ki + 12);
+                this.ki = Math.min(100, this.ki + (perfect ? 24 : 12));
                 this.gainArtCharge();
+                if (perfect) this.gainArtCharge();
                 if (this.deflectRecover > 0) this.posture = Math.max(0, this.posture - this.deflectRecover);
                 this.guardFlash = 0.25;
                 const k = Math.min(this.deflectStreak, 6);
@@ -832,10 +906,12 @@ class Player extends Actor {
                 g.zoomKick(0.035 + k * 0.008);
                 g.flash(rgb(255, 235, 180), 0.14 + k * 0.02);
                 g.parryBurst(cx, cy, k);
+                if (perfect) g.fx.impact(cx, cy, 'parry');
                 if (sweepParry) g.fx.impact(cx, cy, 'sweep');
-                const s = this.deflectStreak > 1 ? 'DEFLECT x' + this.deflectStreak : 'DEFLECT';
-                g.fx.text(s, this.x, this.y - 42, this.deflectStreak >= 4 ? rgb(255, 250, 200) : rgb(255, 215, 90), 16 + k * 3);
-                return P_DEFLECT;
+                const s = perfect ? 'PERFECT PARRY' : this.deflectStreak > 1 ? 'DEFLECT x' + this.deflectStreak : 'DEFLECT';
+                g.fx.text(s, this.x, this.y - 42, perfect || this.deflectStreak >= 4 ? rgb(255, 250, 200) : rgb(255, 215, 90),
+                    perfect ? 20 + k * 3 : 16 + k * 3);
+                return perfect ? P_PERFECT : P_DEFLECT;
             }
             this.posture += post;
             this.postureCd = 1.0;

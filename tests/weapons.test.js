@@ -10,7 +10,7 @@ for (const name of ['util', 'effects', 'world', 'skills', 'loadout', 'player', '
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', name + '.js'), 'utf8'), context);
 }
 const { lo, g, p, shrine, fxEvents } = vm.runInContext(`(() => {
-    const lo = new Loadout(), shrine = { x: 0, y: 0, discovered: true };
+    const lo = new Loadout(), shrine = { x: 0, y: 0, name: 'Starting Shrine', discovered: true };
     const fxEvents = [];
     const fx = new Proxy({}, { get: (_, name) => (...args) => fxEvents.push({ name, args }) });
     const g = { loadout: lo, skills: new Set(), world: { shrines: [shrine], camps: [],
@@ -269,6 +269,7 @@ const defend = (age, perilous, sweep, sourceX = 50) => {
     return p.receive(sourceX, 0, 14, 10, perilous, sweep);
 };
 const deflectResult = vm.runInContext('P_DEFLECT', context);
+const perfectResult = vm.runInContext('P_PERFECT', context);
 assert.equal(defend(0.09, true, true), deflectResult);
 assert(fxEvents.some(e => e.name === 'impact' && e.args[2] === 'sweep'));
 assert.equal(defend(0.09001, true, true), P_HIT_RESULT);
@@ -279,22 +280,75 @@ assert.equal(defend(0.01, true, true, -50), P_HIT_RESULT);
 assert.equal(defend(0.1, false, false), deflectResult);
 assert(!fxEvents.some(e => e.name === 'impact'));
 assert.equal(defend(0.19, false, false), vm.runInContext('P_BLOCK', context));
+p.ki = 0;
+assert.equal(defend(0.03, false, false), perfectResult);
+assert.equal(p.ki, 24);
+assert.equal(p.posture, 0);
+assert(fxEvents.some(e => e.name === 'text' && e.args[0] === 'PERFECT PARRY'));
+assert(fxEvents.some(e => e.name === 'impact' && e.args[2] === 'parry'));
+assert.equal(defend(0.03001, false, false), deflectResult,
+   'a deflect just outside 30 ms must not grant a perfect parry');
+assert.equal(defend(0.04, false, false), deflectResult);
+assert.equal(defend(0.06, false, false), deflectResult);
 p.toFree();
 p.guarding = false;
 
-// Impact frames fill the screen, switch contrast, and expire on real time during hitstop.
+// Impact frames briefly tint the whole scene without hiding the fighters, then expire on real time.
 effects.impact(0, 0, 'mikiri');
 const fills = [];
-const impactCanvas = new Proxy({ fillRect(x, y, w, h) { fills.push({ x, y, w, h, color: this.fillStyle }); } },
-    { get: (obj, key) => key in obj ? obj[key] : () => {} });
+const impactCanvas = new Proxy({ fillRect(x, y, w, h) {
+   fills.push({ x, y, w, h, color: this.fillStyle, alpha: this.globalAlpha });
+} },
+   { get: (obj, key) => key in obj ? obj[key] : () => {} });
 effects.drawImpact(impactCanvas, 800, 600, 0, 0, 1);
-assert(fills.some(f => f.w === 800 && f.h === 600 && f.color === '#fff8e8'));
-effects.updateImpact(0.05);
+assert(fills.some(f => f.w === 800 && f.h === 600 && f.color === '#fff8e8' && f.alpha > 0 && f.alpha < 1));
+effects.updateImpact(0.1);
 effects.drawImpact(impactCanvas, 800, 600, 0, 0, 1);
 assert(fills.some(f => f.w === 800 && f.h === 600 && f.color === '#080b14'));
-effects.updateImpact(0.12);
+effects.updateImpact(0.3);
+assert(effects.impactFrame, 'impact frames stay visible for the longer display duration');
+effects.updateImpact(0.1);
+assert.equal(effects.impactFrame, null);
+effects.impact(0, 0, 'parry');
+assert.equal(effects.impactFrame.left, vm.runInContext('IMPACT_FRAME_DURATION', context));
+effects.updateImpact(0.09);
+assert(effects.impactFrame, 'impact frame remains visible through hitstop and its immediate aftermath');
+effects.updateImpact(0.3);
+assert(effects.impactFrame);
+effects.updateImpact(0.1);
 assert.equal(effects.impactFrame, null);
 g.slowmo = () => {};
+g.flash = () => {};
+fxEvents.length = 0;
+p.toFree();
+p.st = 'DODGE';
+p.dodgeStartX = 10;
+p.dodgeStartY = 20;
+p.stT = 0;
+p.dodgeIframes = 0.25;
+p.ki = 0;
+assert.equal(p.receive(50, 0, 14, 10, false), vm.runInContext('P_PERFECT_DODGE', context));
+assert.equal(p.ki, 18);
+assert.equal(p.afterimage.x, 10);
+assert.equal(p.afterimage.y, 20);
+assert.equal(p.afterimage.expires, g.time + 2);
+assert.equal(p.afterimage.receive(), vm.runInContext('P_IGNORE', context));
+assert(fxEvents.some(e => e.name === 'text' && e.args[0] === 'PERFECT DODGE'));
+assert(fxEvents.some(e => e.name === 'impact' && e.args[2] === 'dodge'));
+p.st = 'DODGE';
+p.stT = 0.05;
+assert.equal(p.receive(50, 0, 14, 10, false), vm.runInContext('P_PERFECT_DODGE', context),
+   'the first 50 ms of a dodge grant a perfect counter');
+const dodgeKi = p.ki;
+fxEvents.length = 0;
+for (const age of [0.05001, 0.21]) {
+   p.stT = age;
+   assert.equal(p.receive(50, 0, 14, 10, false), vm.runInContext('P_IGNORE', context),
+      'later dodge invulnerability must not grant a perfect counter');
+}
+assert.equal(p.ki, dodgeKi);
+assert(!fxEvents.some(e => e.name === 'impact'));
+p.toFree();
 const mikiriFoe = { x: 100, y: 0, posture: 0, maxPosture: 100, releaseToken() {}, setSt(st) { this.st = st; } };
 fxEvents.length = 0;
 Game.prototype.onMikiri.call(g, p, mikiriFoe);
@@ -456,7 +510,7 @@ assert(vm.runInContext('PLAYER_SYNC', context).includes('poiseLeft'));
 assert(vm.runInContext('COOP_PLAYER_FIELDS', context).includes('poiseLeft'));
 assert(vm.runInContext('PLAYER_SYNC', context).includes('artHitsLeft'));
 assert(vm.runInContext('COOP_PLAYER_FIELDS', context).includes('artHitsLeft'));
-assert.equal(vm.runInContext('NET_VERSION', context), 11);
+assert.equal(vm.runInContext('NET_VERSION', context), 12);
 assert.equal(vm.runInContext('COOP_SYNC_INTERVAL', context), 0.05);
 const Duel = vm.runInContext('Duel', context);
 const duel = { n: 1, players: [p] };
@@ -478,8 +532,74 @@ g.nearShrine = () => shrine;
 g.findRestBlockers = () => [];
 g.banner = () => {};
 g.saveNow = () => {};
+for (const name of ['restAtShrine', 'canUseShrine', 'activateShrineAction']) g[name] = Game.prototype[name];
+g.player = p;
+g.note = () => {};
 Game.prototype.interact.call(g);
 assert.equal(p.throws, 3);
+assert.equal(g.shrineMenu, shrine);
+g.skillPoints = 3;
+g.saveSoon = () => {};
+weaponMenu.atShrine = false;
+weaponMenu.learn(0);
+assert(!g.skills.has('keen'), 'equipment must not spend skill points');
+assert.equal(g.skillPoints, 3);
+weaponMenu.show(true);
+weaponMenu.learn(0);
+assert(g.skills.has('keen'), 'safe shrine menu can learn skills');
+assert.equal(g.skillPoints, 2);
+g.findRestBlockers = () => [{}];
+weaponMenu.learn(1);
+assert(!g.skills.has('crush'), 'unsafe shrine must reject skill upgrades');
+assert.equal(g.skillPoints, 2);
+g.findRestBlockers = () => [];
+const destination = { x: 1200, y: 800, name: 'Travel Shrine', discovered: false };
+g.world.shrines.push(destination);
+g.activateShrineAction('travel:1');
+assert.equal(g.shrineMenu, shrine, 'undiscovered destinations are locked');
+destination.discovered = true;
+g.findRestBlockers = s => s === destination ? [{}] : [];
+g.activateShrineAction('travel:1');
+assert.equal(g.shrineMenu, shrine, 'unsafe destinations are locked');
+g.findRestBlockers = () => [];
+g.activateShrineAction('travel:1');
+assert.equal(p.x, destination.x);
+assert.equal(p.y, destination.y + 60);
+assert.equal(g.lastShrine, destination);
+assert.equal(g.shrineMenu, destination);
+assert.equal(p.hp, p.maxHp);
+assert.equal(g.camX, p.x);
+g.activateShrineAction('leave');
+assert.equal(g.shrineMenu, null);
+weaponMenu.learn(1);
+assert(!g.skills.has('crush'), 'closing a shrine revokes upgrade access');
+g.skills.delete('keen');
+g.world.shrines.pop();
+const menuCanvas = new Proxy({
+   measureText: s => ({ width: s.length * 7 }),
+   createLinearGradient: () => ({ addColorStop() {} }),
+}, { get: (obj, key) => key in obj ? obj[key] : () => {} });
+const menuGame = Object.assign(Object.create(Game.prototype), g, {
+   text() {}, coop: null, guestJourney: false, pauseSelection: 0,
+   resetMapConfirmT: 0, newGameConfirmT: 0, shrineMenu: shrine, shrineSelection: 0,
+});
+for (const [width, height] of [[1280, 720], [640, 360]]) {
+   menuGame.drawPauseMenu(menuCanvas, width, height);
+   menuGame.drawShrineMenu(menuCanvas, width, height);
+   for (const rect of [...menuGame.pauseRects, ...menuGame.shrineRects]) {
+      assert(rect.x >= 0 && rect.y >= 0 && rect.x + rect.w <= width && rect.y + rect.h <= height,
+         'menu buttons must fit the viewport');
+   }
+}
+let activated = null;
+const input = { hit: key => key === 'ArrowDown', mouseHit: () => false };
+menuGame.navigateMenu(input, [{ action: 'a' }, { action: 'locked', disabled: true }, { action: 'b' }],
+   'pauseSelection', action => { activated = action; });
+assert.equal(menuGame.pauseSelection, 1);
+input.hit = key => key === 'Enter';
+assert(menuGame.navigateMenu(input, [{ action: 'a' }, { action: 'locked', disabled: true }, { action: 'b' }],
+   'pauseSelection', action => { activated = action; }));
+assert.equal(activated, 'b', 'keyboard selection skips disabled actions');
 p.throws = 0;
 p.respawn(shrine.x, shrine.y);
 assert.equal(p.throws, 3);

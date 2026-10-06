@@ -3,6 +3,7 @@
 const COOP_ENEMY_FIELDS = ['x', 'y', 'facing', 'st', 'stT', 'stDur', 'hp', 'posture', 'lives', 'aware', 'deadT',
     'walkAnim', 'hitFlash', 'blockAnim', 'showBars', 'perilousT', 'beingExecuted'];
 const COOP_PLAYER_FIELDS = ['x', 'y', 'facing', 'st', 'stT', 'phase', 'combo', 'guarding', 'guardHeld', 'sprinting',
+    'dodgeStartX', 'dodgeStartY',
     'walkAnim', 'scarf', 'swingSign', 'stabAttack', 'hurtFlash', 'invuln', 'vx', 'vy', 'hp', 'maxHp', 'maxGourds', 'maxPosture',
     'posture', 'deflectStreak', 'deflectPost', 'dmgTaken', 'guardWindow', 'stealth', 'dodgeIframes', 'poiseLeft', 'artHitsLeft'];
 const COOP_SYNC_INTERVAL = 0.05;
@@ -281,7 +282,7 @@ class Coop {
         if (Number.isFinite(d.vy)) p.vy = U.clamp(d.vy, -1000, 1000);
         if (typeof d.guarding === 'boolean') p.guarding = d.guarding;
         if (Number.isFinite(d.deflectStreak)) p.deflectStreak = U.clamp(d.deflectStreak, 0, 6);
-        if (d.result === P_DEFLECT) {
+        if (d.result === P_DEFLECT || d.result === P_PERFECT) {
             p.guardFlash = 0.25;
             const ang = Number.isFinite(d.sourceX) && Number.isFinite(d.sourceY)
                 ? Math.atan2(d.sourceY - p.y, d.sourceX - p.x) : p.facing;
@@ -299,8 +300,23 @@ class Coop {
             this.game.flash(rgb(255, 235, 180), 0.14 + k * 0.02);
             this.game.sfx.play('PARRY');
             if (d.perilous) this.game.fx.impact(cx, cy, 'sweep');
-            const text = p.deflectStreak > 1 ? 'DEFLECT x' + p.deflectStreak : 'DEFLECT';
-            this.game.fx.text(text, p.x, p.y - 42, rgb(255, 215, 90), 16 + k * 3);
+            const perfect = d.result === P_PERFECT;
+            const text = perfect ? 'PERFECT PARRY' : p.deflectStreak > 1 ? 'DEFLECT x' + p.deflectStreak : 'DEFLECT';
+            this.game.fx.text(text, p.x, p.y - 42, perfect ? rgb(255, 250, 200) : rgb(255, 215, 90),
+                (perfect ? 20 : 16) + k * 3);
+            if (perfect) this.game.fx.impact(cx, cy, 'parry');
+        } else if (d.result === P_PERFECT_DODGE) {
+            p.leaveDodgeAfterimage();
+            const ang = Number.isFinite(d.sourceX) && Number.isFinite(d.sourceY)
+                ? Math.atan2(d.sourceY - p.y, d.sourceX - p.x) : p.facing;
+            const cx = p.x + Math.cos(ang) * (p.r + 12), cy = p.y + Math.sin(ang) * (p.r + 12);
+            this.game.fx.sparks(cx, cy, ang, 2.2, 24, 520, rgb(160, 220, 255));
+            this.game.fx.ring(cx, cy, 8, 105, 0.22, 4, rgb(190, 235, 255));
+            this.game.fx.text('PERFECT DODGE', p.x, p.y - 42, rgb(190, 235, 255), 20);
+            this.game.fx.impact(cx, cy, 'dodge');
+            this.game.hitstop(0.075);
+            this.game.slowmo(0.14);
+            this.game.flash(rgb(180, 230, 255), 0.16);
         } else if (d.result === P_BLOCK) {
             const ang = Number.isFinite(d.sourceX) && Number.isFinite(d.sourceY)
                 ? Math.atan2(d.sourceY - p.y, d.sourceX - p.x) : p.facing;
@@ -409,6 +425,9 @@ class Coop {
         if (res === P_IGNORE) return;
         if (res === P_HIT) {
             this.game.fx.text(String(Math.trunc(atk.damage * target.dmgTaken)), target.x, target.y - 30, rgb(255, 160, 120), 13);
+        } else if (res === P_PERFECT_DODGE) {
+            att.recoil(target.angleTo(att));
+            this.game.fx.text('COUNTER OPENING', att.x, att.y - 40, rgb(190, 235, 255), 14);
         }
         if (target !== this.game.player) this.impact(target, res, att.x, att.y);
     }
@@ -459,6 +478,7 @@ class Coop {
     draw(g) {
         for (const [id, b] of this.bodies) {
             this.drawEntity(b, () => {
+                b.drawAfterimage(g, this.game.time);
                 b.draw(g, this.game.time);
                 g.font = 'bold 13px Georgia, serif';
                 this.game.text(g, 'P' + (id + 1), b.x, b.y - 35, rgb(120, 225, 220), true);

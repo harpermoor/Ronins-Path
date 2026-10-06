@@ -15,7 +15,7 @@ const IN_GUARD = 1, IN_SPRINT = 2, IN_ATTACK = 4, IN_PARRY = 8, IN_DODGE = 16, I
 const NEUTRAL_INPUT = [0, 0, 0, 0, 0];
 const DUEL_PHASES = ['COUNTDOWN', 'FIGHT', 'KO', 'MATCH_OVER'];
 const PLAYER_STATES = ['FREE', 'ATTACK', 'THROW', 'ART', 'DRAGON', 'DODGE', 'STAGGER', 'HEAL', 'DEATHBLOW', 'MIKIRI', 'IAI', 'DEAD'];
-const PLAYER_SYNC = ['x', 'y', 'facing', 'st', 'stT', 'vx', 'vy', 'moveX', 'moveY', 'aimX', 'aimY', 'guardHeld', 'bufAttack', 'bufParry',
+const PLAYER_SYNC = ['x', 'y', 'facing', 'st', 'stT', 'vx', 'vy', 'moveX', 'moveY', 'aimX', 'aimY', 'dodgeStartX', 'dodgeStartY', 'guardHeld', 'bufAttack', 'bufParry',
     'bufDodge', 'bufHeal', 'bufIai', 'bufArt', 'bufDragon', 'artIdx', 'artAtkEnd', 'dragonDone', 'combo', 'swingId', 'phase', 'swingSign',
     'comboGrace', 'guarding', 'guardStart', 'guardWindow', 'spam', 'deflectStreak', 'deflectStreakT', 'guardFlash', 'dodgeDx', 'dodgeDy',
     'dodgeHeld', 'sprinting', 'invuln', 'staggerDur', 'hurtFlash', 'postureCd', 'walkAnim', 'scarf', 'hp', 'posture', 'gourds',
@@ -694,7 +694,17 @@ class Duel {
         const res = foe.receive(p.x, p.y, atk.damage, atk.posture, !!atk.pierce);
         if (res === P_IGNORE) return;
         p.hitSet.add(foe);
-        if (res === P_DEFLECT) this.onDeflected(p, foe, atk);
+        if (res === P_DEFLECT || res === P_PERFECT) this.onDeflected(p, foe, atk, res === P_PERFECT);
+        else if (res === P_PERFECT_DODGE) {
+            foe.dodgeAfterimage = p.afterimage || null;
+            foe.posture += 18;
+            foe.postureCd = 1.0;
+            if (foe.posture >= foe.maxPosture) this.breakPosture(foe);
+            else {
+                foe.recoil(foe.angleTo(p));
+                this.fx.text('COUNTER OPENING', foe.x, foe.y - 40, rgb(190, 235, 255), 14);
+            }
+        }
         else if (res === P_HIT) {
             p.ki = Math.min(100, p.ki + 4);
             this.fx.text(String(Math.trunc(foe.lastDmgTaken)), foe.x, foe.y - 30, WHITE, 13);
@@ -726,16 +736,16 @@ class Duel {
     }
 
     /** The defender deflected: the attacker's posture takes the punishment, and heavy swings leave an opening. */
-    onDeflected(att, def, atk) {
+    onDeflected(att, def, atk, perfect) {
         const chain = 1 + 0.08 * Math.min(def.deflectStreak - 1, 5);
-        att.posture += (atk.posture * 1.3 + 6) * chain;
+        att.posture += (atk.posture * (perfect ? 2 : 1.3) + (perfect ? 12 : 6)) * chain;
         att.postureCd = 1.0;
         const away = def.angleTo(att);
         att.move(this.arena, Math.cos(away) * 12, Math.sin(away) * 12);
         if (att.posture >= att.maxPosture) this.breakPosture(att);
-        else if (atk.heavy) {
+        else if (perfect || atk.heavy) {
             att.recoil(away);
-            this.fx.text('OPENING', att.x, att.y - 40, rgb(255, 235, 170), 15);
+            this.fx.text(perfect ? 'PERFECT OPENING' : 'OPENING', att.x, att.y - 40, rgb(255, 235, 170), 15);
         }
     }
 
@@ -931,7 +941,10 @@ class Duel {
             strokeEllipse(g, p.x - p.r - 8, p.y - p.r * 0.6 + 6, (p.r + 8) * 2, (p.r * 0.6 + 2) * 2);
         }
         const order = this.players.filter(p => !p.gone).sort((p, q) => (q.st === 'DEAD') - (p.st === 'DEAD') || p.y - q.y);
-        for (const p of order) p.draw(g, this.time);
+        for (const p of order) {
+            p.drawAfterimage(g, this.time);
+            p.draw(g, this.time);
+        }
         this.realFx.drawWorld(g);
         this.realFx.drawPetals(g);
         for (const p of order) this.drawTag(g, p);
