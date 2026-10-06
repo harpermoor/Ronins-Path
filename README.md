@@ -14,7 +14,7 @@ Press **C** or **middle mouse** to lock onto the nearest enemy within 550 units;
 
 Close-range combat arts advance toward nearby enemies in your aim direction. All combat arts can absorb two hits without being interrupted (you still take damage); hammer arts retain their additional poise. Whirlwind Slash now reaches a wider area.
 
-Red sweeps can be deflected, but require a tap within half the normal parry window; holding block will not stop them. Mikiri counters and successful red-sweep deflects trigger a brief full-screen impact effect. Sword clashes need fewer clicks and have larger targets; a timeout stuns and knocks back both fighters without dealing damage.
+Red sweeps can be deflected, but require a tap within half the normal parry window; holding block will not stop them. Mikiri counters and successful red-sweep deflects trigger a brief full-screen impact effect.
 
 ## Multiplayer relay
 

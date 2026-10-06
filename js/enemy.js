@@ -86,7 +86,6 @@ class Enemy extends Actor {
         this.blockStreak = 0;
         this.attackRead = 0;
         this.lastSwingT = -99;
-        this.clashCd = 2;
         this.flinchCount = 0;
         this.blockAnim = 0;
         this.hitFlash = 0;
@@ -396,7 +395,6 @@ class Enemy extends Actor {
         this.perilousT -= dt;
         this.dodgeCd -= dt;
         this.pressureT -= dt;
-        this.clashCd -= dt;
         if (g.time - this.lastSwingT > 1.1) this.attackRead = Math.max(0, this.attackRead - dt * 2);
         if (Math.abs(this.kbx) + Math.abs(this.kby) > 1) {
             this.move(g.world, this.kbx * dt, this.kby * dt);
@@ -654,7 +652,8 @@ class Enemy extends Actor {
                 g.fx.line(x + Math.cos(f) * this.r, y + Math.sin(f) * this.r, x + Math.cos(f) * (atk.range + 10),
                     y + Math.sin(f) * (atk.range + 10), 0.18, 3, c);
             } else {
-                g.fx.slash(x, y, atk.range * 0.8, f + atk.arc / 2, -atk.arc, 0.22, this.type === 'BRUTE' ? 10 : 6, c);
+                const reach = this.type === 'BRUTE' && atk === EA.BR_SWEEP ? atk.range : atk.range * 0.8;
+                g.fx.slash(x, y, reach, f + atk.arc / 2, -atk.arc, 0.22, this.type === 'BRUTE' ? 10 : 6, c);
             }
         }
     }
@@ -724,15 +723,10 @@ class Enemy extends Actor {
         const wasAware = this.aware;
         if (!this.aware) this.alert(true);
         const neutral = wasAware && (this.st === 'ENGAGE' || this.st === 'ALERT' || this.st === 'RETURN');
-        // blades meet mid-swing: elites lock swords with the player
-        const trading = wasAware && this.atk !== null && !this.atk.perilous
-            && (this.st === 'ACTIVE' || (this.st === 'WINDUP' && this.stDur - this.stT < 0.35));
-        if (trading && this.tryClash(p, pa, 0.55)) return;
         const readBonus = Math.max(0, this.attackRead - 1) * 0.08;
         const blockChance = Math.min(0.92, this.blockChance + this.blockStreak * 0.1 + readBonus);
         if (neutral && !pa.pierce && this.rnd.nextDouble() < blockChance * (pa.art ? 0.5 : 1)) {
             this.facing = ang + Math.PI;
-            if (this.blockStreak >= 1 && this.tryClash(p, pa, 0.25)) return;
             const skill = this.elite ? 0.3 : this.vet ? 0.18 : this.type === 'RONIN' ? 0.12 : this.type === 'SPEAR' ? 0.08 : 0.04;
             const parryChance = Math.min(0.9, skill + this.blockStreak * 0.18 + Math.max(0, this.attackRead - 1) * 0.2);
             if (!pa.art && pa.arc > 0 && (this.blockStreak > 0 || this.attackRead > 1)
@@ -803,18 +797,6 @@ class Enemy extends Actor {
                 this.kby = Math.sin(ang) * 140;
             }
         }
-    }
-
-    /** Elites may lock blades with the (solo) player, starting a clash of wills. */
-    tryClash(p, pa, chance) {
-        const g = this.g;
-        if (!this.elite || typeof g.startClash !== 'function' || g.coop || g.clash || p !== g.player) return false;
-        if (pa.art || pa.pierce || this.clashCd > 0 || p.st !== 'ATTACK') return false;
-        if (Math.abs(U.angDiff(this.facing, this.angleTo(p))) > 1.0) return false;
-        if (this.rnd.nextDouble() >= chance) return false;
-        this.clashCd = 10 + this.rnd.nextDouble() * 6;
-        g.startClash(this, p);
-        return true;
     }
 
     parryPlayer(p, ang, cx, cy) {
@@ -979,10 +961,6 @@ class Enemy extends Actor {
         } else if (st === 'RECOVER' && atk !== null && slashing) {
             blade = facing - atk.arc / 2;
             handRel = -0.5;
-        } else if (st === 'CLASH') {
-            blade = facing - 0.35;
-            handRel = 0.1;
-            extend = 6;
         } else if (this.blockAnim > 0) {
             blade = facing - 1.4;
             handRel = 0.15;

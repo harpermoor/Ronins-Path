@@ -33,6 +33,6 @@ node tests/weapons.test.js
 node tests/relay.test.js
 ```
 
-Run one of those commands to target a single test file. Syntax-check an individual browser script with `node --check js/<file>.js`. Test fixtures are partial `Game` stand-ins, so guard new `Game` hooks called from `Enemy` or `Player` code (for example, `typeof g.startClash === 'function'`).
+Run one of those commands to target a single test file. Syntax-check an individual browser script with `node --check js/<file>.js`. Test fixtures are partial `Game` stand-ins, so guard new `Game` hooks called from `Enemy` or `Player` code.
 
 For browser-level exploration, `.vscode/mcp.json` configures the Playwright MCP server. Start the local game with `npm start` and browse to `http://localhost:3000`.

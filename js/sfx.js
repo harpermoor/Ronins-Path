@@ -21,7 +21,7 @@ class Sfx {
                 this.out = this.ctx.createGain();
                 this.out.gain.value = 0.85;
                 if (this.ctx.createDynamicsCompressor) {
-                    // Glues rapid overlapping clashes together without clipping.
+                    // Glues rapid overlapping hits together without clipping.
                     const comp = this.ctx.createDynamicsCompressor();
                     comp.threshold.value = -14;
                     comp.knee.value = 8;
@@ -53,7 +53,7 @@ class Sfx {
         }
         const src = this.ctx.createBufferSource();
         src.buffer = buf;
-        // Slight pitch variance keeps rapid repeated clashes from sounding mechanical (presentation only).
+        // Slight pitch variance keeps rapid repeated hits from sounding mechanical (presentation only).
         src.playbackRate.value = 0.95 + Math.random() * 0.1;
         src.connect(this.out);
         src.onended = () => {

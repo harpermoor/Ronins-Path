@@ -142,7 +142,7 @@ const CHARMS = [
     { id: 'feather', name: "Kite's Feather", kanji: '羽', unlock: 1, deflect: 0.035,
         desc: 'Light as the wind. Your guard meets blades sooner.', info: 'Deflect window +35ms' },
     { id: 'bell', name: 'Spirit Bell', kanji: '鈴', unlock: 1, charges: 1,
-        desc: 'Its chime holds the echo of every clash.', info: '+1 max Combat Art charge' },
+        desc: 'Its chime holds the echo of every deflect.', info: '+1 max Combat Art charge' },
     { id: 'ironheart', name: 'Iron Heart', kanji: '鉄心', unlock: 2, posture: 30,
         desc: 'A cold stone that keeps your stance unbroken.', info: 'Posture +30' },
     { id: 'onimask', name: 'Oni Mask', kanji: '鬼', unlock: 3, dmg: 1.2, def: 1.2,

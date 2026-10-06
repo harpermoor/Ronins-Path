@@ -25,7 +25,7 @@ const SKILLS = [
         info: 'Deflect window +20ms', apply: s => { s.deflect += 0.02; } },
     { id: 'resonance', branch: 1, tier: 2, cost: 2, name: 'Resonant Deflect', kanji: '\u97ff', desc: 'Your deflects ring through the enemy\'s bones.',
         info: 'Deflects deal +30% posture damage', apply: s => { s.deflectPost *= 1.3; } },
-    { id: 'echo', branch: 1, tier: 3, cost: 3, name: 'Spirit Echo', kanji: '\u970a', desc: 'Every clash feeds the art within you.',
+    { id: 'echo', branch: 1, tier: 3, cost: 3, name: 'Spirit Echo', kanji: '\u970a', desc: 'Every deflect feeds the art within you.',
         info: '+1 art charge  -  Combat Arts +20% damage', apply: s => { s.charges += 1; s.artDmg *= 1.2; } },
     { id: 'unbroken', branch: 1, tier: 4, cost: 4, name: 'Unbroken', kanji: '\u4e0d', desc: 'A perfect deflect settles your breathing.',
         info: 'Deflect restores 12 posture', apply: s => { s.deflectRecover += 12; } },

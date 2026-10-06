@@ -300,115 +300,27 @@ assert.equal(parrier.st, 'WINDUP');
 assert.equal(parrier.hasToken, true);
 assert.equal(parrier.attackRead, 0);
 
-// sword clash: elites lock blades with a solo player mid-swing; NG+ needs more clicks and has more targets
-const clashParams = vm.runInContext('clashParams', context);
-const ng0 = clashParams(0), ng7 = clashParams(7);
-assert(ng7.step < ng0.step && ng7.penalty > ng0.penalty && ng7.targets > ng0.targets);
-assert(ng0.enemyPush > 0 && ng7.enemyPush > ng0.enemyPush);
-assert(ng7.radius < ng0.radius && ng0.targets > 1);
-assert(ng0.step >= 0.18 && ng7.step >= 0.12);
-assert(ng0.enemyPush <= 0.02 && ng7.enemyPush < 0.05);
-assert(ng0.radius >= 48 && ng7.radius >= 28);
-assert(ng0.penalty < 0.06 && ng7.penalty < 0.165);
-const clashPlayerForQte = { x: 0, y: 0, st: 'CLASH' };
-const clashEnemyForQte = { x: 100, y: 0, st: 'CLASH' };
-let qteMouseHit = false, qteMouseX = 100, qteMouseY = 400;
-const qteTargets = [{ x: 100, y: 400, r: ng0.radius }, { x: 300, y: 400, r: ng0.radius }, { x: 500, y: 400, r: ng0.radius }];
-const qteGame = Object.assign(Object.create(Game.prototype), {
-    clash: { e: clashEnemyForQte, params: ng0, progress: 0.5, timeLeft: 20, targets: qteTargets, flash: 0, wrongT: 0, ang: 0 },
-    player: clashPlayerForQte,
-    input: { mouseHit: () => qteMouseHit, mx: qteMouseX, my: qteMouseY },
-    canvas: { width: 1000, height: 800 },
-    fx: { sparks(...args) { this.sparkCalls.push(args); }, ring() { this.ringCount++; }, update() {},
-        sparkCalls: [], ringCount: 0 },
-    sfx: { play(name) { this.lastSound = name; } },
-    hitstop(seconds) { this.lastHitstop = seconds; },
-    parryBurst(x, y, strength) { this.lastParry = [x, y, strength]; },
-    shake(amount) { this.lastShake = amount; },
-    zoomKick(amount) { this.lastZoomKick = amount; },
-    flash(color, amount) { this.lastFlash = amount; },
-    shakeAmt: 0,
-    zoomKickV: 0,
-    flashA: 0,
-});
-qteGame.tickClash(0.5);
-assert.equal(qteGame.clash.targets.length, ng0.targets);
-assert.equal(qteGame.clash.progress, 0.5 - 0.5 * ng0.enemyPush);
-assert.equal(qteGame.clash.timeLeft, 19.5);
-const progressAfterPush = qteGame.clash.progress;
-qteMouseHit = true;
-qteGame.input.mx = qteMouseX;
-qteGame.input.my = qteMouseY;
-qteGame.tickClash(1 / 60);
-assert.equal(qteGame.clash.targets.length, ng0.targets);
-assert.equal(qteGame.clash.progress, progressAfterPush - ng0.enemyPush / 60 + ng0.step);
-assert.equal(qteGame.clash.timeLeft, 19.5 - 1 / 60);
-assert(qteGame.fx.sparkCalls.some(args => args[4] === 24));
-assert(qteGame.fx.ringCount > 0);
-assert.equal(qteGame.sfx.lastSound, 'CLANG');
-assert.equal(qteGame.lastHitstop, 0.045);
-assert.equal(qteGame.lastShake, 6);
-assert(qteGame.lastZoomKick > 0 && qteGame.lastFlash > 0 && qteGame.lastParry[2] > 0);
-qteMouseHit = false;
-const progressAfterHit = qteGame.clash.progress;
-qteGame.tickClash(0.5);
-assert.equal(qteGame.clash.progress, progressAfterHit - 0.5 * ng0.enemyPush);
-assert.equal(qteGame.clash.targets.length, ng0.targets);
-
-const timeoutText = [];
-const timeoutPlayer = { x: 0, y: 0, hp: 100, st: 'CLASH', posture: 0, maxPosture: 100, invuln: 1,
-    toFree() { this.st = 'FREE'; }, receive() { assert.fail('A timeout must not damage the player'); } };
-const timeoutEnemy = { x: 100, y: 0, hp: 100, st: 'CLASH', dmgScale: 1, posture: 0, maxPosture: 100,
-    setSt(state) { this.st = state; } };
-const timeoutGame = Object.assign(Object.create(Game.prototype), {
-    clash: { e: timeoutEnemy, params: Object.assign({}, ng0, { enemyPush: 0 }), progress: 0.5,
-        timeLeft: 1 / 60, targets: [], flash: 0, wrongT: 0, ang: 0 },
-    player: timeoutPlayer,
-    input: { mouseHit: () => false, mx: 0, my: 0 },
-    canvas: { width: 1000, height: 800 },
-    fx: { sparks() {}, ring() {}, update() {}, text(label) { timeoutText.push(label); } },
-    sfx: { play() {} },
-    shake() {}, hitstop() {}, slowmo() {}, flash() {}, parryBurst() {},
-    shakeAmt: 0, zoomKickV: 0, flashA: 0, time: 0,
-});
-timeoutGame.tickClash(1 / 60);
-assert.equal(timeoutGame.clash, null);
-assert.equal(timeoutPlayer.st, 'STAGGER');
-assert.equal(timeoutEnemy.st, 'STUN');
-assert.equal(timeoutPlayer.staggerDur, 1.1);
-assert.equal(timeoutEnemy.stDur, 1.1);
-assert.equal(timeoutPlayer.vx, -360);
-assert.equal(timeoutEnemy.kbx, 360);
-assert.equal(timeoutPlayer.hp, 100);
-assert.equal(timeoutPlayer.posture, 0);
-assert.equal(timeoutEnemy.hp, 100);
-assert(timeoutText.includes('CLASH DRAW'));
 assert(EA.R_SWEEP.sweep && EA.R_SWEEP.copy(1, 1).sweep);
 assert(!EA.R_THRUST.sweep);
-const clashPlayer = Object.assign({}, attacker, { st: 'ATTACK', facing: 0 });
-const clashGame = Object.assign(Object.create(combatGame), { player: clashPlayer, coop: null, clash: null,
-    clashes: 0, startClash(e) { this.clashes++; this.clash = { e }; e.setSt('CLASH'); } });
-const duelist = new Enemy(clashGame, 'RONIN', 100, 100, true, null, 9);
+const sweepFxCalls = [];
+const sweepGame = { difficulty: game.difficulty, fx: { slash(...args) { sweepFxCalls.push(args); } }, sfx: { play() {} } };
+const oni = new Enemy(sweepGame, 'BRUTE', 100, 100, false, null, 9);
+oni.atk = EA.BR_SWEEP;
+oni.stDur = oni.atk.windup;
+oni.stT = oni.stDur;
+oni.windup(0, 0, 0, { r: 16 });
+assert.equal(sweepFxCalls[0][2], EA.BR_SWEEP.range);
+assert.equal(sweepFxCalls[0][4], -EA.BR_SWEEP.arc);
+
+const eliteAttacker = Object.assign({}, attacker, { st: 'ATTACK', facing: 0 });
+const duelist = new Enemy(combatGame, 'RONIN', 100, 100, true, null, 9);
 duelist.aware = true;
-duelist.clashCd = 0;
 duelist.facing = Math.PI;
-duelist.rnd.nextDouble = () => 0;
 duelist.startCombo([EA.R_BACKHAND], 1);
 duelist.setSt('ACTIVE');
 const hpBefore = duelist.hp;
-duelist.takeHit(clashPlayer, parryStrike);
-assert.equal(clashGame.clashes, 1);
-assert.equal(duelist.st, 'CLASH');
-assert.equal(duelist.hp, hpBefore);
-assert(duelist.clashCd > 0);
-const grunt = new Enemy(clashGame, 'RONIN', 100, 100, false, null, 9);
-grunt.aware = true;
-grunt.facing = Math.PI;
-grunt.clashCd = 0;
-grunt.startCombo([EA.R_BACKHAND], 1);
-grunt.setSt('ACTIVE');
-clashGame.clash = null;
-grunt.takeHit(clashPlayer, parryStrike);
-assert.equal(clashGame.clashes, 1);
+duelist.takeHit(eliteAttacker, parryStrike);
+assert.equal(duelist.hp, hpBefore - parryStrike.damage);
+assert.equal(duelist.st, 'ACTIVE');
 
 console.log('Enemy variation and scaling checks passed');

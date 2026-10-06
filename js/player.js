@@ -189,7 +189,7 @@ class Player extends Actor {
     invulnerable() {
         const st = this.st;
         const art = this.curArt;
-        return this.invuln > 0 || st === 'DEATHBLOW' || st === 'MIKIRI' || st === 'IAI' || st === 'CLASH' || (st === 'DODGE' && this.stT < this.dodgeIframes)
+        return this.invuln > 0 || st === 'DEATHBLOW' || st === 'MIKIRI' || st === 'IAI' || (st === 'DODGE' && this.stT < this.dodgeIframes)
             || (st === 'ART' && art.iframes !== undefined && this.stT >= art.iframes[0] && this.stT < art.iframes[1]);
     }
 
@@ -1080,9 +1080,6 @@ class Player extends Actor {
         } else if (st === 'DEATHBLOW') {
             handRel = 0;
             blade = facing + (this.stT < 0.13 ? 1.4 : -0.6);
-        } else if (st === 'CLASH') {
-            handRel = 0.1;
-            blade = facing + 0.35;
         } else if (st === 'STAGGER') {
             blade = facing + 1.6;
         } else if (st === 'THROW') {
