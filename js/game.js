@@ -13,7 +13,7 @@ const SUB_FONT = 'italic 20px serif';
 const KANJI_FAMILY = "'Yu Mincho','MS Mincho','Hiragino Mincho ProN','Noto Serif JP','Noto Serif CJK JP',serif";
 const KANJI_FONT = 'bold 26px ' + KANJI_FAMILY;
 const BIG_KANJI = 'bold 150px ' + KANJI_FAMILY;
-const LOSER_DEATH_TAUNTS = [
+const COLTON_DEATH_TAUNTS = [
     'The Ashen Daimyo calls that a warm-up. He is being generous.',
     'Even the bandits saw that coming.',
     'A shrine can restore your health, not your timing.',
@@ -58,6 +58,8 @@ class Game {
         this.shrineMenu = null;
         this.shrineRects = [];
         this.shrineSelection = 0;
+        this.shrineCategory = 'sanctuary';
+        this.shrinePage = 0;
         this.kills = 0;
         this.elitesSlain = 0;
         this.totalElites = 0;
@@ -468,6 +470,8 @@ class Game {
             }
             this.shrineMenu = s;
             this.shrineSelection = 0;
+            this.shrineCategory = 'sanctuary';
+            this.shrinePage = 0;
             this.shrineRects = [];
             this.restAtShrine(s);
         }
@@ -499,6 +503,19 @@ class Game {
     activateShrineAction(action) {
         if (action === 'leave') {
             this.shrineMenu = null;
+            return;
+        }
+        if (action === 'category:sanctuary' || action === 'category:travel') {
+            this.shrineCategory = action.slice(9);
+            this.shrineSelection = 2;
+            this.shrineRects = [];
+            return;
+        }
+        if (action === 'travel-prev' || action === 'travel-next') {
+            const lastPage = Math.max(0, Math.ceil(this.world.shrines.length / 6) - 1);
+            this.shrinePage = U.clamp((this.shrinePage || 0) + (action === 'travel-next' ? 1 : -1), 0, lastPage);
+            this.shrineSelection = 2;
+            this.shrineRects = [];
             return;
         }
         if (!this.canUseShrine()) {
@@ -543,14 +560,19 @@ class Game {
         const buttons = rects.filter(r => !r.disabled);
         if (!buttons.length) return false;
         this[selection] = U.clamp(this[selection], 0, buttons.length - 1);
-        if (inp.hit('ArrowUp')) this[selection] = (this[selection] + buttons.length - 1) % buttons.length;
-        if (inp.hit('ArrowDown')) this[selection] = (this[selection] + 1) % buttons.length;
+        const hovered = buttons.findIndex(r => inp.mx >= r.x && inp.mx <= r.x + r.w && inp.my >= r.y && inp.my <= r.y + r.h);
+        if (hovered >= 0 && (inp.mx !== this.menuPointerX || inp.my !== this.menuPointerY || inp.mouseHit(1)))
+            this[selection] = hovered;
+        this.menuPointerX = inp.mx;
+        this.menuPointerY = inp.my;
+        if (inp.hit('ArrowUp') || inp.hit('ArrowLeft')) this[selection] = (this[selection] + buttons.length - 1) % buttons.length;
+        if (inp.hit('ArrowDown') || inp.hit('ArrowRight')) this[selection] = (this[selection] + 1) % buttons.length;
         if (inp.hit('Enter') || inp.hit('NumpadEnter')) {
             activate(buttons[this[selection]].action);
             return true;
         }
         if (inp.mouseHit(1)) {
-            const hit = buttons.find(r => inp.mx >= r.x && inp.mx <= r.x + r.w && inp.my >= r.y && inp.my <= r.y + r.h);
+            const hit = buttons[hovered];
             if (hit) {
                 activate(hit.action);
                 return true;
@@ -956,8 +978,8 @@ class Game {
         this.shake(12);
         this.boss = null;
         this.deathCount++;
-        this.lastDeathTaunt = this.difficultyTier === 'loser'
-            ? LOSER_DEATH_TAUNTS[(this.deathCount - 1) % LOSER_DEATH_TAUNTS.length] : null;
+        this.lastDeathTaunt = this.difficultyTier === 'colton'
+            ? COLTON_DEATH_TAUNTS[(this.deathCount - 1) % COLTON_DEATH_TAUNTS.length] : null;
         // as in Sekiro, death costs half of the EXP not yet turned into a skill point
         this.lastExpLoss = Math.floor(this.exp / 2);
         this.exp -= this.lastExpLoss;
@@ -1281,12 +1303,14 @@ class Game {
 
     pauseButton(g, action, title, copy, x, y, w, h, opts) {
         const o = opts || {}, disabled = !!o.disabled;
-        this.pauseRects.push({ action, x, y, w, h, disabled });
+        (o.rects || this.pauseRects).push({ action, x, y, w, h, disabled });
         roundRectPath(g, x, y, w, h, 6);
-        g.fillStyle = disabled ? 'rgba(30,25,23,0.72)' : o.primary ? 'rgb(91,38,31)' : o.danger ? 'rgb(54,27,25)' : 'rgb(46,36,32)';
+        g.fillStyle = disabled ? 'rgba(30,25,23,0.72)' : o.pressed ? 'rgb(111,76,40)' : o.hovered ? 'rgb(76,57,39)'
+            : o.primary ? 'rgb(91,38,31)' : o.danger ? 'rgb(54,27,25)' : 'rgb(46,36,32)';
         g.fill();
         setStroke(g, 1, false);
-        g.strokeStyle = disabled ? 'rgb(57,49,44)' : o.primary ? 'rgb(164,79,59)' : o.danger ? 'rgb(112,54,47)' : 'rgb(84,66,54)';
+        g.strokeStyle = disabled ? 'rgb(57,49,44)' : o.hovered ? 'rgb(255,215,140)'
+            : o.primary ? 'rgb(164,79,59)' : o.danger ? 'rgb(112,54,47)' : 'rgb(84,66,54)';
         g.stroke();
         g.save();
         g.beginPath();
@@ -1327,9 +1351,21 @@ class Game {
     }
 
     drawShrineMenu(g, sw, sh) {
-        const shrines = this.world.shrines, W = 660, H = 260 + shrines.length * 58;
+        const shrines = this.world.shrines, W = 760, H = 590;
         const scale = Math.min(1, (sw - 20) / W, (sh - 20) / H);
         const X = (sw / scale - W) / 2, Y = (sh / scale - H) / 2;
+        const travel = this.shrineCategory === 'travel';
+        const safe = this.canUseShrine();
+        const lastPage = Math.max(0, Math.ceil(shrines.length / 6) - 1);
+        this.shrinePage = U.clamp(this.shrinePage || 0, 0, lastPage);
+        this.shrineRects = [];
+        const button = (action, title, copy, x, y, w, h, opts) => {
+            const hovered = this.input && this.input.mx >= x * scale && this.input.mx <= (x + w) * scale
+                && this.input.my >= y * scale && this.input.my <= (y + h) * scale;
+            this.pauseButton(g, action, title, copy, x, y, w, h, Object.assign({}, opts, {
+                rects: this.shrineRects, hovered, pressed: hovered && this.input.mouseDown(1),
+            }));
+        };
         g.fillStyle = 'rgba(5,4,4,0.8)';
         g.fillRect(0, 0, sw, sh);
         g.save();
@@ -1337,26 +1373,47 @@ class Game {
         roundRectPath(g, X, Y, W, H, 10);
         g.fillStyle = 'rgb(25,20,17)';
         g.fill();
+        setStroke(g, 1, false);
+        g.strokeStyle = 'rgb(112,84,58)';
+        g.stroke();
         g.font = 'bold 28px serif';
         this.text(g, this.shrineMenu.name, X + 24, Y + 40, rgb(255,220,150), false);
         g.font = HUD_FONT;
-        this.text(g, 'Skill points: ' + this.skillPoints + '   |   Safe refuge', X + 24, Y + 68, rgb(190,180,160), false);
-        const pauseRects = this.pauseRects;
-        this.pauseRects = [];
-        this.pauseButton(g, 'skills', 'Upgrade Skills', 'Spend your earned skill points here.', X + 24, Y + 84, 300, 52, { primary: true });
-        this.pauseButton(g, 'rest', 'Rest', 'Restore health, gourds, and throws.', X + 336, Y + 84, 300, 52);
+        this.text(g, 'Skill points: ' + this.skillPoints + '   |   ' + (safe ? 'Safe refuge' : 'Shrine unavailable'),
+            X + 24, Y + 68, rgb(190,180,160), false);
+        const colW = (W - 60) / 2;
+        button('category:sanctuary', 'Sanctuary', 'Recover and strengthen your ronin.', X + 24, Y + 94, colW, 52, { primary: !travel });
+        button('category:travel', 'Fast Travel', shrines.filter(s => s.discovered).length + ' / ' + shrines.length + ' shrines discovered.',
+            X + 36 + colW, Y + 94, colW, 52, { primary: travel });
         g.font = 'bold 18px serif';
-        this.text(g, 'FAST TRAVEL', X + 24, Y + 165, rgb(220,190,135), false);
-        shrines.forEach((s, i) => {
-            const here = s === this.shrineMenu;
-            this.pauseButton(g, 'travel:' + i, s.discovered ? s.name : 'Undiscovered Shrine',
-                here ? 'You are here.' : s.discovered ? 'Travel and rest at this shrine.' : 'Explore the world to unlock this destination.',
-                X + 24, Y + 180 + i * 58, W - 48, 52, { disabled: here || !s.discovered });
-        });
-        this.pauseButton(g, 'leave', 'Return to Journey', 'Esc / E closes this menu. Arrow keys select; Enter confirms.',
-            X + 24, Y + H - 64, W - 48, 52);
-        this.shrineRects = this.pauseRects;
-        this.pauseRects = pauseRects;
+        this.text(g, travel ? 'CHOOSE A DESTINATION' : 'REST & GROWTH', X + 24, Y + 180, rgb(220,190,135), false);
+        if (travel) {
+            shrines.slice(this.shrinePage * 6, this.shrinePage * 6 + 6).forEach((s, index) => {
+                const here = s === this.shrineMenu;
+                const blocked = s.discovered && !here && this.findRestBlockers(s).length > 0;
+                button('travel:' + (this.shrinePage * 6 + index), s.discovered ? s.name : 'Undiscovered Shrine',
+                    here ? 'CURRENT SHRINE' : !s.discovered ? 'Explore to unlock.' : blocked ? 'Enemies nearby - travel blocked.' : 'Travel here and recover.',
+                    X + 24 + (index % 2) * (colW + 12), Y + 202 + Math.floor(index / 2) * 80, colW, 68,
+                    { disabled: here || !s.discovered || blocked || !safe });
+            });
+            if (lastPage > 0) {
+                button('travel-prev', 'Previous', 'Earlier destinations', X + 24, Y + 450, 180, 52, { disabled: this.shrinePage === 0 });
+                button('travel-next', 'Next', 'More destinations', X + W - 204, Y + 450, 180, 52, { disabled: this.shrinePage === lastPage });
+                g.font = HUD_FONT;
+                this.text(g, 'Page ' + (this.shrinePage + 1) + ' / ' + (lastPage + 1), X + W / 2, Y + 479, rgb(190,180,160), true);
+            }
+        } else {
+            button('rest', 'Rest & Recover', 'Restore health, gourds, and throws.', X + 24, Y + 202, colW, 80, { disabled: !safe });
+            button('skills', 'Upgrade Skills', 'Spend ' + this.skillPoints + ' earned skill points.', X + 36 + colW, Y + 202, colW, 80,
+                { primary: true, disabled: !safe });
+            g.font = 'bold 18px serif';
+            this.text(g, 'A MOMENT OF PEACE', X + 24, Y + 334, rgb(220,190,135), false);
+            g.font = HUD_FONT;
+            this.text(g, 'Resting replenishes supplies without resetting the world.', X + 24, Y + 365, rgb(190,180,160), false);
+            this.text(g, 'Only safe shrines let you learn skills or travel.', X + 24, Y + 390, rgb(190,180,160), false);
+        }
+        button('leave', 'Return to Journey', 'Esc / E closes. Arrows select; Enter confirms.',
+            X + 24, Y + H - 68, W - 48, 52);
         const selected = this.shrineRects.filter(r => !r.disabled)[this.shrineSelection];
         if (selected) {
             setStroke(g, 2, false);

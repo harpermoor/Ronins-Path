@@ -12,16 +12,17 @@ const DUEL_SETTINGS_KEY = 'roninsPath.duelSettings.v1';
 const COOP_SETTINGS_KEY = 'roninsPath.coopSettings.v1';
 const JOURNEY_DIFFICULTY_KEY = 'roninsPath.journeyDifficulty.v1';
 const JOURNEY_DIFFICULTIES = {
-    loser: { name: 'Loser', enemyHp: 0.65, enemyPosture: 0.7, enemyDmg: 0.55 },
+    colton: { name: 'Colton', enemyHp: 0.65, enemyPosture: 0.7, enemyDmg: 0.55 },
     ashigaru: { name: 'Ashigaru', enemyHp: 0.85, enemyPosture: 0.9, enemyDmg: 0.8 },
     kachi: { name: 'Kachi', enemyHp: 1, enemyPosture: 1, enemyDmg: 1 },
     hatamoto: { name: 'Hatamoto', enemyHp: 1.3, enemyPosture: 1.2, enemyDmg: 1.3 },
     daimyo: { name: 'Daimyo', enemyHp: 1.65, enemyPosture: 1.5, enemyDmg: 1.65 },
     buddha: { name: 'Buddha', enemyHp: 12, enemyPosture: 10, enemyDmg: 8 },
 };
-const JOURNEY_DIFFICULTY_ORDER = ['loser', 'ashigaru', 'kachi', 'hatamoto', 'daimyo', 'buddha'];
+const JOURNEY_DIFFICULTY_ORDER = ['colton', 'ashigaru', 'kachi', 'hatamoto', 'daimyo', 'buddha'];
 
 function sanitizeJourneyDifficulty(value) {
+    if (value === 'loser') return 'colton';
     return Object.prototype.hasOwnProperty.call(JOURNEY_DIFFICULTIES, value) ? value : 'kachi';
 }
 

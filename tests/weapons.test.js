@@ -538,6 +538,7 @@ g.note = () => {};
 Game.prototype.interact.call(g);
 assert.equal(p.throws, 3);
 assert.equal(g.shrineMenu, shrine);
+assert.equal(g.shrineCategory, 'sanctuary');
 g.skillPoints = 3;
 g.saveSoon = () => {};
 weaponMenu.atShrine = false;
@@ -582,15 +583,65 @@ const menuCanvas = new Proxy({
 const menuGame = Object.assign(Object.create(Game.prototype), g, {
    text() {}, coop: null, guestJourney: false, pauseSelection: 0,
    resetMapConfirmT: 0, newGameConfirmT: 0, shrineMenu: shrine, shrineSelection: 0,
+   player: Object.assign(Object.create(p), { x: shrine.x, y: shrine.y + 60, st: 'FREE' }),
 });
-for (const [width, height] of [[1280, 720], [640, 360]]) {
+for (const [width, height] of [[1280, 720], [640, 360], [360, 640]]) {
    menuGame.drawPauseMenu(menuCanvas, width, height);
-   menuGame.drawShrineMenu(menuCanvas, width, height);
-   for (const rect of [...menuGame.pauseRects, ...menuGame.shrineRects]) {
-      assert(rect.x >= 0 && rect.y >= 0 && rect.x + rect.w <= width && rect.y + rect.h <= height,
-         'menu buttons must fit the viewport');
+   const pauseRects = menuGame.pauseRects;
+   for (const category of ['sanctuary', 'travel']) {
+      menuGame.activateShrineAction('category:' + category);
+      menuGame.drawShrineMenu(menuCanvas, width, height);
+      assert.equal(menuGame.pauseRects, pauseRects, 'shrine rendering must not replace pause hit targets');
+      assert.equal(menuGame.shrineRects.some(r => r.action === 'rest'), category === 'sanctuary');
+      assert.equal(menuGame.shrineRects.some(r => r.action.startsWith('travel:')), category === 'travel');
+      for (const rect of [...menuGame.pauseRects, ...menuGame.shrineRects]) {
+         assert(rect.x >= 0 && rect.y >= 0 && rect.x + rect.w <= width && rect.y + rect.h <= height,
+            'menu buttons must fit the viewport');
+      }
    }
 }
+const extraShrines = Array.from({ length: 12 }, (_, i) => ({
+   x: 1000 + i * 500, y: 1000, name: 'Destination ' + i, discovered: i !== 1,
+}));
+g.world.shrines.push(...extraShrines);
+menuGame.findRestBlockers = s => s === extraShrines[2] ? [{}] : [];
+menuGame.activateShrineAction('category:travel');
+menuGame.drawShrineMenu(menuCanvas, 640, 360);
+assert.equal(menuGame.shrineRects.filter(r => r.action.startsWith('travel:')).length, 6);
+assert(menuGame.shrineRects.find(r => r.action === 'travel:0').disabled, 'current destination is disabled');
+assert(menuGame.shrineRects.find(r => r.action === 'travel:2').disabled, 'undiscovered destination is disabled');
+assert(menuGame.shrineRects.find(r => r.action === 'travel:3').disabled, 'unsafe destination is disabled');
+assert(menuGame.shrineRects.find(r => r.action === 'travel-prev').disabled);
+const nextRect = menuGame.shrineRects.find(r => r.action === 'travel-next');
+const menuInput = { mx: nextRect.x + nextRect.w / 2, my: nextRect.y + nextRect.h / 2,
+   hit: () => false, mouseHit: () => true, mouseDown: () => true };
+menuGame.navigateMenu(menuInput, menuGame.shrineRects, 'shrineSelection', action => menuGame.activateShrineAction(action));
+assert.equal(menuGame.shrinePage, 1, 'scaled next-page button activates on mouse press');
+menuGame.activateShrineAction('travel-next');
+menuGame.activateShrineAction('travel-next');
+assert.equal(menuGame.shrinePage, 2, 'pages clamp to available destinations');
+menuGame.drawShrineMenu(menuCanvas, 640, 360);
+assert.equal(menuGame.shrineRects.filter(r => r.action.startsWith('travel:')).length, 1);
+assert(menuGame.shrineRects.find(r => r.action === 'travel-next').disabled);
+menuGame.findRestBlockers = () => [{}];
+menuGame.activateShrineAction('category:sanctuary');
+menuGame.drawShrineMenu(menuCanvas, 640, 360);
+assert(menuGame.shrineRects.find(r => r.action === 'rest').disabled);
+assert(menuGame.shrineRects.find(r => r.action === 'skills').disabled);
+assert(!menuGame.shrineRects.find(r => r.action === 'leave').disabled);
+g.world.shrines.splice(1);
+menuGame.findRestBlockers = () => [];
+menuGame.drawShrineMenu(menuCanvas, 640, 360);
+const restRect = menuGame.shrineRects.find(r => r.action === 'rest');
+menuGame.input = { mx: restRect.x + 1, my: restRect.y + 1, mouseDown: () => false };
+const shrineButtonFills = [];
+menuCanvas.fill = () => shrineButtonFills.push(menuCanvas.fillStyle);
+menuGame.drawShrineMenu(menuCanvas, 640, 360);
+assert(shrineButtonFills.includes('rgb(76,57,39)'), 'hover is visibly highlighted');
+shrineButtonFills.length = 0;
+menuGame.input.mouseDown = () => true;
+menuGame.drawShrineMenu(menuCanvas, 640, 360);
+assert(shrineButtonFills.includes('rgb(111,76,40)'), 'held button gives immediate pressed feedback');
 let activated = null;
 const input = { hit: key => key === 'ArrowDown', mouseHit: () => false };
 menuGame.navigateMenu(input, [{ action: 'a' }, { action: 'locked', disabled: true }, { action: 'b' }],
@@ -600,6 +651,32 @@ input.hit = key => key === 'Enter';
 assert(menuGame.navigateMenu(input, [{ action: 'a' }, { action: 'locked', disabled: true }, { action: 'b' }],
    'pauseSelection', action => { activated = action; }));
 assert.equal(activated, 'b', 'keyboard selection skips disabled actions');
+const hoverRects = [{ action: 'a', x: 0, y: 0, w: 40, h: 40 }, { action: 'b', x: 50, y: 0, w: 40, h: 40 }];
+const hoverInput = { mx: 60, my: 20, hit: () => false, mouseHit: () => false };
+menuGame.navigateMenu(hoverInput, hoverRects, 'shrineSelection', () => {});
+assert.equal(menuGame.shrineSelection, 1, 'moving the pointer selects the hovered button');
+hoverInput.hit = key => key === 'ArrowLeft';
+menuGame.navigateMenu(hoverInput, hoverRects, 'shrineSelection', () => {});
+assert.equal(menuGame.shrineSelection, 0);
+hoverInput.hit = () => false;
+menuGame.navigateMenu(hoverInput, hoverRects, 'shrineSelection', () => {});
+assert.equal(menuGame.shrineSelection, 0, 'stationary pointer must not steal keyboard focus');
+
+const pointerEvents = {}, canvasEvents = {};
+context.window = { addEventListener: (name, fn) => { pointerEvents[name] = fn; } };
+context.performance = { now: () => 100 };
+const Input = vm.runInContext('Input', context);
+const pointerInput = new Input({ width: 1280, height: 720,
+   getBoundingClientRect: () => ({ left: 20, top: 30, width: 640, height: 360 }),
+   addEventListener: (name, fn) => { canvasEvents[name] = fn; },
+}, () => {});
+canvasEvents.mousedown({ button: 0, clientX: 120, clientY: 80, preventDefault() {} });
+assert.equal(pointerInput.mx, 200, 'press coordinates account for CSS canvas scaling without requiring mouse movement');
+assert.equal(pointerInput.my, 100);
+assert(pointerInput.mouseHit(1));
+pointerEvents.mousemove({ clientX: 220, clientY: 180 });
+assert.equal(pointerInput.mx, 400);
+assert.equal(pointerInput.my, 300);
 p.throws = 0;
 p.respawn(shrine.x, shrine.y);
 assert.equal(p.throws, 3);

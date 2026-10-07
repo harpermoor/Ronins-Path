@@ -149,6 +149,7 @@ function contentType(file) {
         '.ico': 'image/x-icon',
         '.js': 'text/javascript; charset=utf-8',
         '.json': 'application/json; charset=utf-8',
+        '.md': 'text/plain; charset=utf-8',
         '.png': 'image/png',
         '.svg': 'image/svg+xml',
     })[path.extname(file)] || 'application/octet-stream';
@@ -160,7 +161,8 @@ const server = http.createServer((req, res) => {
         return;
     }
     const pathname = new URL(req.url, 'http://localhost').pathname;
-    if (pathname !== '/' && pathname !== '/index.html' && !/^\/js\/[A-Za-z0-9._-]+\.js$/.test(pathname)) {
+    if (pathname !== '/' && pathname !== '/index.html' && pathname !== '/CHANGELOG.md'
+        && !/^\/js\/[A-Za-z0-9._-]+\.js$/.test(pathname)) {
         res.writeHead(404).end('Not found');
         return;
     }
@@ -186,7 +188,7 @@ const server = http.createServer((req, res) => {
             'Content-Length': stat.size,
             'Content-Type': contentType(file),
             'X-Content-Type-Options': 'nosniff',
-            'Cache-Control': file.endsWith('.html') ? 'no-cache' : 'public, max-age=300',
+            'Cache-Control': file.endsWith('.html') || file.endsWith('.md') ? 'no-cache' : 'public, max-age=300',
         });
         if (req.method === 'HEAD') res.end();
         else fs.createReadStream(file).pipe(res);

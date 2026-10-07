@@ -199,6 +199,11 @@ class Input {
         this.my = 0;
         const blockDefault = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab']);
         const mapBtn = b => (b === 0 ? 1 : b === 1 ? 2 : b === 2 ? 3 : 0);
+        const updatePointer = e => {
+            const rc = target.getBoundingClientRect();
+            this.mx = (e.clientX - rc.left) * target.width / rc.width;
+            this.my = (e.clientY - rc.top) * target.height / rc.height;
+        };
         window.addEventListener('keydown', e => {
             onGesture();
             if (blockDefault.has(e.code)) e.preventDefault();
@@ -209,6 +214,7 @@ class Input {
         target.addEventListener('mousedown', e => {
             onGesture();
             e.preventDefault();
+            updatePointer(e);
             const b = mapBtn(e.button);
             if (b) {
                 this.btn[b] = true;
@@ -223,11 +229,7 @@ class Input {
                 this.btnStarted[b] = 0;
             }
         });
-        window.addEventListener('mousemove', e => {
-            const rc = target.getBoundingClientRect();
-            this.mx = e.clientX - rc.left;
-            this.my = e.clientY - rc.top;
-        });
+        window.addEventListener('mousemove', updatePointer);
         target.addEventListener('contextmenu', e => e.preventDefault());
         window.addEventListener('blur', () => this.releaseAll());
     }

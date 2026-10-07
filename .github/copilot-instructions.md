@@ -15,6 +15,7 @@ Online play has two paths. `js/net.js` wraps WebSocket connections to the Node r
 - Equipment/loadout preferences and match settings use separate `localStorage` keys and have their own sanitization paths (`js/loadout.js`, `js/settings.js`); keep those concerns separate from journey progress.
 - Procedural generation and duel synchronization depend on deterministic random/state evolution. Preserve seeded RNG use and deterministic update order in code that affects the world or multiplayer combat.
 - Browser JavaScript uses `'use strict'`, semicolons, and browser-native globals rather than imports/exports or a package-managed module system. The Node relay uses CommonJS and the `ws` dependency. Shared helpers such as clamping, geometry, and seeded randomness live in `js/util.js`.
+- Record user-visible changes as plain `- ` bullets under `## Unreleased` in `CHANGELOG.md`. The main-menu Recent updates panel loads the latest nonempty `## ` section from this file; do not maintain a separate list in HTML.
 
 ## Build, test, and lint
 
@@ -32,6 +33,7 @@ npm test
 node tests/enemies.test.js
 node tests/weapons.test.js
 node tests/relay.test.js
+node tests/changelog.test.js
 ```
 
 Run one of those commands to target a single test file. Syntax-check an individual browser script with `node --check js/<file>.js`. Test fixtures are partial `Game` stand-ins, so guard new `Game` hooks called from `Enemy` or `Player` code.

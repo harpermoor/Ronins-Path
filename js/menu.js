@@ -22,7 +22,7 @@
     const difficultySelect = $('journey-difficulty');
     const difficultyNote = $('difficulty-note');
     const difficultyDescriptions = {
-        loser: 'Loser: enemies are much less durable and deal less damage.',
+        colton: 'Colton: enemies are much less durable and deal less damage.',
         ashigaru: 'Ashigaru: a forgiving challenge with weakened enemies.',
         kachi: 'Kachi: balanced enemy strength.',
         hatamoto: 'Hatamoto: tougher foes that hit harder.',

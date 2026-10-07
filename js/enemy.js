@@ -654,8 +654,10 @@ class Enemy extends Actor {
                 g.fx.line(x + Math.cos(f) * this.r, y + Math.sin(f) * this.r, x + Math.cos(f) * (atk.range + 10),
                     y + Math.sin(f) * (atk.range + 10), 0.18, 3, c);
             } else {
-                const reach = this.type === 'BRUTE' && atk === EA.BR_SWEEP ? atk.range : atk.range * 0.8;
-                g.fx.slash(x, y, reach, f + atk.arc / 2, -atk.arc, 0.22, this.type === 'BRUTE' ? 10 : 6, c);
+                const heavy = this.type === 'BRUTE';
+                g.fx.slash(x, y, heavy ? atk.range : atk.range * 0.8, f + atk.arc / 2, -atk.arc,
+                    heavy ? Math.max(0.22, atk.active) : 0.22, heavy ? 10 : 6, c,
+                    heavy ? { follow: this, fullSweep: true } : undefined);
             }
         }
     }
@@ -665,9 +667,19 @@ class Enemy extends Actor {
         const f = Math.max(0, 1 - this.stT / atk.active);
         const close = d < this.r + p.r + 6 && Math.abs(U.angDiff(this.facing, toP)) < 1;
         if (!close && atk.lunge > 0) this.move(g.world, Math.cos(this.facing) * atk.lunge * f * dt, Math.sin(this.facing) * atk.lunge * f * dt);
+        d = this.distTo(p);
+        toP = this.angleTo(p);
         if (!this.atkHit && p.st !== 'DEAD') {
             const tol = atk.arc / 2 + Math.asin(Math.min(1, p.r / Math.max(d, 1)));
-            if (d <= atk.range + p.r && Math.abs(U.angDiff(this.facing, toP)) <= tol) {
+            const delta = U.angDiff(this.facing, toP);
+            let inArc = Math.abs(delta) <= tol;
+            if (this.type === 'BRUTE' && !atk.thrust) {
+                const edge = this.facing + Math.sign(delta) * atk.arc / 2;
+                inArc = d <= p.r || Math.abs(delta) <= atk.arc / 2
+                    || U.segDist(p.x, p.y, this.x, this.y,
+                        this.x + Math.cos(edge) * atk.range, this.y + Math.sin(edge) * atk.range) <= p.r;
+            }
+            if (d <= atk.range + p.r && inArc) {
                 const res = p.receive(this.x, this.y, atk.damage * this.dmgScale, atk.posture * this.dmgScale, atk.perilous, atk.sweep);
                 if (g.coop && g.coop.host && p !== g.player && res !== P_IGNORE)
                     g.coop.impact(p, res, this.x, this.y, atk.perilous);

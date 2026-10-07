@@ -121,7 +121,13 @@ async function waitForServer(url, child) {
         await waitForServer(origin, child);
         const page = await fetch(origin);
         assert.match(await page.text(), /Ronins-Path/);
+        const changelog = await fetch(`${origin}/CHANGELOG.md`);
+        assert.equal(changelog.status, 200);
+        assert.match(changelog.headers.get('content-type'), /^text\/plain/);
+        assert.equal(changelog.headers.get('cache-control'), 'no-cache');
+        assert.match(await changelog.text(), /^# Changelog/m);
         assert.equal((await fetch(`${origin}/package.json`)).status, 404);
+        assert.equal((await fetch(`${origin}/README.md`)).status, 404);
 
         const host = connect(wsUrl);
         peers.push(host);

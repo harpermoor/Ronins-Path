@@ -8,6 +8,10 @@ https://harpermoor.github.io/Ronins-Path/
 =====================
 I appreciate all feedback. I want this game to be peak and I can't have alla the ideas myself.
 =====================
+## Recent updates
+
+The main menu loads recent updates directly from `CHANGELOG.md` without caching the request. To publish an update, add a plain `- ` bullet under `## Unreleased`; the latest nonempty `## ` section is displayed automatically on the next page load. Keep sections newest-first. No build step or duplicated HTML list is needed. The `.nojekyll` marker keeps GitHub Pages serving the Markdown source unchanged.
+
 ## Combat controls
 
 Press **C** or **middle mouse** to lock onto the nearest enemy within 550 units; press again to unlock. Locked aim tracks the target until it dies or moves beyond 650 units. Movement remains manual, and lock-on works in solo, co-op, and duels.
@@ -24,7 +28,9 @@ After a solo death, resurrecting at a shrine fully heals surviving camp defender
 
 Press **E** at a safe shrine to rest, upgrade skills, or fast travel to another discovered shrine. Skill points can only be spent through the shrine menu; the equipment skill tree is view-only elsewhere. Fast travel is blocked when enemies threaten either shrine and does not reset the shared world or other players.
 
-Use **arrow keys** and **Enter**, or click, to navigate shrine and pause menus. **Escape** closes the menu; closing the shrine skill tree returns to the shrine menu. The pause menu scales to fit smaller screens.
+The shrine menu separates **Sanctuary** (rest and skill upgrades) from **Fast Travel**, which shows destinations as cards with discovery and safety status. Additional destinations are paged rather than shrinking the menu. Buttons highlight on hover and react on press. Use **arrow keys** and **Enter**, or click, to navigate shrine and pause menus. **Escape** closes the menu; closing the shrine skill tree returns to the shrine menu. Both menus scale to fit smaller screens.
+
+**Colton** is the easiest journey difficulty: enemies have reduced health, posture, and damage. Older saves and preferences using its former name automatically retain the same difficulty.
 
 ## Multiplayer relay
 

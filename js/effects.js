@@ -122,8 +122,9 @@ class Effects {
         }
     }
 
-    slash(x, y, r, start, sweep, life, width, c) {
-        this.slashes.push({ x, y, r, start, sweep, life, max: life, width, c });
+    slash(x, y, r, start, sweep, life, width, c, opts) {
+        this.slashes.push({ x, y, r, start, sweep, life, max: life, width, c,
+            follow: opts && opts.follow, fullSweep: opts && opts.fullSweep });
     }
 
     thrust(x, y, angle, len, life, width, c) {
@@ -211,13 +212,14 @@ class Effects {
     drawWorld(g) {
         for (const s of this.slashes) {
             const t = s.life / s.max;
-            const sweepNow = s.sweep * Math.min(1, (1 - t) * 3 + 0.35);
+            const sweepNow = s.sweep * (s.fullSweep ? 1 : Math.min(1, (1 - t) * 3 + 0.35));
+            const x = s.follow ? s.follow.x : s.x, y = s.follow ? s.follow.y : s.y;
             for (let layer = 0; layer < 2; layer++) {
                 const w = s.width * t * (layer === 0 ? 2.2 : 0.8);
                 setStroke(g, Math.max(0.5, w), true);
                 g.strokeStyle = css(layer === 0 ? U.alpha(s.c, 0.35 * t) : U.alpha(WHITE, 0.9 * t));
                 g.beginPath();
-                g.arc(s.x, s.y, s.r, s.start, s.start + sweepNow, sweepNow < 0);
+                g.arc(x, y, s.r, s.start, s.start + sweepNow, sweepNow < 0);
                 g.stroke();
             }
         }

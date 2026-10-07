@@ -143,7 +143,7 @@
                     <p>Explore, master your weapons, and carve a path through the land.</p>
                     <label class="difficulty-choice" for="journey-difficulty">Journey difficulty
                         <select id="journey-difficulty">
-                            <option value="loser">Loser</option>
+                            <option value="colton">Colton</option>
                             <option value="ashigaru">Ashigaru</option>
                             <option value="kachi">Kachi</option>
                             <option value="hatamoto">Hatamoto</option>
@@ -194,10 +194,9 @@
             </div>
             <section class="changelog" aria-labelledby="changelog-title">
                 <h2 id="changelog-title">Recent updates</h2>
-                <ul>
-                    <li>Multiplayer rooms now use hosted relay IDs, with no router setup needed.</li>
-                    <li>Co-op movement and enemy attack, hit, and deflect feedback are smoother.</li>
-                </ul>
+                <p class="note" id="changelog-status" role="status">Loading recent updates...</p>
+                <ul id="changelog-entries" hidden></ul>
+                <a class="feedback" href="CHANGELOG.md" target="_blank" rel="noopener noreferrer">Full changelog</a>
             </section>
             <footer class="menu-footer">
                 <p class="note">Online play uses a hosted relay; no router setup is needed. Co-op guests do not save journey progress.</p>
@@ -261,6 +260,7 @@
     <script src="js/net.js"></script>
     <script src="js/coop.js"></script>
     <script src="js/duel.js"></script>
+    <script src="js/changelog.js"></script>
     <script src="js/menu.js"></script>
 </body>
 </html>

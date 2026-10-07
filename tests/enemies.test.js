@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 
 const context = vm.createContext({ console });
-for (const name of ['util', 'skills', 'settings', 'world', 'loadout', 'enemy', 'game', 'save']) {
+for (const name of ['util', 'effects', 'skills', 'settings', 'world', 'loadout', 'player', 'enemy', 'game', 'save']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', name + '.js'), 'utf8'), context);
 }
 const { Enemy, Game, EA, difficultyFor, ENEMY_DAMAGE_SCALE, NORMAL_ENEMY_HP_SCALE, NORMAL_ENEMY_POSTURE_SCALE,
@@ -16,8 +16,13 @@ const { Enemy, Game, EA, difficultyFor, ENEMY_DAMAGE_SCALE, NORMAL_ENEMY_HP_SCAL
 
 assert.equal(vm.runInContext('sanitizeJourneyDifficulty("ronin")', context), 'kachi');
 assert.equal(vm.runInContext('JOURNEY_DIFFICULTY_ORDER.includes("ronin")', context), false);
-assert.equal(difficultyFor(null, 1, 0, 'loser').enemyHp, 0.65);
-assert.equal(difficultyFor(null, 1, 0, 'loser').enemyDmg, 0.55);
+assert.equal(difficultyFor(null, 1, 0, 'colton').enemyHp, 0.65);
+assert.equal(difficultyFor(null, 1, 0, 'colton').enemyDmg, 0.55);
+assert.equal(vm.runInContext('sanitizeJourneyDifficulty("loser")', context), 'colton');
+assert.equal(vm.runInContext('JOURNEY_DIFFICULTY_ORDER[0]', context), 'colton');
+assert.equal(vm.runInContext('JOURNEY_DIFFICULTY_ORDER.includes("loser")', context), false);
+assert.equal(vm.runInContext('JOURNEY_DIFFICULTIES.colton.name', context), 'Colton');
+assert.deepEqual(difficultyFor(null, 1, 0, 'loser'), difficultyFor(null, 1, 0, 'colton'));
 assert.equal(difficultyFor(null, 1, 0, 'daimyo').enemyHp, 1.65);
 assert.equal(difficultyFor(null, 1, 0, 'daimyo').enemyDmg, 1.65);
 assert.equal(vm.runInContext('sanitizeJourneyDifficulty("buddha")', context), 'buddha');
@@ -383,7 +388,10 @@ assert.equal(parrier.attackRead, 0);
 assert(EA.R_SWEEP.sweep && EA.R_SWEEP.copy(1, 1).sweep);
 assert(!EA.R_THRUST.sweep);
 const sweepFxCalls = [];
-const sweepGame = { difficulty: game.difficulty, fx: { slash(...args) { sweepFxCalls.push(args); } }, sfx: { play() {} } };
+const sweepEffects = vm.runInContext('new Effects()', context);
+const slash = sweepEffects.slash.bind(sweepEffects);
+sweepEffects.slash = (...args) => { sweepFxCalls.push(args); slash(...args); };
+const sweepGame = { difficulty: game.difficulty, fx: sweepEffects, sfx: { play() {} }, world: { resolve() {} } };
 const oni = new Enemy(sweepGame, 'BRUTE', 100, 100, false, null, 9);
 oni.atk = EA.BR_SWEEP;
 oni.stDur = oni.atk.windup;
@@ -391,6 +399,57 @@ oni.stT = oni.stDur;
 oni.windup(0, 0, 0, { r: 16 });
 assert.equal(sweepFxCalls[0][2], EA.BR_SWEEP.range);
 assert.equal(sweepFxCalls[0][4], -EA.BR_SWEEP.arc);
+for (const attack of [EA.BR_SMASH, EA.BR_SWEEP, EA.BR_UPPERCUT, EA.BR_PER, EA.GOZU_QUAKE, EA.BR_SWEEP.copy(1, 1)]) {
+    oni.atk = attack;
+    oni.facing = 0.4;
+    oni.stDur = attack.windup;
+    oni.stT = oni.stDur;
+    sweepEffects.slashes = [];
+    oni.windup(0, 0, oni.facing, { r: 16 });
+    const trail = sweepEffects.slashes[0];
+    assert.equal(trail.r, attack.range, 'every Oni heavy effect must show the actual attack reach');
+    assert(trail.max >= attack.active, 'the sweep remains visible throughout its damage window');
+    oni.x += 7;
+    oni.y += 3;
+    const arcs = [];
+    const canvas = new Proxy({ arc(...args) { arcs.push(args); } }, { get: (obj, key) => key in obj ? obj[key] : () => {} });
+    sweepEffects.drawWorld(canvas);
+    assert.equal(arcs[0][0], oni.x, 'heavy effects follow the lunge');
+    assert.equal(arcs[0][1], oni.y);
+    assert.equal(arcs[0][2], attack.range);
+    assert.equal(arcs[0][3], oni.facing + attack.arc / 2);
+    assert(Math.abs(arcs[0][4] - (oni.facing - attack.arc / 2)) < 1e-10,
+        'the entire damaging sector is visible immediately');
+
+    const radius = 16;
+    for (const [distance, angle, expected] of [
+        [attack.range + radius - 1, 0, true],
+        [attack.range + radius + 1, 0, false],
+        [attack.range * 0.8, attack.arc / 2 - 0.01, true],
+        [attack.range * 0.8, -attack.arc / 2 + 0.01, true],
+        [attack.range * 0.8, attack.arc / 2 + Math.asin(radius / (attack.range * 0.8)) - 0.01, true],
+        [attack.range * 0.8, attack.arc / 2 + Math.asin(radius / (attack.range * 0.8)) + 0.01, false],
+        [attack.range + radius - 1, attack.arc / 2 + Math.asin(radius / (attack.range + radius - 1)) - 0.01, false],
+    ]) {
+        let hits = 0;
+        const victim = { x: oni.x + Math.cos(oni.facing + angle) * distance,
+            y: oni.y + Math.sin(oni.facing + angle) * distance, r: radius, st: 'FREE',
+            receive() { hits++; return 3; } };
+        oni.atkHit = false;
+        oni.activeSt(0, distance, oni.facing + angle, victim);
+        assert.equal(hits > 0, expected, attack.name + ' collision must respect the shown range and sector');
+    }
+}
+oni.atk = EA.BR_SMASH;
+oni.facing = 0;
+oni.stT = 0;
+oni.stDur = oni.atk.active;
+oni.atkHit = false;
+let lungeHits = 0;
+const lungeVictim = { x: oni.x + oni.atk.range + 20, y: oni.y, r: 16, st: 'FREE',
+    receive() { lungeHits++; return 3; } };
+oni.activeSt(0.05, oni.distTo(lungeVictim), oni.angleTo(lungeVictim), lungeVictim);
+assert.equal(lungeHits, 1, 'collision uses the position after lunging, not stale pre-lunge distance');
 
 const eliteAttacker = Object.assign({}, attacker, { st: 'ATTACK', facing: 0 });
 const duelist = new Enemy(combatGame, 'RONIN', 100, 100, true, null, 9);
