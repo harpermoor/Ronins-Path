@@ -176,6 +176,8 @@ campDefender.dodgeAfterimage = shadowTarget;
 defeatedDefender.hp = 0;
 defeatedDefender.st = 'DEAD';
 defeatedDefender.alive = false;
+defeatedDefender.x = 500;
+defeatedDefender.y = 550;
 respawnElite.hp = 1;
 respawnElite.lives = 1;
 respawnElite.posture = 20;
@@ -200,15 +202,17 @@ assert.equal(respawnGame.enemies.length, 6, 'resurrection must not remove camp d
 assert.equal(camp.members.length, 3);
 assert.equal(camp.cleared, false);
 for (const foe of [campDefender, quietDefender]) {
+    assert.equal(foe.x, foe.homeX);
+    assert.equal(foe.y, foe.homeY);
     assert.equal(foe.hp, foe.maxHp, 'all surviving camp defenders heal, even if unaware');
     assert.equal(foe.posture, 0);
     assert.equal(foe.st, 'IDLE');
     assert.equal(foe.alive, true);
 }
-assert.equal(campDefender.x, 300, 'camp survivors must not teleport on resurrection');
-assert.equal(campDefender.y, 350);
-assert.equal(campDefender.wanderX, 300);
-assert.equal(campDefender.wanderY, 350);
+assert.equal(campDefender.x, campDefender.homeX, 'camp survivors return to their original camp positions');
+assert.equal(campDefender.y, campDefender.homeY);
+assert.equal(campDefender.wanderX, campDefender.homeX);
+assert.equal(campDefender.wanderY, campDefender.homeY);
 assert.equal(campDefender.hasToken, false);
 assert.equal(campDefender.combo, null);
 assert.equal(campDefender.atk, null);
@@ -216,6 +220,8 @@ assert.equal(campDefender.dodgeAfterimage, null);
 assert.equal(defeatedDefender.st, 'DEAD');
 assert.equal(defeatedDefender.hp, 0);
 assert.equal(defeatedDefender.alive, false);
+assert.equal(defeatedDefender.x, 500, 'dead camp enemies remain where they died');
+assert.equal(defeatedDefender.y, 550);
 
 const mapBoss = new Enemy(game, 'RONIN', 5000, 6000, true, 'The Ashen Daimyo', 11, true, true);
 const mapFillStyles = [];
@@ -387,6 +393,20 @@ assert.equal(parrier.attackRead, 0);
 
 assert(EA.R_SWEEP.sweep && EA.R_SWEEP.copy(1, 1).sweep);
 assert(!EA.R_THRUST.sweep);
+for (const [attack, oldRange, oldArc, oldActive] of [
+    [EA.BR_PER, 130, 300, 0.25],
+    [EA.R_SWEEP, 92, 220, 0.16],
+    [EA.GOZU_QUAKE, 145, 300, 0.25],
+    [EA.RYUSEI_CROSS, 110, 310, 0.20],
+    [EA.OKAMI_CRESCENT, 132, 320, 0.22],
+    [EA.DAIMYO_ASHFALL, 152, 280, 0.23],
+]) {
+    assert(attack.range <= oldRange * 0.76, attack.name + ' reach shrinks by at least 24%');
+    assert(attack.arc <= oldArc * Math.PI / 180 * 0.64, attack.name + ' arc shrinks by at least 36%');
+    assert(attack.active <= oldActive * 0.4, attack.name + ' active time shrinks by at least 60%');
+    assert(attack.active >= 0.06 && attack.active <= 0.07);
+}
+
 const sweepFxCalls = [];
 const sweepEffects = vm.runInContext('new Effects()', context);
 const slash = sweepEffects.slash.bind(sweepEffects);
@@ -431,6 +451,8 @@ for (const attack of [EA.BR_SMASH, EA.BR_SWEEP, EA.BR_UPPERCUT, EA.BR_PER, EA.GO
         [attack.range * 0.8, attack.arc / 2 + Math.asin(radius / (attack.range * 0.8)) + 0.01, false],
         [attack.range + radius - 1, attack.arc / 2 + Math.asin(radius / (attack.range + radius - 1)) - 0.01, false],
     ]) {
+        oni.stT = 0;
+        oni.stDur = attack.active;
         let hits = 0;
         const victim = { x: oni.x + Math.cos(oni.facing + angle) * distance,
             y: oni.y + Math.sin(oni.facing + angle) * distance, r: radius, st: 'FREE',
@@ -439,6 +461,22 @@ for (const attack of [EA.BR_SMASH, EA.BR_SWEEP, EA.BR_UPPERCUT, EA.BR_PER, EA.GO
         oni.activeSt(0, distance, oni.facing + angle, victim);
         assert.equal(hits > 0, expected, attack.name + ' collision must respect the shown range and sector');
     }
+}
+for (const attack of [EA.BR_PER, EA.R_SWEEP, EA.GOZU_QUAKE, EA.RYUSEI_CROSS, EA.OKAMI_CRESCENT, EA.DAIMYO_ASHFALL]) {
+    oni.atk = attack;
+    oni.stT = oni.stDur = attack.windup;
+    sweepEffects.slashes = [];
+    oni.windup(0, 0, oni.facing, { r: 16 });
+    assert.equal(sweepEffects.slashes[0].max, attack.active, 'special sweep trail ends with the hit window');
+    oni.combo = [attack];
+    oni.comboIdx = 0;
+    let hits = 0;
+    const victim = { x: oni.x, y: oni.y, r: 16, st: 'FREE', receive() { hits++; return 3; } };
+    oni.stT = attack.active;
+    oni.atkHit = false;
+    oni.activeSt(0, 0, oni.facing, victim);
+    assert.equal(hits, 0, attack.name + ' cannot hit at or after its active window expires');
+    assert.equal(oni.st, 'RECOVER');
 }
 oni.atk = EA.BR_SMASH;
 oni.facing = 0;

@@ -251,6 +251,18 @@ g.enemies = [];
 p.readInput(lockInput, 0, 0);
 assert.equal(p.lockTarget, null, 'Removed targets release the lock');
 
+const artControlsPlayer = new (vm.runInContext('Player', context))(g, 0, 0);
+artControlsPlayer.guardHeld = true;
+artControlsPlayer.artCharges = artControlsPlayer.maxArtCharges;
+artControlsPlayer.bufAttack = 0.22;
+artControlsPlayer.free(0, 0);
+assert.equal(artControlsPlayer.st, 'ATTACK', 'guard plus attack must not trigger a combat art');
+assert.equal(artControlsPlayer.artCharges, artControlsPlayer.maxArtCharges);
+artControlsPlayer.toFree();
+artControlsPlayer.bufArt = 0.2;
+artControlsPlayer.free(0, 0);
+assert.equal(artControlsPlayer.st, 'ART', 'the dedicated combat art button still works');
+
 // Red sweeps deflect only in the half-window; thrusts and other perilous moves remain unguardable.
 g.parryBurst = () => {};
 const defend = (age, perilous, sweep, sourceX = 50) => {
@@ -285,11 +297,33 @@ assert.equal(p.ki, 24);
 assert.equal(p.posture, 0);
 assert(fxEvents.some(e => e.name === 'text' && e.args[0] === 'PERFECT PARRY'));
 assert(fxEvents.some(e => e.name === 'impact' && e.args[2] === 'parry'));
-assert.equal(defend(0.03001, false, false), deflectResult,
-   'a deflect just outside 30 ms must not grant a perfect parry');
-assert.equal(defend(0.04, false, false), deflectResult);
-assert.equal(defend(0.06, false, false), deflectResult);
+assert.equal(defend(0.08, false, false), perfectResult);
+assert.equal(defend(0.08001, false, false), deflectResult,
+   'a deflect just outside 80 ms must not grant a perfect parry');
+assert.equal(defend(0.04, false, false), perfectResult);
+assert.equal(defend(0.06, false, false), perfectResult);
+assert.equal(defend(0.08, true, true), perfectResult);
+p.guardWindow = 0.05;
+p.guardStart = -0.05001;
+assert.equal(p.receive(50, 0, 14, 10, false), vm.runInContext('P_BLOCK', context),
+   'perfect parries cannot exceed the spam-shortened guard window');
+for (const hp of [p.maxHp, 1]) {
+    defend(0.19, false, false);
+    p.hp = hp;
+    p.posture = p.maxPosture - 1;
+    assert.equal(p.receive(50, 0, 40, 10, false), vm.runInContext('P_BLOCK', context));
+    assert.equal(p.hp, hp, 'guard breaks deal no damage, even at one HP');
+    assert.equal(p.st, 'STAGGER');
+    assert.equal(p.staggerDur, 1.2, 'guard breaks retain their punishable opening');
+    assert.equal(p.guarding, false);
+    assert.equal(p.posture, p.maxPosture * 0.6);
+    assert.equal(p.receive(50, 0, 0.1, 10, false), P_HIT_RESULT,
+       'follow-up attacks still punish a broken guard');
+    assert(p.hp < hp);
+}
 p.toFree();
+p.hp = p.maxHp;
+p.invuln = 0;
 p.guarding = false;
 
 // Impact frames briefly tint the whole scene without hiding the fighters, then expire on real time.
@@ -320,6 +354,25 @@ g.slowmo = () => {};
 g.flash = () => {};
 fxEvents.length = 0;
 p.toFree();
+p.facing = 0;
+p.st = 'DODGE';
+p.stT = 0.1;
+p.dodgeIframes = 0.25;
+p.dodgeDx = 1;
+p.dodgeDy = 0;
+p.guardWindow = 0.18;
+p.bufParry = 0.15;
+p.bufAttack = 0;
+p.update(0.01);
+assert.equal(p.st, 'DODGE', 'parrying does not cancel the ongoing dodge');
+assert(p.guarding, 'a parry input during a dodge opens a parry window immediately');
+assert.equal(p.receive(50, 0, 14, 10, false), perfectResult,
+    'a timed parry takes priority over dodge invulnerability');
+assert.equal(p.st, 'DODGE', 'a successful parry preserves the dodge');
+p.toFree();
+p.guarding = false;
+p.bufParry = 0;
+p.stT = 0;
 p.st = 'DODGE';
 p.dodgeStartX = 10;
 p.dodgeStartY = 20;
@@ -534,6 +587,35 @@ g.saveNow = () => {};
 for (const name of ['restAtShrine', 'canUseShrine', 'activateShrineAction']) g[name] = Game.prototype[name];
 g.player = p;
 g.note = () => {};
+g.shrineMenu = null;
+p.hp = 1;
+p.gourds = 0;
+p.posture = 50;
+Game.prototype.interact.call(g, false);
+assert.equal(g.shrineMenu, null, 'quick rest does not open the shrine menu');
+assert.equal(p.hp, p.maxHp);
+assert.equal(p.gourds, p.maxGourds);
+assert.equal(p.throws, p.maxThrows);
+assert.equal(p.posture, 0);
+assert.equal(g.lastShrine, shrine);
+g.findRestBlockers = () => [{ x: 10, y: 10 }];
+p.hp = 1;
+Game.prototype.interact.call(g, false);
+assert.equal(p.hp, 1, 'quick rest is blocked by nearby enemies');
+assert.equal(g.shrineMenu, null);
+g.findRestBlockers = () => [];
+g.nearShrine = () => null;
+Game.prototype.interact.call(g, false);
+assert.equal(p.hp, 1, 'quick rest requires a nearby shrine');
+g.nearShrine = () => shrine;
+p.st = 'ATTACK';
+Game.prototype.interact.call(g, false);
+assert.equal(p.hp, 1, 'quick rest requires the player to be free');
+p.st = 'DEAD';
+p.deadT = 2;
+Game.prototype.interact.call(g, false);
+assert.equal(p.st, 'DEAD', 'quick rest is not a resurrection shortcut');
+p.toFree();
 Game.prototype.interact.call(g);
 assert.equal(p.throws, 3);
 assert.equal(g.shrineMenu, shrine);

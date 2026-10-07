@@ -46,6 +46,8 @@ assert.equal(sanitized.bindings.guard[0], 'Mouse4');
 assert.equal(sanitized.bindings.art[0], 'KeyR');
 assert.equal(sanitizePreferences({ volume: NaN }).volume, 100);
 assert.equal(sanitizePreferences(null).volume, 100);
+assert.equal(sanitizePreferences(null).bindings.rest[0], 'KeyB');
+assert.equal(sanitizePreferences({ bindings: { rest: ['KeyH'] } }).bindings.rest[0], 'KeyH');
 
 let gestures = 0, prevented = 0;
 const input = new Input(canvas, () => gestures++);

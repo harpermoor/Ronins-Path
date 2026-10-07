@@ -17,6 +17,7 @@ const CONTROL_DEFS = {
     dragon: ['Dragon Flash', 'Combat', ['KeyG']],
     throw: ['Throw weapon', 'Combat', ['KeyT']],
     interact: ['Shrine / revive / resurrect', 'Journey', ['KeyE']],
+    rest: ['Rest at nearby shrine', 'Journey', ['KeyB']],
     equipment: ['Open / close equipment', 'Journey', ['Tab', 'KeyI']],
     pause: ['Pause / back / leave duel (twice)', 'Journey', ['Escape']],
     settings: ['Open settings', 'Journey', ['F10']],

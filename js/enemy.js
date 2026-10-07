@@ -29,21 +29,21 @@ const EA = {
     BR_SMASH: new Attack('smash', .85, .18, .90, 108, 160, 30, 42, 130),
     BR_UPPERCUT: new Attack('uppercut', .68, .16, .76, 104, 95, 25, 32, 160),
     BR_SWEEP: new Attack('sweep', .55, .16, .70, 112, 190, 22, 30, 80),
-    BR_PER: new Attack('crush', 1.0, .25, 1.0, 130, 300, 38, 0, 90).markPerilous(),
+    BR_PER: new Attack('crush', 1.0, .07, 1.0, 98, 180, 38, 0, 90).markPerilous(),
     R_DASH: withDash(new Attack('dash', .50, .12, .55, 80, 120, 18, 22, 320), 430),
     R_SPIN: new Attack('spin', .55, .16, .60, 80, 300, 16, 22, 120),
-    R_SWEEP: new Attack('lowsweep', .75, .16, .70, 92, 220, 24, 0, 60).markPerilous().markSweep(),
+    R_SWEEP: new Attack('lowsweep', .75, .06, .70, 68, 140, 24, 0, 60).markPerilous().markSweep(),
     SP_DASH: withDash(new Attack('charge', .55, .16, .60, 128, 26, 16, 18, 300).markThrust(), 460),
     SP_SPIN: new Attack('whirl', .60, .18, .65, 112, 340, 15, 22, 60),
     SP_FLURRY: new Attack('flurry', .18, .10, .30, 116, 22, 8, 10, 120).markThrust(),
     BR_CHARGE: withDash(new Attack('charge', .70, .20, .90, 70, 100, 26, 40, 500), 480),
     BR_STOMP: new Attack('stomp', .80, .20, .90, 124, 360, 26, 0, 0).markPerilous(),
     KAGEMARU_VANISH: withDash(new Attack('shadow pierce', .85, .18, .85, 145, 30, 32, 18, 470).markPerilous().markThrust(), 380),
-    GOZU_QUAKE: new Attack('earthsplitter', 1.15, .25, 1.1, 145, 300, 42, 8, 110).markPerilous(),
+    GOZU_QUAKE: new Attack('earthsplitter', 1.15, .07, 1.1, 108, 180, 42, 8, 110).markPerilous(),
     TOMOE_LANCE: withDash(new Attack('crimson lance', .95, .20, .9, 175, 22, 35, 18, 620).markPerilous().markThrust(), 410),
-    RYUSEI_CROSS: new Attack('fallen star', 1.0, .20, 1.0, 110, 310, 35, 35, 200).markPerilous(),
-    OKAMI_CRESCENT: new Attack('hollow crescent', 1.05, .22, 1.05, 132, 320, 33, 22, 120).markPerilous(),
-    DAIMYO_ASHFALL: withDash(new Attack('ashfall', 1.15, .23, 1.1, 152, 280, 44, 36, 290).markPerilous(), 340),
+    RYUSEI_CROSS: new Attack('fallen star', 1.0, .06, 1.0, 82, 185, 35, 35, 200).markPerilous(),
+    OKAMI_CRESCENT: new Attack('hollow crescent', 1.05, .06, 1.05, 98, 190, 33, 22, 120).markPerilous(),
+    DAIMYO_ASHFALL: withDash(new Attack('ashfall', 1.15, .07, 1.1, 114, 170, 44, 36, 290).markPerilous(), 340),
 };
 const ELITE_SUPERS = [EA.KAGEMARU_VANISH, EA.GOZU_QUAKE, EA.TOMOE_LANCE, EA.RYUSEI_CROSS, EA.OKAMI_CRESCENT];
 
@@ -656,7 +656,7 @@ class Enemy extends Actor {
             } else {
                 const heavy = this.type === 'BRUTE';
                 g.fx.slash(x, y, heavy ? atk.range : atk.range * 0.8, f + atk.arc / 2, -atk.arc,
-                    heavy ? Math.max(0.22, atk.active) : 0.22, heavy ? 10 : 6, c,
+                    atk.perilous ? atk.active : heavy ? Math.max(0.22, atk.active) : 0.22, heavy ? 10 : 6, c,
                     heavy ? { follow: this, fullSweep: true } : undefined);
             }
         }
@@ -669,7 +669,7 @@ class Enemy extends Actor {
         if (!close && atk.lunge > 0) this.move(g.world, Math.cos(this.facing) * atk.lunge * f * dt, Math.sin(this.facing) * atk.lunge * f * dt);
         d = this.distTo(p);
         toP = this.angleTo(p);
-        if (!this.atkHit && p.st !== 'DEAD') {
+        if (this.stT < this.stDur && !this.atkHit && p.st !== 'DEAD') {
             const tol = atk.arc / 2 + Math.asin(Math.min(1, p.r / Math.max(d, 1)));
             const delta = U.angDiff(this.facing, toP);
             let inArc = Math.abs(delta) <= tol;

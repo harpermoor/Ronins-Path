@@ -2,8 +2,8 @@
 
 const P_IGNORE = 0, P_DEFLECT = 1, P_BLOCK = 2, P_HIT = 3, P_PERFECT = 4, P_PERFECT_DODGE = 5;
 const PERFECT_WINDOW = 0.18, DODGE_TIME = 0.34, DODGE_IFRAMES = 0.25;
-const PERFECT_PARRY_WINDOW = 0.03;
-const PERFECT_DODGE_WINDOW = 0.05;
+const PERFECT_PARRY_WINDOW = 0.05;
+const PERFECT_DODGE_WINDOW = 0.06;
 const HEAVY_STAB_HOLD = 0.36;
 const P_COMBO = [
     new Attack('cut1', 0.08, 0.09, 0.20, 84, 150, 14, 12, 190),
@@ -315,9 +315,8 @@ class Player extends Actor {
                 if (this.stT > 0.2 && this.bufAttack > 0) {
                     this.bufAttack = 0;
                     this.beginAttackOrDeathblow(0);
-                } else if (this.stT > 0.2 && this.bufParry > 0) {
+                } else if (this.bufParry > 0) {
                     this.bufParry = 0;
-                    this.toFree();
                     this.startGuard();
                 } else if (this.stT >= DODGE_TIME) this.toFree();
                 break;
@@ -395,9 +394,7 @@ class Player extends Actor {
         }
         if (this.bufAttack > 0) {
             this.bufAttack = 0;
-            // Sekiro-style: attack while holding block performs the combat art
-            if (this.guardHeld && g.deathblowTarget() === null) this.tryArt(aimAng);
-            else this.beginAttackOrDeathblow(this.comboGrace > 0 && this.combo >= 0 && this.combo < 2 ? this.combo + 1 : 0);
+            this.beginAttackOrDeathblow(this.comboGrace > 0 && this.combo >= 0 && this.combo < 2 ? this.combo + 1 : 0);
         } else if (this.bufThrow > 0) {
             this.bufThrow = 0;
             if (this.throws > 0) {
@@ -850,9 +847,14 @@ class Player extends Actor {
     receive(sx, sy, dmg, post, perilous, sweep = false) {
         const g = this.g;
         if (this.st === 'DEAD') return P_IGNORE;
-        if (this.st === 'DODGE' && this.stT < this.dodgeIframes) {
+        const ang = Math.atan2(sy - this.y, sx - this.x);
+        const front = Math.abs(U.angDiff(this.facing, ang)) < 105 * DEG;
+        const guardAge = g.time - this.guardStart;
+        const sweepParry = perilous && sweep && guardAge <= this.guardWindow * 0.5;
+        const dodgeParry = this.st === 'DODGE' && this.guarding && front && guardAge >= 0
+            && guardAge <= this.guardWindow && (!perilous || sweepParry);
+        if (this.st === 'DODGE' && this.stT < this.dodgeIframes && !dodgeParry) {
             if (this.stT <= PERFECT_DODGE_WINDOW) {
-                const ang = Math.atan2(sy - this.y, sx - this.x);
                 const cx = this.x + Math.cos(ang) * (this.r + 12), cy = this.y + Math.sin(ang) * (this.r + 12);
                 this.leaveDodgeAfterimage();
                 this.ki = Math.min(100, this.ki + 18);
@@ -869,14 +871,10 @@ class Player extends Actor {
             }
             return P_IGNORE;
         }
-        if (this.invulnerable()) return P_IGNORE;
+        if (this.invulnerable() && !dodgeParry) return P_IGNORE;
         dmg *= this.dmgTaken;
-        const ang = Math.atan2(sy - this.y, sx - this.x);
         const cx = this.x + Math.cos(ang) * (this.r + 12), cy = this.y + Math.sin(ang) * (this.r + 12);
-        const front = Math.abs(U.angDiff(this.facing, ang)) < 105 * DEG;
-        const guardAge = g.time - this.guardStart;
-        const sweepParry = perilous && sweep && guardAge <= this.guardWindow * 0.5;
-        if ((!perilous || sweepParry) && this.st === 'FREE' && this.guarding && front) {
+        if ((!perilous || sweepParry) && (this.st === 'FREE' || dodgeParry) && this.guarding && front) {
             if (guardAge <= this.guardWindow * (sweepParry ? 0.5 : 1)) {
                 const perfect = guardAge >= 0
                     && guardAge <= Math.min(PERFECT_PARRY_WINDOW, this.guardWindow * (sweepParry ? 0.5 : 1));
@@ -923,7 +921,6 @@ class Player extends Actor {
             this.deflectStreak = 0;
             if (this.posture >= this.maxPosture) {
                 this.posture = this.maxPosture * 0.6;
-                this.hp -= dmg * 0.5;
                 this.st = 'STAGGER';
                 this.stT = 0;
                 this.staggerDur = 1.2;
@@ -934,7 +931,6 @@ class Player extends Actor {
                 g.sfx.play('BREAK');
                 g.shake(10);
                 if (g.onGuardBreak) g.onGuardBreak(this);
-                if (this.hp <= 0) this.die();
             }
             return P_BLOCK;
         }

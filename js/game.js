@@ -393,6 +393,7 @@ class Game {
         const wx = (inp.mx - sw / 2) / z + this.camX, wy = (inp.my - sh / 2) / z + this.camY;
         player.readInput(inp, wx, wy);
         if (inp.hit('interact')) this.interact();
+        else if (inp.hit('rest')) this.interact(false);
         if (this.shrineMenu) return;
 
         this.shakeAmt *= Math.exp(-dt * 9);
@@ -457,10 +458,10 @@ class Game {
         this.camY = U.clamp(this.camY, vh / 2, WORLD_SIZE - vh / 2);
     }
 
-    interact() {
+    interact(openMenu = true) {
         const player = this.player;
         if (player.st === 'DEAD') {
-            if (player.deadT > 1.2) this.respawn();
+            if (openMenu && player.deadT > 1.2) this.respawn();
             return;
         }
         const s = this.nearShrine();
@@ -473,11 +474,13 @@ class Game {
                 for (const e of blockers) this.fx.text('!', e.x, e.y - 36, rgb(255, 80, 60), 22);
                 return;
             }
-            this.shrineMenu = s;
-            this.shrineSelection = 0;
-            this.shrineCategory = 'sanctuary';
-            this.shrinePage = 0;
-            this.shrineRects = [];
+            if (openMenu) {
+                this.shrineMenu = s;
+                this.shrineSelection = 0;
+                this.shrineCategory = 'sanctuary';
+                this.shrinePage = 0;
+                this.shrineRects = [];
+            }
             this.restAtShrine(s);
         }
     }
@@ -607,7 +610,7 @@ class Game {
         const player = this.player;
         player.respawn(this.lastShrine.x, this.lastShrine.y + 60);
         if (!this.coop) for (const e of this.enemies) {
-            if (e.camp !== null || e.aware || e.elite) e.resetToHome(e.camp !== null);
+            if (e.camp !== null || e.aware || e.elite) e.resetToHome();
         }
         this.boss = null;
         this.camX = player.x;
@@ -1225,7 +1228,8 @@ class Game {
                 promptColor = rgb(255, 90, 80);
             } else if (ns !== null) {
                 const n = this.restBlockers.length;
-                if (n === 0) prompt = '[' + Preferences.label('interact') + ']  Shrine menu - ' + ns.name;
+                if (n === 0) prompt = '[' + Preferences.label('interact') + ']  Shrine menu   ['
+                    + Preferences.label('rest') + ']  Rest - ' + ns.name;
                 else {
                     prompt = 'Cannot rest  -  ' + n + (n === 1 ? ' enemy' : ' enemies') + ' nearby';
                     promptColor = rgb(255, 90, 70);
@@ -1683,12 +1687,13 @@ class Game {
             [Preferences.label('dodge'), 'Tap: dodge   Hold: sprint'],
             ['Dodge into thrust', 'Mikiri counter'],
             ['Red sweep', 'Deflect with a tighter tap'],
-            ['Block + Atk / ' + Preferences.label('art'), 'Combat Art'],
+            [Preferences.label('art'), 'Combat Art'],
             [Preferences.label('iai'), 'Iai Flash (full Ki)'],
             [Preferences.label('dragon'), 'Dragon Flash (full Ki)'],
             [Preferences.label('throw'), 'Throw weapon'],
             [Preferences.label('heal'), 'Drink healing gourd'],
             [Preferences.label('interact'), 'Shrine menu / revive'],
+            [Preferences.label('rest'), 'Rest at nearby shrine'],
             ['Block + walk', 'Sneak (stealth deathblow)'],
             [Preferences.label('equipment'), 'Equipment / view skills'],
             [Preferences.label('pause'), 'Pause / resume'],
