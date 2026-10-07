@@ -31,6 +31,7 @@ class Game {
         this.ctx = canvas.getContext('2d');
         this.sfx = new Sfx();
         this.input = new Input(canvas, () => this.sfx.unlock());
+        PreferencesMenu.attach(this);
         this.fx = new Effects();
         this.rnd = new Rng(seed);
         this.world = new World(seed);
@@ -251,7 +252,7 @@ class Game {
             this.fx.text('SKILL POINT', p.x, p.y - 70, rgb(255, 225, 120), 22);
             this.fx.ring(p.x, p.y, 10, 90, 0.6, 4, rgb(255, 225, 120));
             this.sfx.play('SHRINE');
-            this.note('Skill point earned  -  spend it in [Tab] > Skills', true);
+            this.note('Skill point earned  -  spend it in [' + Preferences.label('equipment') + '] > Skills', true);
         }
     }
 
@@ -291,6 +292,8 @@ class Game {
     activatePauseAction(action) {
         if (action === 'resume') {
             this.paused = false;
+        } else if (action === 'settings') {
+            PreferencesMenu.open();
         } else if (action === 'equipment') {
             this.paused = false;
             this.menu.show();
@@ -338,6 +341,8 @@ class Game {
 
     tick(dt) {
         const inp = this.input, player = this.player, world = this.world, fx = this.fx;
+        if (inp.hit('settings')) PreferencesMenu.open();
+        if (Preferences.open && !this.coop) return;
         this.realTime += dt;
         fx.updateImpact(dt);
         this.pauseFeedback.hidden = !this.paused;
@@ -346,25 +351,25 @@ class Game {
         this.resetMapConfirmT -= dt;
         if (this.paused) {
             if (this.navigateMenu(inp, this.pauseRects, 'pauseSelection', action => this.activatePauseAction(action))) return;
-            if (inp.hit('Tab') || inp.hit('KeyI')) {
+            if (inp.hit('equipment')) {
                 this.activatePauseAction('equipment');
                 return;
             }
-            if (inp.hit('KeyS')) this.activatePauseAction('save');
-            if (inp.hit('KeyX')) this.activatePauseAction('export');
-            if (inp.hit('KeyL')) this.activatePauseAction('import');
-            if (inp.hit('KeyQ')) {
+            if (inp.hit('save')) this.activatePauseAction('save');
+            if (inp.hit('export')) this.activatePauseAction('export');
+            if (inp.hit('import')) this.activatePauseAction('import');
+            if (inp.hit('mainMenu')) {
                 this.activatePauseAction('main-menu');
                 return;
             }
-            if (inp.hit('KeyM')) this.activatePauseAction('reset');
-            if (inp.hit('KeyN')) this.activatePauseAction('new-game');
+            if (inp.hit('resetMap')) this.activatePauseAction('reset');
+            if (inp.hit('newGame')) this.activatePauseAction('new-game');
             if (this.coop && this.coop.host) {
-                if (inp.hit('KeyO')) this.activatePauseAction('friendly-fire');
-                if (inp.hit('BracketLeft')) this.activatePauseAction('enemy-down');
-                if (inp.hit('BracketRight')) this.activatePauseAction('enemy-up');
-                if (inp.hit('Semicolon')) this.activatePauseAction('count-down');
-                if (inp.hit('Quote')) this.activatePauseAction('count-up');
+                if (inp.hit('friendlyFire')) this.activatePauseAction('friendly-fire');
+                if (inp.hit('enemyDown')) this.activatePauseAction('enemy-down');
+                if (inp.hit('enemyUp')) this.activatePauseAction('enemy-up');
+                if (inp.hit('countDown')) this.activatePauseAction('count-down');
+                if (inp.hit('countUp')) this.activatePauseAction('count-up');
             }
         }
         if (this.menu.open) {
@@ -372,22 +377,22 @@ class Game {
             return;
         }
         if (this.shrineMenu) {
-            if (inp.hit('Escape') || inp.hit('KeyE')) this.shrineMenu = null;
+            if (inp.hit('pause') || inp.hit('interact')) this.shrineMenu = null;
             else this.navigateMenu(inp, this.shrineRects, 'shrineSelection', action => this.activateShrineAction(action));
             return;
         }
-        if ((inp.hit('Tab') || inp.hit('KeyI')) && !this.paused && player.st !== 'DEAD') {
+        if (inp.hit('equipment') && !this.paused && player.st !== 'DEAD') {
             this.menu.show();
             return;
         }
-        if (inp.hit('Escape')) this.paused = !this.paused;
+        if (inp.hit('pause')) this.paused = !this.paused;
         if (this.paused) return;
 
         const sw = this.canvas.width, sh = this.canvas.height;
         const z = this.zoom();
         const wx = (inp.mx - sw / 2) / z + this.camX, wy = (inp.my - sh / 2) / z + this.camY;
         player.readInput(inp, wx, wy);
-        if (inp.hit('KeyE')) this.interact();
+        if (inp.hit('interact')) this.interact();
         if (this.shrineMenu) return;
 
         this.shakeAmt *= Math.exp(-dt * 9);
@@ -565,9 +570,9 @@ class Game {
             this[selection] = hovered;
         this.menuPointerX = inp.mx;
         this.menuPointerY = inp.my;
-        if (inp.hit('ArrowUp') || inp.hit('ArrowLeft')) this[selection] = (this[selection] + buttons.length - 1) % buttons.length;
-        if (inp.hit('ArrowDown') || inp.hit('ArrowRight')) this[selection] = (this[selection] + 1) % buttons.length;
-        if (inp.hit('Enter') || inp.hit('NumpadEnter')) {
+        if (inp.hit('listPrevious')) this[selection] = (this[selection] + buttons.length - 1) % buttons.length;
+        if (inp.hit('listNext')) this[selection] = (this[selection] + 1) % buttons.length;
+        if (inp.hit('listConfirm')) {
             activate(buttons[this[selection]].action);
             return true;
         }
@@ -955,7 +960,8 @@ class Game {
             const allElitesDeadHere = this.enemies.filter(x => x.elite && !x.boss).every(x => x.st === 'DEAD');
             if (allElitesDeadHere) {
                 this.spawnFinalBoss(e.camp);
-            } else this.banner('ELITE SLAIN', e.name + '  -  Vitality up, +1 Healing Gourd' + (unlocked ? '  -  New gear unlocked [Tab]' : ''),
+            } else this.banner('ELITE SLAIN', e.name + '  -  Vitality up, +1 Healing Gourd'
+                + (unlocked ? '  -  New gear unlocked [' + Preferences.label('equipment') + ']' : ''),
                 rgb(255, 90, 70));
         }
         const c = e.camp;
@@ -994,10 +1000,11 @@ class Game {
         g.fillRect(0, 0, sw, sh);
         const z = this.zoom();
         const shx = (this.rnd.nextDouble() - 0.5) * 2 * this.shakeAmt, shy = (this.rnd.nextDouble() - 0.5) * 2 * this.shakeAmt;
+        const shake = Preferences.value.shake / 100;
         g.save();
         g.translate(sw / 2, sh / 2);
         g.scale(z, z);
-        g.translate(-this.camX + shx, -this.camY + shy);
+        g.translate(-this.camX + shx * shake, -this.camY + shy * shake);
         const l = this.camX - sw / 2 / z - 20, t = this.camY - sh / 2 / z - 20, r = this.camX + sw / 2 / z + 20, b = this.camY + sh / 2 / z + 20;
 
         world.drawGround(g, l, t, r, b);
@@ -1033,9 +1040,9 @@ class Game {
         player.drawLock(g, this.realTime);
         g.restore();
 
-        this.drawParryBurst(g, sw, sh, z);
-        this.drawVignette(g, sw, sh);
-        if (this.flashA > 0) {
+        if (Preferences.value.flashes) this.drawParryBurst(g, sw, sh, z);
+        if (Preferences.value.vignette) this.drawVignette(g, sw, sh);
+        if (Preferences.value.flashes && this.flashA > 0) {
             g.fillStyle = css(U.alpha(this.flashColor, this.flashA * 0.6));
             g.fillRect(0, 0, sw, sh);
         }
@@ -1159,8 +1166,8 @@ class Game {
         g.fillRect(hx, ky, Math.trunc(200 * p.ki / 100), 6);
         g.font = SMALL_FONT;
         if (full) {
-            this.text(g, '[F] IAI FLASH READY', hx + 212, ky + 8, rgb(170, 220, 255), false);
-            if (p.dragonFlash) this.text(g, '[G] DRAGON FLASH', hx + 212, ky + 25, rgb(180, 235, 255), false);
+            this.text(g, '[' + Preferences.label('iai') + '] IAI FLASH READY', hx + 212, ky + 8, rgb(170, 220, 255), false);
+            if (p.dragonFlash) this.text(g, '[' + Preferences.label('dragon') + '] DRAGON FLASH', hx + 212, ky + 25, rgb(180, 235, 255), false);
         }
         // --- gourds ---
         for (let i = 0; i < p.maxGourds; i++) {
@@ -1173,8 +1180,8 @@ class Game {
             g.fillRect(gx + 6, gy - 3, 4, 4);
         }
         g.font = SMALL_FONT;
-        this.text(g, '[Q] heal', hx + p.maxGourds * 24 + 6, ky + 32, rgb(220, 200, 170), false);
-        this.text(g, '[T] ' + p.throwable.name + ' ' + p.throws + '/' + p.maxThrows,
+        this.text(g, '[' + Preferences.label('heal') + '] heal', hx + p.maxGourds * 24 + 6, ky + 32, rgb(220, 200, 170), false);
+        this.text(g, '[' + Preferences.label('throw') + '] ' + p.throwable.name + ' ' + p.throws + '/' + p.maxThrows,
             hx, ky + 54, p.throws ? p.throwable.color : rgb(150, 140, 130), false);
 
         // --- combat art charges (earned by deflecting) ---
@@ -1203,7 +1210,8 @@ class Game {
         this.text(g, label, tx + 8 + kw, ay, canArt ? rgb(255, 235, 190) : rgb(150, 140, 130), false);
         const lw = g.measureText(label).width;
         g.font = SMALL_FONT;
-        this.text(g, canArt ? '[Block + Attack] or [R]' : 'Deflect to charge', tx + 20 + kw + lw, ay, rgb(180, 170, 150), false);
+        this.text(g, canArt ? '[Block + Attack] or [' + Preferences.label('art') + ']' : 'Deflect to charge',
+            tx + 20 + kw + lw, ay, rgb(180, 170, 150), false);
 
         // --- player posture (center) ---
         if (p.posture > 0.5) Draw.postureBar(g, sw / 2, sh - 44, 380, 9, p.posture / p.maxPosture, false);
@@ -1213,11 +1221,11 @@ class Game {
         if (p.st !== 'DEAD') {
             const ns = this.nearShrine();
             if (db !== null) {
-                prompt = this.stealthable(db) ? '[LMB]  STEALTH DEATHBLOW' : '[LMB]  DEATHBLOW';
+                prompt = '[' + Preferences.label('attack') + ']  ' + (this.stealthable(db) ? 'STEALTH DEATHBLOW' : 'DEATHBLOW');
                 promptColor = rgb(255, 90, 80);
             } else if (ns !== null) {
                 const n = this.restBlockers.length;
-                if (n === 0) prompt = '[E]  Shrine menu - ' + ns.name;
+                if (n === 0) prompt = '[' + Preferences.label('interact') + ']  Shrine menu - ' + ns.name;
                 else {
                     prompt = 'Cannot rest  -  ' + n + (n === 1 ? ' enemy' : ' enemies') + ' nearby';
                     promptColor = rgb(255, 90, 70);
@@ -1237,7 +1245,8 @@ class Game {
         g.font = SMALL_FONT;
         this.text(g, 'Elites slain ' + this.elitesSlain + '/' + this.totalElites + '     Camps cleared ' + cleared + '/' + world.camps.length
             + '     Kills ' + this.kills, 24, 58, rgb(220, 210, 190), false);
-        this.text(g, '[Tab] equipment   [E] shrine skills & travel   [Esc] pause', 24, 78, rgb(180, 170, 150), false);
+        this.text(g, '[' + Preferences.label('equipment') + '] equipment   [' + Preferences.label('interact')
+            + '] shrine skills & travel   [' + Preferences.label('pause') + '] pause', 24, 78, rgb(180, 170, 150), false);
         const need = expForNextPoint(this.pointsEarned);
         g.fillStyle = 'rgba(0,0,0,0.6)';
         g.fillRect(24, 88, 204, 7);
@@ -1280,7 +1289,8 @@ class Game {
             this.text(g, 'DEATH', sw / 2, sh / 2 + 100, U.alpha(rgb(220, 200, 200), a), true);
             if (p.deadT > 1.2) {
                 g.font = SUB_FONT;
-                this.text(g, 'Press E to resurrect at ' + this.lastShrine.name, sw / 2, sh / 2 + 140, rgb(230, 220, 210), true);
+                this.text(g, 'Press ' + Preferences.label('interact') + ' to resurrect at ' + this.lastShrine.name,
+                    sw / 2, sh / 2 + 140, rgb(230, 220, 210), true);
                 if (this.lastExpLoss > 0) {
                     g.font = HUD_FONT;
                     this.text(g, 'Lost ' + this.lastExpLoss + ' EXP', sw / 2, sh / 2 + 168, rgb(200, 140, 140), true);
@@ -1302,7 +1312,12 @@ class Game {
     }
 
     pauseButton(g, action, title, copy, x, y, w, h, opts) {
-        const o = opts || {}, disabled = !!o.disabled;
+        const o = Object.assign({}, opts), disabled = !!o.disabled;
+        const shortcuts = { resume: 'pause', equipment: 'equipment', save: 'save', export: 'export',
+            import: 'import', 'main-menu': 'mainMenu', reset: 'resetMap', 'new-game': 'newGame',
+            'friendly-fire': 'friendlyFire', 'enemy-down': 'enemyDown', 'enemy-up': 'enemyUp',
+            'count-down': 'countDown', 'count-up': 'countUp', settings: 'settings' };
+        if (shortcuts[action]) o.key = bindingLabel(Preferences.bindings(shortcuts[action])[0]);
         (o.rects || this.pauseRects).push({ action, x, y, w, h, disabled });
         roundRectPath(g, x, y, w, h, 6);
         g.fillStyle = disabled ? 'rgba(30,25,23,0.72)' : o.pressed ? 'rgb(111,76,40)' : o.hovered ? 'rgb(76,57,39)'
@@ -1321,14 +1336,20 @@ class Game {
             g.font = style + px + 'px ' + (style ? 'serif' : 'sans-serif');
             while (px > min && g.measureText(s).width > maxW) { px--; g.font = style + px + 'px ' + (style ? 'serif' : 'sans-serif'); }
         };
-        fit(title, 16, 11, 'bold ', w - 28 - (o.key ? 30 : 0));
+        const keyW = o.key ? Math.min(w * 0.4, o.key.length * 8 + 12) : 0;
+        fit(title, 16, 11, 'bold ', w - 28 - keyW);
         this.text(g, title, x + 14, y + 22, disabled ? rgb(113,103,94) : rgb(244,233,216), false);
         fit(copy, 12, 8, '', w - 28);
         this.text(g, copy, x + 14, y + 41, disabled ? rgb(90,83,78) : rgb(177,161,145), false);
         g.restore();
         if (o.key) {
+            g.save();
+            g.beginPath();
+            g.rect(x + w - keyW, y, keyW, h);
+            g.clip();
             g.font = 'bold 12px monospace';
-            this.text(g, o.key, x + w - 14, y + 22, disabled ? rgb(90,83,78) : rgb(214,183,133), true);
+            this.text(g, o.key, x + w - keyW / 2 - 4, y + 22, disabled ? rgb(90,83,78) : rgb(214,183,133), true);
+            g.restore();
         }
     }
 
@@ -1412,7 +1433,8 @@ class Game {
             this.text(g, 'Resting replenishes supplies without resetting the world.', X + 24, Y + 365, rgb(190,180,160), false);
             this.text(g, 'Only safe shrines let you learn skills or travel.', X + 24, Y + 390, rgb(190,180,160), false);
         }
-        button('leave', 'Return to Journey', 'Esc / E closes. Arrows select; Enter confirms.',
+        button('leave', 'Return to Journey', Preferences.label('pause') + ' / ' + Preferences.label('interact')
+            + ' closes. ' + Preferences.label('listConfirm') + ' confirms.',
             X + 24, Y + H - 68, W - 48, 52);
         const selected = this.shrineRects.filter(r => !r.disabled)[this.shrineSelection];
         if (selected) {
@@ -1470,7 +1492,7 @@ class Game {
         const pauseStatus = 'JOURNEY PAUSED';
         this.text(g, pauseStatus, X + W - 28 - g.measureText(pauseStatus).width / 2, Y + 54, rgb(213,91,70), true);
         g.font = '12px sans-serif';
-        const pauseHint = 'Arrows select | Enter confirms | Esc resumes';
+        const pauseHint = Preferences.label('listConfirm') + ' confirms | ' + Preferences.label('pause') + ' resumes';
         this.text(g, pauseHint, X + W - 28 - g.measureText(pauseHint).width / 2, Y + 76, rgb(157,143,130), true);
 
         const pad = 28, gap = 18, top = Y + 116;
@@ -1496,8 +1518,10 @@ class Game {
         this.pauseButton(g, 'main-menu', 'Return to Main Menu', 'Save progress and leave the current journey.', lx, y, colW, 52, { danger: true, key: 'Q' });
         this.pauseButton(g, 'import', 'Import Save File', this.guestJourney ? 'Unavailable to co-op guests.' : 'Restore a previously exported journey.',
             rx, y, colW, 52, { key: 'L', disabled: this.guestJourney });
+        y += 60;
+        this.pauseButton(g, 'settings', 'Settings', 'Sound, graphics, and fully customizable controls.', lx, y, colW, 52);
 
-        y += 82;
+        y += 64;
         section(this.coop && this.coop.host ? 'Co-op rules' : 'World options',
             this.coop && !this.coop.host ? 'Only the host can alter this shared world.' : 'Changes here affect the current journey.', lx, y);
         y += 32;
@@ -1649,24 +1673,25 @@ class Game {
         g.font = 'bold 20px serif';
         this.text(g, 'Keybinds', x + 20, y + 52, rgb(226, 211, 188), false);
         const rows = [
-            ['WASD', 'Move'],
+            [[...new Set(['moveUp', 'moveDown', 'moveLeft', 'moveRight'].flatMap(id => Preferences.bindings(id)))]
+                .map(bindingLabel).join(' / '), 'Move'],
             ['Mouse', 'Aim'],
-            ['C / Middle mouse', 'Toggle lock-on'],
-            ['LMB / J', 'Attack (3-hit combo)'],
-            ['Hold LMB', 'Heavy strike'],
-            ['RMB / K', 'Tap: deflect   Hold: block'],
-            ['Space / L', 'Tap: dodge   Hold: sprint'],
+            [Preferences.label('lockOn'), 'Toggle lock-on'],
+            [Preferences.label('attack') + ' / ' + Preferences.label('quickAttack'), 'Attack (3-hit combo)'],
+            ['Hold ' + Preferences.label('attack'), 'Heavy strike'],
+            [Preferences.label('guard'), 'Tap: deflect   Hold: block'],
+            [Preferences.label('dodge'), 'Tap: dodge   Hold: sprint'],
             ['Dodge into thrust', 'Mikiri counter'],
             ['Red sweep', 'Deflect with a tighter tap'],
-            ['Block + Atk / R', 'Combat Art'],
-            ['F', 'Iai Flash (full Ki)'],
-            ['G', 'Dragon Flash (full Ki)'],
-            ['T', 'Throw weapon'],
-            ['Q', 'Drink healing gourd'],
-            ['E', 'Shrine menu / revive'],
+            ['Block + Atk / ' + Preferences.label('art'), 'Combat Art'],
+            [Preferences.label('iai'), 'Iai Flash (full Ki)'],
+            [Preferences.label('dragon'), 'Dragon Flash (full Ki)'],
+            [Preferences.label('throw'), 'Throw weapon'],
+            [Preferences.label('heal'), 'Drink healing gourd'],
+            [Preferences.label('interact'), 'Shrine menu / revive'],
             ['Block + walk', 'Sneak (stealth deathblow)'],
-            ['Tab / I', 'Equipment / view skills'],
-            ['Esc', 'Pause / resume'],
+            [Preferences.label('equipment'), 'Equipment / view skills'],
+            [Preferences.label('pause'), 'Pause / resume'],
         ];
         // measure everything so text stays inside the panel: wrap long descriptions, shrink the font if still too tall
         const pad = 18, innerW = w - pad * 2, top = y + 74, bottom = y + h - 14;

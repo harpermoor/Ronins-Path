@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 
 const context = vm.createContext({ console });
-for (const name of ['util', 'effects', 'skills', 'settings', 'world', 'loadout', 'player', 'enemy', 'game', 'save']) {
+for (const name of ['util', 'preferences', 'effects', 'skills', 'settings', 'world', 'loadout', 'player', 'enemy', 'game', 'save']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', name + '.js'), 'utf8'), context);
 }
 const { Enemy, Game, EA, difficultyFor, ENEMY_DAMAGE_SCALE, NORMAL_ENEMY_HP_SCALE, NORMAL_ENEMY_POSTURE_SCALE,

@@ -10,6 +10,11 @@ class Sfx {
         this.voices = {};
         this.active = {};
         this.rnd = new Rng(7);
+        Preferences.listeners.add(() => this.applyVolume());
+    }
+
+    applyVolume() {
+        if (this.out) this.out.gain.value = Preferences.value.muted ? 0 : 0.85 * Preferences.value.volume / 100;
     }
 
     unlock() {
@@ -19,7 +24,7 @@ class Sfx {
             try {
                 this.ctx = new AC();
                 this.out = this.ctx.createGain();
-                this.out.gain.value = 0.85;
+                this.applyVolume();
                 if (this.ctx.createDynamicsCompressor) {
                     // Glues rapid overlapping hits together without clipping.
                     const comp = this.ctx.createDynamicsCompressor();

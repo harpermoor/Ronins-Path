@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 
 const context = vm.createContext({ console });
-for (const name of ['util', 'effects', 'world', 'skills', 'loadout', 'player', 'settings', 'save', 'game', 'coop', 'duel', 'net']) {
+for (const name of ['util', 'preferences', 'effects', 'world', 'skills', 'loadout', 'player', 'settings', 'save', 'game', 'coop', 'duel', 'net']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', name + '.js'), 'utf8'), context);
 }
 const { lo, g, p, shrine, fxEvents } = vm.runInContext(`(() => {
@@ -212,7 +212,7 @@ Game.prototype.playerHitCheck.call(g, p, p.artAtks[0]);
 assert.equal(wideHits, 1, 'Whirlwind hits behind the player beyond its old radius');
 
 // Lock-on is an input-level aim assist, so duels send ordinary synchronized aim coordinates.
-const lockInput = { hit: key => key === 'KeyC', mouseHit: () => false, down: () => false,
+const lockInput = { hit: key => key === 'lockOn', mouseHit: () => false, down: () => false,
     mouseDown: () => false, mouseHeldFor: () => 0, endTick() {} };
 const nearLock = { x: 100, y: 0, r: 15, st: 'FREE' };
 const farLock = { x: 200, y: 0, r: 15, st: 'FREE' };
@@ -231,15 +231,14 @@ lockInput.mx = lockInput.my = 0;
 const lockedSample = DuelForLock.prototype.sampleLocal.call(lockDuel);
 assert.equal(lockedSample[2], 100);
 assert.equal(lockedSample[3], 80);
-lockInput.hit = key => key === 'KeyC';
+lockInput.hit = key => key === 'lockOn';
 p.readInput(lockInput, -200, 100);
 assert.equal(p.lockTarget, null);
 assert.equal(p.aimX, -200);
-lockInput.hit = () => false;
-lockInput.mouseHit = button => button === 2;
+lockInput.hit = key => key === 'lockOn';
 p.readInput(lockInput, 0, 0);
 assert.equal(p.lockTarget, nearLock);
-lockInput.mouseHit = () => false;
+lockInput.hit = () => false;
 nearLock.st = 'DEAD';
 p.readInput(lockInput, 0, 0);
 assert.equal(p.lockTarget, null);
@@ -643,11 +642,11 @@ menuGame.input.mouseDown = () => true;
 menuGame.drawShrineMenu(menuCanvas, 640, 360);
 assert(shrineButtonFills.includes('rgb(111,76,40)'), 'held button gives immediate pressed feedback');
 let activated = null;
-const input = { hit: key => key === 'ArrowDown', mouseHit: () => false };
+const input = { hit: key => key === 'listNext', mouseHit: () => false };
 menuGame.navigateMenu(input, [{ action: 'a' }, { action: 'locked', disabled: true }, { action: 'b' }],
    'pauseSelection', action => { activated = action; });
 assert.equal(menuGame.pauseSelection, 1);
-input.hit = key => key === 'Enter';
+input.hit = key => key === 'listConfirm';
 assert(menuGame.navigateMenu(input, [{ action: 'a' }, { action: 'locked', disabled: true }, { action: 'b' }],
    'pauseSelection', action => { activated = action; }));
 assert.equal(activated, 'b', 'keyboard selection skips disabled actions');
@@ -655,7 +654,7 @@ const hoverRects = [{ action: 'a', x: 0, y: 0, w: 40, h: 40 }, { action: 'b', x:
 const hoverInput = { mx: 60, my: 20, hit: () => false, mouseHit: () => false };
 menuGame.navigateMenu(hoverInput, hoverRects, 'shrineSelection', () => {});
 assert.equal(menuGame.shrineSelection, 1, 'moving the pointer selects the hovered button');
-hoverInput.hit = key => key === 'ArrowLeft';
+hoverInput.hit = key => key === 'listPrevious';
 menuGame.navigateMenu(hoverInput, hoverRects, 'shrineSelection', () => {});
 assert.equal(menuGame.shrineSelection, 0);
 hoverInput.hit = () => false;
@@ -667,6 +666,7 @@ context.window = { addEventListener: (name, fn) => { pointerEvents[name] = fn; }
 context.performance = { now: () => 100 };
 const Input = vm.runInContext('Input', context);
 const pointerInput = new Input({ width: 1280, height: 720,
+   focus() {},
    getBoundingClientRect: () => ({ left: 20, top: 30, width: 640, height: 360 }),
    addEventListener: (name, fn) => { canvasEvents[name] = fn; },
 }, () => {});

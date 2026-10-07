@@ -387,38 +387,38 @@ class EquipMenu {
 
     tick(inp, dt) {
         this.msgT -= dt;
-        if (inp.hit('Tab') || inp.hit('KeyI') || inp.hit('Escape')) {
+        if (inp.hit('equipment') || inp.hit('pause')) {
             this.open = false;
             return;
         }
         const nTabs = EQUIP_SLOTS.length + 2, prevTab = this.tab;
-        if (!this.atShrine && inp.hit('KeyQ')) this.tab = (this.tab + nTabs - 1) % nTabs;
-        if (!this.atShrine && inp.hit('KeyE')) this.tab = (this.tab + 1) % nTabs;
+        if (!this.atShrine && inp.hit('previousTab')) this.tab = (this.tab + nTabs - 1) % nTabs;
+        if (!this.atShrine && inp.hit('nextTab')) this.tab = (this.tab + 1) % nTabs;
         const appearance = this.tab === LOOK_TAB, skillsTab = this.tab === SKILL_TAB;
         if (this.tab === 1) {
-            if (inp.hit('KeyA') || inp.hit('ArrowLeft')) {
+            if (inp.hit('menuLeft')) {
                 this.selectWeaponType((this.weaponTypeTab + WEAPON_TYPES.length - 1) % WEAPON_TYPES.length);
             }
-            if (inp.hit('KeyD') || inp.hit('ArrowRight')) {
+            if (inp.hit('menuRight')) {
                 this.selectWeaponType((this.weaponTypeTab + 1) % WEAPON_TYPES.length);
             }
         }
         if (skillsTab) {
             let b = Math.floor(this.sel[SKILL_TAB] / SKILL_TIERS), t = this.sel[SKILL_TAB] % SKILL_TIERS;
-            if (inp.hit('KeyW') || inp.hit('ArrowUp')) t = (t + SKILL_TIERS - 1) % SKILL_TIERS;
-            if (inp.hit('KeyS') || inp.hit('ArrowDown')) t = (t + 1) % SKILL_TIERS;
-            if (inp.hit('KeyA') || inp.hit('ArrowLeft')) b = (b + 2) % 3;
-            if (inp.hit('KeyD') || inp.hit('ArrowRight')) b = (b + 1) % 3;
+            if (inp.hit('menuUp')) t = (t + SKILL_TIERS - 1) % SKILL_TIERS;
+            if (inp.hit('menuDown')) t = (t + 1) % SKILL_TIERS;
+            if (inp.hit('menuLeft')) b = (b + 2) % 3;
+            if (inp.hit('menuRight')) b = (b + 1) % 3;
             this.sel[SKILL_TAB] = b * SKILL_TIERS + t;
-            if (inp.hit('Enter') || inp.hit('NumpadEnter') || inp.hit('Space')) this.learn(this.sel[SKILL_TAB]);
+            if (inp.hit('confirm')) this.learn(this.sel[SKILL_TAB]);
         } else {
             const n = this.count();
-            if (inp.hit('KeyW') || inp.hit('ArrowUp')) this.moveSelection(-1);
-            if (inp.hit('KeyS') || inp.hit('ArrowDown')) this.moveSelection(1);
+            if (inp.hit('menuUp')) this.moveSelection(-1);
+            if (inp.hit('menuDown')) this.moveSelection(1);
             if (appearance) {
-                if (inp.hit('KeyA') || inp.hit('ArrowLeft')) this.cycleLook(this.sel[this.tab], -1);
-                if (inp.hit('KeyD') || inp.hit('ArrowRight')) this.cycleLook(this.sel[this.tab], 1);
-            } else if (inp.hit('Enter') || inp.hit('NumpadEnter') || inp.hit('Space')) this.equip(this.sel[this.tab]);
+                if (inp.hit('menuLeft')) this.cycleLook(this.sel[this.tab], -1);
+                if (inp.hit('menuRight')) this.cycleLook(this.sel[this.tab], 1);
+            } else if (inp.hit('confirm')) this.equip(this.sel[this.tab]);
         }
 
         const mx = inp.mx, my = inp.my, moved = mx !== this.lastMx || my !== this.lastMy, click = inp.mouseHit(1);
@@ -590,12 +590,8 @@ class EquipMenu {
         else this.drawLooks(g, lx, top, lw, R);
 
         g.font = SMALL_FONT;
-        const hint = this.tab === 1 ? 'W/S select     A/D weapon type     Enter / Click equip     Q/E menu tab     Tab close'
-            : this.tab < EQUIP_SLOTS.length ? 'W/S select     Enter / Click equip     Q/E switch tab     Tab close'
-            : skillsTab ? this.atShrine
-                ? 'WASD select     Enter / click again to learn     Esc / Tab back to shrine'
-                : 'WASD select     Visit a shrine to learn     Q/E switch tab     Tab close'
-                : 'W/S select     A/D or click to change     Q/E switch tab     Tab close';
+        const hint = Preferences.label('menuUp') + ' / ' + Preferences.label('menuDown') + ' select | '
+            + Preferences.label('confirm') + ' / click confirm | ' + Preferences.label('equipment') + ' close';
         game.text(g, hint, X + W / 2, Y + H - 16, rgb(180, 165, 145), true);
     }
 
@@ -787,7 +783,8 @@ class EquipMenu {
             status = 'Costs ' + selSk.cost + ' skill point' + (selSk.cost > 1 ? 's' : '') + '  -  not enough points';
             c = rgb(200, 120, 110);
         } else {
-            status = 'Costs ' + selSk.cost + ' skill point' + (selSk.cost > 1 ? 's' : '') + '  -  Enter or click again to learn';
+            status = 'Costs ' + selSk.cost + ' skill point' + (selSk.cost > 1 ? 's' : '')
+                + '  -  ' + Preferences.label('confirm') + ' or click again to learn';
             c = rgb(150, 235, 150);
         }
         if (dh > 100) game.text(g, status, x + 16, dy + 98, c, false);

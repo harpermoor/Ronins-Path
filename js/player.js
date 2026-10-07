@@ -203,39 +203,39 @@ class Player extends Actor {
         wx = aim.x;
         wy = aim.y;
         let mx = 0, my = 0;
-        if (inp.down('KeyW') || inp.down('ArrowUp')) my -= 1;
-        if (inp.down('KeyS') || inp.down('ArrowDown')) my += 1;
-        if (inp.down('KeyA') || inp.down('ArrowLeft')) mx -= 1;
-        if (inp.down('KeyD') || inp.down('ArrowRight')) mx += 1;
+        if (inp.down('moveUp')) my -= 1;
+        if (inp.down('moveDown')) my += 1;
+        if (inp.down('moveLeft')) mx -= 1;
+        if (inp.down('moveRight')) mx += 1;
         const l = Math.hypot(mx, my);
         this.moveX = l > 0 ? mx / l : 0;
         this.moveY = l > 0 ? my / l : 0;
         this.aimX = wx;
         this.aimY = wy;
-        this.guardHeld = inp.mouseDown(3) || inp.down('KeyK');
-        this.dodgeHeld = inp.down('Space') || inp.down('KeyL');
-        if (inp.hit('KeyJ')) this.bufAttack = 0.22;
-        if (inp.mouseHit(1)) this.mouseAttackPending = true;
-        if (this.mouseAttackPending && inp.mouseHeldFor(1) >= HEAVY_STAB_HOLD) {
+        this.guardHeld = inp.down('guard');
+        this.dodgeHeld = inp.down('dodge');
+        if (inp.hit('quickAttack')) this.bufAttack = 0.22;
+        if (inp.hit('attack')) this.mouseAttackPending = true;
+        if (this.mouseAttackPending && inp.heldFor('attack') >= HEAVY_STAB_HOLD) {
             this.mouseAttackPending = false;
             this.bufStab = 0.2;
-        } else if (this.mouseAttackPending && !inp.mouseDown(1)) {
+        } else if (this.mouseAttackPending && !inp.down('attack')) {
             this.mouseAttackPending = false;
             this.bufAttack = 0.22;
         }
-        if (inp.mouseHit(3) || inp.hit('KeyK')) this.bufParry = 0.15;
-        if (inp.hit('Space') || inp.hit('KeyL')) this.bufDodge = 0.18;
-        if (inp.hit('KeyQ')) this.bufHeal = 0.12;
-        if (inp.hit('KeyF')) this.bufIai = 0.15;
-        if (inp.hit('KeyR')) this.bufArt = 0.2;
-        if (inp.hit('KeyG')) this.bufDragon = 0.15;
-        if (inp.hit('KeyT')) this.bufThrow = 0.2;
+        if (inp.hit('guard')) this.bufParry = 0.15;
+        if (inp.hit('dodge')) this.bufDodge = 0.18;
+        if (inp.hit('heal')) this.bufHeal = 0.12;
+        if (inp.hit('iai')) this.bufIai = 0.15;
+        if (inp.hit('art')) this.bufArt = 0.2;
+        if (inp.hit('dragon')) this.bufDragon = 0.15;
+        if (inp.hit('throw')) this.bufThrow = 0.2;
     }
 
     lockAim(inp, wx, wy, foes) {
         const valid = e => e !== this && e.st !== 'DEAD' && !e.gone && !e.beingExecuted && this.distTo(e) <= 650;
         if (this.st === 'DEAD' || (this.lockTarget && (!foes.includes(this.lockTarget) || !valid(this.lockTarget)))) this.lockTarget = null;
-        if (this.st !== 'DEAD' && (inp.hit('KeyC') || inp.mouseHit(2))) {
+        if (this.st !== 'DEAD' && inp.hit('lockOn')) {
             if (this.lockTarget) this.lockTarget = null;
             else {
                 let nearest = 550;

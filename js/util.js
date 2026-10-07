@@ -195,23 +195,32 @@ class Input {
         this.btn = new Array(8).fill(false);
         this.btnHit = new Array(8).fill(false);
         this.btnStarted = new Array(8).fill(0);
+        this.keyStarted = new Map();
         this.mx = 0;
         this.my = 0;
-        const blockDefault = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab']);
-        const mapBtn = b => (b === 0 ? 1 : b === 1 ? 2 : b === 2 ? 3 : 0);
+        const mapBtn = b => b >= 0 && b <= 4 ? b + 1 : 0;
         const updatePointer = e => {
             const rc = target.getBoundingClientRect();
             this.mx = (e.clientX - rc.left) * target.width / rc.width;
             this.my = (e.clientY - rc.top) * target.height / rc.height;
         };
         window.addEventListener('keydown', e => {
+            if (Preferences.open || document.activeElement !== target) return;
             onGesture();
-            if (blockDefault.has(e.code)) e.preventDefault();
-            if (!this.keys.has(e.code)) this.keyHit.add(e.code);
+            if (Object.values(Preferences.value.bindings).some(bindings => bindings.includes(e.code))) e.preventDefault();
+            if (!this.keys.has(e.code)) {
+                this.keyHit.add(e.code);
+                this.keyStarted.set(e.code, performance.now());
+            }
             this.keys.add(e.code);
         });
-        window.addEventListener('keyup', e => this.keys.delete(e.code));
+        window.addEventListener('keyup', e => {
+            this.keys.delete(e.code);
+            this.keyStarted.delete(e.code);
+        });
         target.addEventListener('mousedown', e => {
+            if (Preferences.open) return;
+            target.focus();
             onGesture();
             e.preventDefault();
             updatePointer(e);
@@ -233,8 +242,31 @@ class Input {
         target.addEventListener('contextmenu', e => e.preventDefault());
         window.addEventListener('blur', () => this.releaseAll());
     }
-    down(k) { return this.keys.has(k); }
-    hit(k) { return this.keyHit.has(k); }
+    down(action) {
+        return Preferences.bindings(action).some(code => code.startsWith('Mouse')
+            ? this.btn[Number(code.slice(5)) + 1] : this.keys.has(code));
+    }
+    hit(action) {
+        return Preferences.bindings(action).some(code => code.startsWith('Mouse')
+            ? this.btnHit[Number(code.slice(5)) + 1] : this.keyHit.has(code));
+    }
+    heldFor(action) {
+        let held = 0;
+        for (const code of Preferences.bindings(action)) {
+            const mouse = code.startsWith('Mouse'), b = Number(code.slice(5)) + 1;
+            const start = mouse ? this.btnStarted[b] : this.keyStarted.get(code);
+            if ((mouse ? this.btn[b] : this.keys.has(code)) && start !== undefined) {
+                held = Math.max(held, (performance.now() - start) / 1000);
+            }
+        }
+        return held;
+    }
+    consumeHit(action) {
+        for (const code of Preferences.bindings(action)) {
+            if (code.startsWith('Mouse')) this.btnHit[Number(code.slice(5)) + 1] = false;
+            else this.keyHit.delete(code);
+        }
+    }
     mouseDown(b) { return this.btn[b]; }
     mouseHit(b) { return this.btnHit[b]; }
     mouseHeldFor(b) { return this.btn[b] && this.btnStarted[b] > 0 ? (performance.now() - this.btnStarted[b]) / 1000 : 0; }
@@ -244,7 +276,9 @@ class Input {
     }
     releaseAll() {
         this.keys.clear();
+        this.keyStarted.clear();
         this.btn.fill(false);
         this.btnStarted.fill(0);
+        this.endTick();
     }
 }

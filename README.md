@@ -14,6 +14,14 @@ The main menu loads recent updates directly from `CHANGELOG.md` without caching 
 
 ## Combat controls
 
+### Settings and custom controls
+
+Open **Settings** from the main menu, the in-game Settings button, or **F10** (default). The journey pause menu also has a Settings button. Sound settings include master volume and mute. Graphics settings control decorative particles, ambient petals, screen-shake strength, full-screen flashes/impact effects, and the vignette; attack trails and gameplay indicators stay visible.
+
+Every keyboard action has up to three editable bindings, including movement, combat, equipment/shrine navigation, pause shortcuts, co-op host controls, and duel rematch controls. Select a binding and press any supported keyboard key or mouse button, or use **Clear** to remove it. Escape is assignable; use **Cancel binding** to cancel capture. Shared bindings are allowed with a warning, and trigger all applicable actions in their active context. The attack binding retains tap-to-attack and hold-to-heavy behavior even when rebound to a keyboard key; immediate light attack has a separate binding. Aiming and pointer navigation remain mouse-driven. Browser and operating system shortcuts can intercept some keys.
+
+Preferences apply immediately, persist separately from journey saves and match rules, and can be restored to defaults. Solo play pauses while Settings is open; online play continues with your movement and combat inputs released. The clickable Settings button remains available even if its shortcut is cleared. Controls described below are the defaults.
+
 Press **C** or **middle mouse** to lock onto the nearest enemy within 550 units; press again to unlock. Locked aim tracks the target until it dies or moves beyond 650 units. Movement remains manual, and lock-on works in solo, co-op, and duels.
 
 Close-range combat arts advance toward nearby enemies in your aim direction. All combat arts can absorb two hits without being interrupted (you still take damage); hammer arts retain their additional poise. Whirlwind Slash now reaches a wider area.

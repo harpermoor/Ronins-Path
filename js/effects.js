@@ -27,6 +27,7 @@ class Effects {
     }
 
     drawImpact(g, sw, sh, camX, camY, z) {
+        if (!Preferences.value.flashes) return;
         const f = this.impactFrame;
         if (!f) return;
         const t = 1 - f.left / IMPACT_FRAME_DURATION, bright = t < 0.2;
@@ -258,6 +259,7 @@ class Effects {
             strokeLine(g, l.x1, l.y1, l.x2, l.y2);
         }
         for (const p of this.ps) {
+            if (!Preferences.value.particles) continue;
             const t = p.life / p.max;
             switch (p.kind) {
                 case FX_SPARK:
@@ -295,6 +297,7 @@ class Effects {
     }
 
     drawPetals(g) {
+        if (!Preferences.value.petals) return;
         for (const p of this.petals) {
             const a = Math.min(1, Math.min(p.life, p.max - p.life));
             g.save();

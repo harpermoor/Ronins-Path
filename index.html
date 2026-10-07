@@ -126,6 +126,43 @@
         }
         #pause-feedback:hover, #pause-feedback:focus-visible { background: linear-gradient(#7a2922, #4d1915); border-color: #e0a15f; }
         #pause-feedback[hidden] { display: none; }
+        #play-preferences {
+            position: fixed; right: 16px; top: 236px; padding: 8px 14px; color: #f4e9d8;
+            background: #201613; border: 1px solid #6b5443; border-radius: 4px; cursor: pointer;
+        }
+        #play-preferences[hidden] { display: none; }
+        #preferences-dialog {
+            width: min(920px, calc(100vw - 32px)); max-height: calc(100vh - 32px); box-sizing: border-box;
+            padding: 24px; color: #eadfcf; background: #17110f; border: 1px solid #6b5443;
+            border-radius: 10px; font: 15px/1.5 Arial, sans-serif; overflow-y: auto;
+        }
+        #preferences-dialog::backdrop { background: rgba(0, 0, 0, 0.8); }
+        #preferences-dialog h2, #preferences-dialog h3, #preferences-dialog h4 { color: #d6b987; }
+        #preferences-dialog h2 { margin: 0; font: bold 30px Georgia, serif; }
+        #preferences-dialog h4 { grid-column: 1 / -1; margin: 16px 0 4px; }
+        #preferences-dialog header, #preferences-dialog .preference-row {
+            display: flex; align-items: center; justify-content: space-between; gap: 16px;
+        }
+        #preferences-dialog .preference-row { margin: 10px 0; }
+        #preferences-dialog button {
+            padding: 8px 10px; color: #f4e9d8; background: #34231d; border: 1px solid #6b5443;
+            border-radius: 4px; cursor: pointer;
+        }
+        #preferences-dialog button:focus-visible, #preferences-dialog input:focus-visible,
+        #play-preferences:focus-visible { outline: 2px solid #e0b576; outline-offset: 3px; }
+        #preferences-dialog button:hover { background: #563028; }
+        #preferences-dialog .preference-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        #preferences-dialog .binding-row { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 8px; align-items: center; margin: 8px 0; }
+        #preferences-dialog .binding-row > div { display: flex; flex-direction: column; gap: 3px; }
+        #preferences-dialog .clear-binding { padding: 2px; font-size: 11px; background: transparent; }
+        #preferences-dialog .note { color: #c9bba5; font-size: 13px; }
+        #preferences-status { min-height: 24px; color: #ffd98c; }
+        @media (max-width: 640px) {
+            #preferences-dialog { padding: 16px; }
+            #preferences-dialog .preference-columns { grid-template-columns: 1fr; gap: 0; }
+            #preferences-dialog .binding-row { grid-template-columns: repeat(3, 1fr); }
+            #preferences-dialog .binding-row > span { grid-column: 1 / -1; }
+        }
     </style>
 </head>
 <body>
@@ -162,12 +199,12 @@
                     <section class="tutorial-card" id="tutorial-card" aria-label="Getting started" hidden>
                         <h3>Getting started</h3>
                         <ul>
-                            <li><strong>Move:</strong> WASD or arrow keys; aim with the mouse.</li>
-                            <li><strong>Lock on:</strong> C or middle mouse toggles targeting the nearest enemy.</li>
-                            <li><strong>Fight:</strong> Left-click to attack; time right-click or K to deflect. A precise deflect within 30 ms is a perfect parry that staggers foes.</li>
-                            <li><strong>Evade:</strong> Tap Space or L to dodge; evade an attack in the first 50 ms of your dodge to trigger a perfect dodge counter and leave an afterimage that distracts the attacker. Hold while moving to sprint.</li>
-                            <li><strong>Explore:</strong> Press E at safe shrines to rest, upgrade skills, and fast travel to discovered shrines. Use Q to heal and Tab for equipment.</li>
-                            <li><strong>Learn:</strong> Press Esc for the full controls and pause options.</li>
+                            <li><strong>Move:</strong> <span data-control="moveUp"></span> up, <span data-control="moveDown"></span> down, <span data-control="moveLeft"></span> left, <span data-control="moveRight"></span> right; aim with the mouse.</li>
+                            <li><strong>Lock on:</strong> <span data-control="lockOn"></span> toggles targeting the nearest enemy.</li>
+                            <li><strong>Fight:</strong> <span data-control="attack"></span> to attack (hold for a heavy strike); tap <span data-control="guard"></span> to deflect, or hold to block. A precise deflect within 30 ms is a perfect parry that staggers foes.</li>
+                            <li><strong>Evade:</strong> Tap <span data-control="dodge"></span> to dodge; evade an attack in the first 50 ms to trigger a perfect dodge counter and leave an afterimage. Hold while moving to sprint.</li>
+                            <li><strong>Explore:</strong> <span data-control="interact"></span> at safe shrines to rest, upgrade skills, and fast travel. Use <span data-control="heal"></span> to heal and <span data-control="equipment"></span> for equipment.</li>
+                            <li><strong>Learn:</strong> <span data-control="pause"></span> for pause options. Customize all controls in Settings.</li>
                         </ul>
                     </section>
                 </section>
@@ -192,6 +229,7 @@
                     </button>
                 </section>
             </div>
+            <button id="btn-preferences" type="button">Settings - Sound, Graphics &amp; Keybinds</button>
             <section class="changelog" aria-labelledby="changelog-title">
                 <h2 id="changelog-title">Recent updates</h2>
                 <p class="note" id="changelog-status" role="status">Loading recent updates...</p>
@@ -245,7 +283,37 @@
         </div>
     </div>
     <a id="pause-feedback" href="https://github.com/harpermoor/Ronins-Path/issues/new" target="_blank" rel="noopener noreferrer" hidden>Send Feedback (public)</a>
+    <button id="play-preferences" type="button" hidden>Settings</button>
+    <dialog id="preferences-dialog" aria-labelledby="preferences-title">
+        <header><h2 id="preferences-title">Settings</h2><button id="close-preferences" type="button">Close</button></header>
+        <div class="preference-columns">
+            <section aria-labelledby="sound-title">
+                <h3 id="sound-title">Sound</h3>
+                <label class="preference-row">Master volume <span><input id="pref-volume" type="range" min="0" max="100" step="1"><output id="volume-value" for="pref-volume"></output></span></label>
+                <label class="preference-row">Mute sound <input id="pref-muted" type="checkbox"></label>
+            </section>
+            <section aria-labelledby="graphics-title">
+                <h3 id="graphics-title">Graphics</h3>
+                <label class="preference-row">Decorative particles <input id="pref-particles" type="checkbox"></label>
+                <label class="preference-row">Ambient petals <input id="pref-petals" type="checkbox"></label>
+                <label class="preference-row">Screen shake <span><input id="pref-shake" type="range" min="0" max="100" step="1"><output id="shake-value" for="pref-shake"></output></span></label>
+                <label class="preference-row">Screen flashes / impact effects <input id="pref-flashes" type="checkbox"></label>
+                <label class="preference-row">Vignette <input id="pref-vignette" type="checkbox"></label>
+                <p class="note">Attack trails and gameplay indicators remain visible.</p>
+            </section>
+        </div>
+        <section aria-labelledby="keybind-title">
+            <h3 id="keybind-title">Keybinds</h3>
+            <p class="note">Choose a binding, then press a keyboard key or mouse button. Every action has up to three editable bindings; Clear removes one. Escape can also be assigned. Aim and pointer clicks in menus still use the mouse. Browser / operating system shortcuts may intercept some keys.</p>
+            <button id="cancel-binding" type="button" hidden>Cancel binding</button>
+            <p id="preferences-status" role="status" aria-live="polite"></p>
+            <div id="keybind-list"></div>
+        </section>
+        <button id="reset-keybinds" type="button">Restore default keybinds</button>
+        <button id="reset-preferences" type="button">Restore all defaults</button>
+    </dialog>
     <script src="js/util.js"></script>
+    <script src="js/preferences.js"></script>
     <script src="js/sfx.js"></script>
     <script src="js/effects.js"></script>
     <script src="js/draw.js"></script>
@@ -261,6 +329,7 @@
     <script src="js/coop.js"></script>
     <script src="js/duel.js"></script>
     <script src="js/changelog.js"></script>
+    <script src="js/preferences-menu.js"></script>
     <script src="js/menu.js"></script>
 </body>
 </html>

@@ -5,7 +5,7 @@
   "description": "Hosted WebSocket relay for Ronin's Path multiplayer",
   "scripts": {
     "start": "node server/server.js",
-    "test": "node tests/enemies.test.js && node tests/weapons.test.js && node tests/relay.test.js && node tests/changelog.test.js"
+    "test": "node tests/enemies.test.js && node tests/weapons.test.js && node tests/preferences.test.js && node tests/relay.test.js && node tests/changelog.test.js"
   },
   "engines": {
     "node": ">=20"

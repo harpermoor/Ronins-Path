@@ -124,6 +124,7 @@ class Duel {
         this.realSfx = new Sfx();
         this.sfx = this.realSfx;
         this.input = new Input(canvas, () => this.realSfx.unlock());
+        PreferencesMenu.attach(this);
         this.mouseAttackPending = false;
         this.realFx = new Effects();
         this.fx = this.realFx;
@@ -272,12 +273,14 @@ class Duel {
     handleMeta(el) {
         const inp = this.input;
         this.leaveConfirmT -= el;
+        if (inp.hit('settings')) PreferencesMenu.open();
+        if (Preferences.open) return;
         if (this.lostMsg !== null) {
-            if (inp.hit('Enter') || inp.hit('Escape') || inp.mouseHit(1)) this.leave(false);
+            if (inp.hit('ready') || inp.hit('pause') || inp.mouseHit(1)) this.leave(false);
             return;
         }
-        if (inp.hit('Escape')) {
-            inp.keyHit.delete('Escape');
+        if (inp.hit('pause')) {
+            inp.consumeHit('pause');
             if (this.leaveConfirmT > 0) this.leave(true);
             else this.leaveConfirmT = 3;
         }
@@ -299,29 +302,29 @@ class Duel {
             (inp.my - this.canvas.height / 2) / z + this.camY, this.players);
         const wx = aim.x, wy = aim.y;
         let mx = 0, my = 0, b = 0;
-        if (inp.down('KeyW') || inp.down('ArrowUp')) my -= 1;
-        if (inp.down('KeyS') || inp.down('ArrowDown')) my += 1;
-        if (inp.down('KeyA') || inp.down('ArrowLeft')) mx -= 1;
-        if (inp.down('KeyD') || inp.down('ArrowRight')) mx += 1;
-        if (inp.mouseDown(3) || inp.down('KeyK')) b |= IN_GUARD;
-        if (inp.down('Space') || inp.down('KeyL')) b |= IN_SPRINT;
-        if (inp.hit('KeyJ')) b |= IN_ATTACK;
-        if (inp.mouseHit(1)) this.mouseAttackPending = true;
-        if (this.mouseAttackPending && inp.mouseHeldFor(1) >= HEAVY_STAB_HOLD) {
+        if (inp.down('moveUp')) my -= 1;
+        if (inp.down('moveDown')) my += 1;
+        if (inp.down('moveLeft')) mx -= 1;
+        if (inp.down('moveRight')) mx += 1;
+        if (inp.down('guard')) b |= IN_GUARD;
+        if (inp.down('dodge')) b |= IN_SPRINT;
+        if (inp.hit('quickAttack')) b |= IN_ATTACK;
+        if (inp.hit('attack')) this.mouseAttackPending = true;
+        if (this.mouseAttackPending && inp.heldFor('attack') >= HEAVY_STAB_HOLD) {
             this.mouseAttackPending = false;
             b |= IN_STAB;
-        } else if (this.mouseAttackPending && !inp.mouseDown(1)) {
+        } else if (this.mouseAttackPending && !inp.down('attack')) {
             this.mouseAttackPending = false;
             b |= IN_ATTACK;
         }
-        if (inp.mouseHit(3) || inp.hit('KeyK')) b |= IN_PARRY;
-        if (inp.hit('Space') || inp.hit('KeyL')) b |= IN_DODGE;
-        if (inp.hit('KeyQ')) b |= IN_HEAL;
-        if (inp.hit('KeyF')) b |= IN_IAI;
-        if (inp.hit('KeyR')) b |= IN_ART;
-        if (inp.hit('KeyG')) b |= IN_DRAGON;
-        if (inp.hit('KeyT')) b |= IN_THROW;
-        if (inp.hit('Enter') || inp.hit('NumpadEnter')) b |= IN_READY;
+        if (inp.hit('guard')) b |= IN_PARRY;
+        if (inp.hit('dodge')) b |= IN_DODGE;
+        if (inp.hit('heal')) b |= IN_HEAL;
+        if (inp.hit('iai')) b |= IN_IAI;
+        if (inp.hit('art')) b |= IN_ART;
+        if (inp.hit('dragon')) b |= IN_DRAGON;
+        if (inp.hit('throw')) b |= IN_THROW;
+        if (inp.hit('ready')) b |= IN_READY;
         inp.endTick();
         return sanitizeInput([mx, my, wx, wy, b]);
     }
@@ -926,10 +929,11 @@ class Duel {
         g.fillRect(0, 0, sw, sh);
         const z = this.zoom();
         const shx = (Math.random() - 0.5) * 2 * this.shakeAmt, shy = (Math.random() - 0.5) * 2 * this.shakeAmt;
+        const shake = Preferences.value.shake / 100;
         g.save();
         g.translate(sw / 2, sh / 2);
         g.scale(z, z);
-        g.translate(-this.camX + shx, -this.camY + shy);
+        g.translate(-this.camX + shx * shake, -this.camY + shy * shake);
         const l = this.camX - sw / 2 / z - 40, t = this.camY - sh / 2 / z - 40, r = this.camX + sw / 2 / z + 40, b = this.camY + sh / 2 / z + 40;
         this.drawArena(g, l, t, r, b);
         this.realFx.drawDecals(g);
@@ -952,9 +956,9 @@ class Duel {
         this.players[this.localIdx].drawLock(g, this.realTime);
         g.restore();
 
-        this.drawParryBurst(g, sw, sh, z);
-        this.drawVignette(g, sw, sh);
-        if (this.flashA > 0) {
+        if (Preferences.value.flashes) this.drawParryBurst(g, sw, sh, z);
+        if (Preferences.value.vignette) this.drawVignette(g, sw, sh);
+        if (Preferences.value.flashes && this.flashA > 0) {
             g.fillStyle = css(U.alpha(this.flashColor, this.flashA * 0.6));
             g.fillRect(0, 0, sw, sh);
         }
@@ -1118,19 +1122,21 @@ class Duel {
             fillEllipse(g, gx + 3, hy, 10, 10);
         }
         g.font = SMALL_FONT;
-        this.text(g, '[Q] heal', hx + me.maxGourds * 24 + 8, hy + 18, rgb(220, 200, 170), false);
-        this.text(g, '[T] Shuriken ' + me.throws + '/' + me.maxThrows, hx, hy + 42,
+        this.text(g, '[' + Preferences.label('heal') + '] heal', hx + me.maxGourds * 24 + 8, hy + 18, rgb(220, 200, 170), false);
+        this.text(g, '[' + Preferences.label('throw') + '] Shuriken ' + me.throws + '/' + me.maxThrows, hx, hy + 42,
             me.throws ? me.throwable.color : rgb(150, 140, 130), false);
         const art = me.art, canArt = me.artCharges >= art.cost;
         g.font = 'bold 15px serif';
-        this.text(g, art.name + '  ' + me.artCharges + '/' + art.cost + (canArt ? '  READY  [R] / Block + Attack' : '  (deflect to charge)'),
+        this.text(g, art.name + '  ' + me.artCharges + '/' + art.cost
+            + (canArt ? '  READY  [' + Preferences.label('art') + '] / Block + Attack' : '  (deflect to charge)'),
             hx, hy - 16, canArt ? art.color : rgb(150, 140, 130), false);
         if (me.ki >= 100) {
             g.font = HUD_FONT;
-            this.text(g, '[F] IAI FLASH READY', hx, hy - 38, rgb(170, 220, 255), false);
+            this.text(g, '[' + Preferences.label('iai') + '] IAI FLASH READY', hx, hy - 38, rgb(170, 220, 255), false);
         }
         g.font = SMALL_FONT;
-        const help = 'LMB attack   RMB deflect / hold block   Space dodge / sprint   Esc twice to leave';
+        const help = Preferences.label('attack') + ' attack | ' + Preferences.label('guard') + ' deflect / block | '
+            + Preferences.label('dodge') + ' dodge / sprint | ' + Preferences.label('pause') + ' twice to leave';
         this.text(g, help, sw - 28 - g.measureText(help).width, sh - 20, rgb(180, 170, 150), false);
         if (me.deflectStreak >= 2) {
             g.font = 'bold 26px serif';
@@ -1138,12 +1144,12 @@ class Duel {
         }
         if (this.phase === 'FIGHT' && me.st !== 'DEAD' && this.deathblowTarget(me) !== null) {
             g.font = 'bold 20px serif';
-            this.text(g, '[LMB]  DEATHBLOW', sw / 2, sh - 70, rgb(255, 90, 80), true);
+            this.text(g, '[' + Preferences.label('attack') + ']  DEATHBLOW', sw / 2, sh - 70, rgb(255, 90, 80), true);
         }
         this.drawPhase(g, sw, sh);
         if (this.leaveConfirmT > 0 && this.lostMsg === null) {
             g.font = HUD_FONT;
-            this.text(g, 'Press Esc again to leave the match', sw / 2, 112, rgb(255, 150, 120), true);
+            this.text(g, 'Press ' + Preferences.label('pause') + ' again to leave the match', sw / 2, 112, rgb(255, 150, 120), true);
         }
         this.drawConnection(g, sw, sh);
     }
@@ -1189,10 +1195,11 @@ class Duel {
             const meReady = this.ready[this.localIdx];
             const waiting = this.players.reduce((n, p, i) => n + (!p.gone && !this.ready[i] ? 1 : 0), 0);
             g.font = HUD_FONT;
-            this.text(g, meReady ? 'Waiting for ' + waiting + ' more...  (Enter to cancel)' : 'Press ENTER for a rematch', sw / 2, cy + 180,
+            this.text(g, meReady ? 'Waiting for ' + waiting + ' more...  (' + Preferences.label('ready') + ' to cancel)'
+                : 'Press ' + Preferences.label('ready') + ' for a rematch', sw / 2, cy + 180,
                 rgb(255, 220, 150, Math.trunc(160 + 90 * Math.sin(this.realTime * 4))), true);
             g.font = SMALL_FONT;
-            this.text(g, 'Esc twice to return to the main menu', sw / 2, cy + 212, rgb(190, 180, 165), true);
+            this.text(g, Preferences.label('pause') + ' twice to return to the main menu', sw / 2, cy + 212, rgb(190, 180, 165), true);
         }
     }
 
@@ -1204,7 +1211,7 @@ class Duel {
             this.text(g, 'DUEL ENDED', sw / 2, sh / 2 - 20, rgb(230, 60, 50), true);            g.font = SUB_FONT;
             this.text(g, this.lostMsg, sw / 2, sh / 2 + 20, rgb(230, 220, 210), true);
             g.font = HUD_FONT;
-            this.text(g, 'Press ENTER to return to the main menu', sw / 2, sh / 2 + 60, rgb(255, 220, 150), true);
+            this.text(g, 'Press ' + Preferences.label('ready') + ' to return to the main menu', sw / 2, sh / 2 + 60, rgb(255, 220, 150), true);
             return;
         }
         if (this.lagPaused || this.resumeT > 0) {

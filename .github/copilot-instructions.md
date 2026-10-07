@@ -1,6 +1,6 @@
 # Copilot instructions
 After each prompt, let the user know what files were changed.
-
+After each change, ensure changes made are added to the game's changelog.
 ## Project structure and architecture
 
 Ronin's Path is a browser game with no build step: `index.html` loads classic JavaScript files in dependency order, and their top-level declarations share the global scope. Keep that order correct when adding or moving scripts; later files rely on classes and constants defined earlier.
