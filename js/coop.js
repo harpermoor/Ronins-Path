@@ -5,7 +5,8 @@ const COOP_ENEMY_FIELDS = ['x', 'y', 'facing', 'st', 'stT', 'stDur', 'hp', 'post
 const COOP_PLAYER_FIELDS = ['x', 'y', 'facing', 'st', 'stT', 'phase', 'combo', 'guarding', 'guardHeld', 'sprinting',
     'dodgeStartX', 'dodgeStartY',
     'walkAnim', 'scarf', 'swingSign', 'stabAttack', 'hurtFlash', 'invuln', 'vx', 'vy', 'hp', 'maxHp', 'maxGourds', 'maxPosture',
-    'posture', 'deflectStreak', 'deflectPost', 'dmgTaken', 'guardWindow', 'stealth', 'dodgeIframes', 'poiseLeft', 'artHitsLeft'];
+    'posture', 'deflectStreak', 'deflectPost', 'dmgTaken', 'guardWindow', 'stealth', 'dodgeIframes', 'poiseLeft', 'artHitsLeft',
+    'buddhaReviveReady', 'buddhaDeathblows'];
 const COOP_SYNC_INTERVAL = 0.05;
 
 class Coop {

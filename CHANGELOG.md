@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Buddha form now revives the player once after death per shrine rest; five deathblows recharge the revive.
+- Buddha form now dodges and swings 25% faster.
 - Healing gourds now restore health after 0.25 seconds and release the player after 0.45 seconds, down from 0.45 and 0.75 seconds.
 - Playing sessions now pause and offer to refresh when a newer game version is available, or stay temporarily on the current version.
 - Buddha form now deals 5× normal and posture damage and has 1.5× melee range.

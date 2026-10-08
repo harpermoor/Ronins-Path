@@ -512,6 +512,7 @@ class Game {
         player.throws = player.maxThrows;
         player.posture = 0;
         player.lastStandUsed = false;
+        player.refillBuddhaRevive();
         this.sfx.play('SHRINE');
         this.fx.ring(s.x, s.y, 20, 160, 1.0, 4, rgb(255, 220, 140));
         this.fx.heal(player.x, player.y);
@@ -902,6 +903,8 @@ class Game {
     }
 
     executeDeathblow(p, e) {
+        if (e.st === 'DEAD') return;
+        p.recordDeathblow();
         if (this.coop && !this.coop.host) {
             this.coop.action('deathblow', e);
             p.ki = Math.min(100, p.ki + 20);
@@ -1089,6 +1092,7 @@ class Game {
         if (this.buddha) return;
         this.buddha = true;
         this.player.applyLoadout();
+        this.player.refillBuddhaRevive();
         this.fx.ring(this.player.x, this.player.y, 20, 180, 1, 5, rgb(255, 225, 100));
         this.sfx.play('SHRINE');
         this.banner('BUDDHA ASCENDED', 'John Java: "You are Buddha. Let your light guide your blade."', rgb(255, 235, 150));

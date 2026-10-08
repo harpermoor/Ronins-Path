@@ -2,6 +2,7 @@
 
 const P_IGNORE = 0, P_DEFLECT = 1, P_BLOCK = 2, P_HIT = 3, P_PERFECT = 4, P_PERFECT_DODGE = 5;
 const PERFECT_WINDOW = 0.18, DODGE_TIME = 0.34, DODGE_IFRAMES = 0.25;
+const BUDDHA_SPEED = 0.8;
 const PERFECT_PARRY_WINDOW = 0.05;
 const PERFECT_DODGE_WINDOW = 0.06;
 const BUDDHA_PARRY_WINDOW = 0.14, BUDDHA_DODGE_WINDOW = 0.1;
@@ -120,6 +121,8 @@ class Player extends Actor {
         this.healed = false;
         this.ki = 0;
         this.lastStandUsed = false;
+        this.buddhaReviveReady = false;
+        this.buddhaDeathblows = 0;
         this.dbTarget = null;
         this.dbDone = false;
         this.iaiSx = 0;
@@ -172,7 +175,7 @@ class Player extends Actor {
         this.deathblowHeal = s.deathblowHeal;
         this.deflectPost = s.deflectPost;
         this.deflectRecover = s.deflectRecover;
-        this.dodgeIframes = s.iframes;
+        this.dodgeIframes = s.iframes * (enlightened ? BUDDHA_SPEED : 1);
         this.dragonFlash = s.dragonFlash;
         this.lastStand = s.lastStand;
         this.poise = s.poise;
@@ -180,12 +183,22 @@ class Player extends Actor {
         this.sword = lo.swordDef();
         this.comboAtk = (this.sword.combo || P_COMBO).map((a, i) => {
             const b = scaledAttack(a, s);
+            if (enlightened) {
+                b.windup *= BUDDHA_SPEED;
+                b.active *= BUDDHA_SPEED;
+                b.recovery *= BUDDHA_SPEED;
+            }
             b.heavy = i === 2;
             return b;
         });
         const heavy = weaponType(this.sword) === 'hammer' || weaponType(this.sword) === 'axe'
             ? new Attack('heavy-smash', 0.72, 0.18, 0.68, 110, 110, 36, 38, 350).markPerilous() : P_STAB;
         this.stabAtk = scaledAttack(heavy, s);
+        if (enlightened) {
+            this.stabAtk.windup *= BUDDHA_SPEED;
+            this.stabAtk.active *= BUDDHA_SPEED;
+            this.stabAtk.recovery *= BUDDHA_SPEED;
+        }
         this.throwAtk = new Attack(this.throwable.id, 0, 0, 0, this.throwable.range, 0,
             this.throwable.damage * s.dmg, this.throwable.posture * s.post, 0);
         this.art = lo.artDef();
@@ -198,7 +211,25 @@ class Player extends Actor {
 
     enlightened() { return this.g.buddha === true && !this.g.statMods; }
 
+    dodgeDuration() { return DODGE_TIME * (this.enlightened() ? BUDDHA_SPEED : 1); }
+
     guardDuration() { return this.guardWindow * (this.enlightened() ? 5 / 3 : 1); }
+
+    refillBuddhaRevive() {
+        if (!this.enlightened()) return;
+        this.buddhaReviveReady = true;
+        this.buddhaDeathblows = 0;
+    }
+
+    recordDeathblow() {
+        if (!this.enlightened() || this.buddhaReviveReady) return;
+        this.buddhaDeathblows++;
+        if (this.buddhaDeathblows >= 5) {
+            this.refillBuddhaRevive();
+            this.g.fx.text('BUDDHA REVIVE READY', this.x, this.y - 64, rgb(255, 235, 150), 16);
+            this.g.fx.ring(this.x, this.y, 10, 75, 0.5, 4, rgb(255, 225, 120));
+        }
+    }
 
     /** Enemies hold off while a deathblow plays out. */
     untargetable() { return this.st === 'DEATHBLOW'; }
@@ -319,18 +350,19 @@ class Player extends Actor {
             case 'ART': this.artUpdate(dt, aimAng); break;
             case 'DRAGON': this.dragonUpdate(dt); break;
             case 'DODGE': {
-                const t = this.stT / DODGE_TIME;
+                const dodgeTime = this.dodgeDuration();
+                const t = this.stT / dodgeTime;
                 const sp = 660 * Math.pow(Math.max(0, 1 - t), 1.4) + 40;
                 this.vx = this.dodgeDx * sp;
                 this.vy = this.dodgeDy * sp;
                 this.move(g.world, this.vx * dt, this.vy * dt);
-                if (this.stT > 0.2 && this.bufAttack > 0) {
+                if (this.stT > dodgeTime * (0.2 / DODGE_TIME) && this.bufAttack > 0) {
                     this.bufAttack = 0;
                     this.beginAttackOrDeathblow(0);
                 } else if (this.bufParry > 0) {
                     this.bufParry = 0;
                     this.startGuard();
-                } else if (this.stT >= DODGE_TIME) this.toFree();
+                } else if (this.stT >= dodgeTime) this.toFree();
                 break;
             }
             case 'MIKIRI':
@@ -1015,6 +1047,24 @@ class Player extends Actor {
             this.g.fx.text('IRON WILL', this.x, this.y - 54, rgb(180, 220, 255), 22);
             this.g.fx.ring(this.x, this.y, 8, 90, 0.6, 5, rgb(180, 220, 255));
             this.g.sfx.play('BREAK');
+            return;
+        }
+        if (this.enlightened() && this.buddhaReviveReady) {
+            this.buddhaReviveReady = false;
+            this.buddhaDeathblows = 0;
+            this.hp = this.maxHp * 0.5;
+            this.posture = 0;
+            this.invuln = 2;
+            this.st = 'STAGGER';
+            this.stT = 0;
+            this.staggerDur = 0.6;
+            this.vx = this.vy = 0;
+            this.g.fx.text('BUDDHA REBORN', this.x, this.y - 54, rgb(255, 235, 150), 22);
+            this.g.fx.ring(this.x, this.y, 8, 120, 0.7, 5, rgb(255, 225, 120));
+            this.g.sfx.play('SHRINE');
+            this.g.hitstop(0.1);
+            this.g.flash(rgb(255, 245, 190), 0.25);
+            this.g.saveSoon();
             return;
         }
         this.hp = 0;

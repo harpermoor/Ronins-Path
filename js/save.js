@@ -55,6 +55,8 @@ const SaveGame = {
                 throws: dead ? p.maxThrows : p.throws,
                 artCharges: dead ? 0 : p.artCharges,
                 ki: dead ? 0 : p.ki,
+                buddhaReviveReady: p.buddhaReviveReady,
+                buddhaDeathblows: p.buddhaDeathblows,
             },
             lastShrine: world.shrines.indexOf(sp),
             shrines: world.shrines.map(s => s.discovered),
@@ -121,6 +123,9 @@ const SaveGame = {
         Object.assign(p, playerProgression(game.elitesSlain, game.bossDefeated));
         p.applyLoadout();
         const s = d.player;
+        p.buddhaReviveReady = game.buddha && s.buddhaReviveReady !== false;
+        p.buddhaDeathblows = game.buddha && Number.isInteger(s.buddhaDeathblows)
+            ? U.clamp(s.buddhaDeathblows, 0, 4) : 0;
         p.hp = num(s.hp, 1, p.maxHp, p.maxHp);
         p.gourds = Math.trunc(num(s.gourds, 0, p.maxGourds, p.maxGourds));
         p.throws = Math.trunc(num(s.throws, 0, p.maxThrows, p.maxThrows));
