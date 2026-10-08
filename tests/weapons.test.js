@@ -454,6 +454,18 @@ g.resolveCounter = Game.prototype.resolveCounter;
 fxEvents.length = 0;
 Game.prototype.onMikiri.call(g, p, mikiriFoe);
 assert(fxEvents.some(e => e.name === 'impact' && e.args[2] === 'mikiri'));
+assert.equal(mikiriFoe.posture, 50, 'Mikiri posture damage against other enemy types is unchanged');
+const spearCounterFoe = { ...mikiriFoe, type: 'SPEAR', posture: 0,
+    breakPosture() { this.st = 'BROKEN'; } };
+Game.prototype.onMikiri.call(g, p, spearCounterFoe);
+assert.equal(spearCounterFoe.posture, 75, 'Mikiri counters deal 75% maximum posture damage to spear enemies');
+spearCounterFoe.posture = 30;
+Game.prototype.onBuddhaMikiri.call(g, p, spearCounterFoe);
+assert.equal(spearCounterFoe.posture, 105, 'Buddha block-based Mikiri counters receive the same spear bonus');
+assert.equal(spearCounterFoe.st, 'BROKEN', 'the increased posture damage can break a spear enemy’s posture');
+spearCounterFoe.posture = 0;
+Game.prototype.onSweepCounter.call(g, p, spearCounterFoe);
+assert.equal(spearCounterFoe.posture, 50, 'sweep counters do not receive the Mikiri spear bonus');
 const sweepCounterFoe = { x: 100, y: 0, posture: 0, maxPosture: 100, releaseToken() {}, setSt(st) { this.st = st; } };
 fxEvents.length = 0;
 Game.prototype.onSweepCounter.call(g, p, sweepCounterFoe);
@@ -619,7 +631,7 @@ assert(vm.runInContext('PLAYER_SYNC', context).includes('poiseLeft'));
 assert(vm.runInContext('COOP_PLAYER_FIELDS', context).includes('poiseLeft'));
 assert(vm.runInContext('PLAYER_SYNC', context).includes('artHitsLeft'));
 assert(vm.runInContext('COOP_PLAYER_FIELDS', context).includes('artHitsLeft'));
-assert.equal(vm.runInContext('NET_VERSION', context), 13);
+assert.equal(vm.runInContext('NET_VERSION', context), 14);
 assert.equal(vm.runInContext('COOP_SYNC_INTERVAL', context), 0.05);
 const Duel = vm.runInContext('Duel', context);
 const duel = { n: 1, players: [p] };
@@ -752,22 +764,28 @@ g.world.shrines.push(...extraShrines);
 menuGame.findRestBlockers = s => s === extraShrines[2] ? [{}] : [];
 menuGame.activateShrineAction('category:travel');
 menuGame.drawShrineMenu(menuCanvas, 640, 360);
-assert.equal(menuGame.shrineRects.filter(r => r.action.startsWith('travel:')).length, 6);
+assert.equal(menuGame.shrineRects.filter(r => r.action.startsWith('travel:')).length, g.world.shrines.length,
+   'the map displays every shrine without pagination');
 assert(menuGame.shrineRects.find(r => r.action === 'travel:0').disabled, 'current destination is disabled');
 assert(menuGame.shrineRects.find(r => r.action === 'travel:2').disabled, 'undiscovered destination is disabled');
 assert(menuGame.shrineRects.find(r => r.action === 'travel:3').disabled, 'unsafe destination is disabled');
-assert(menuGame.shrineRects.find(r => r.action === 'travel-prev').disabled);
-const nextRect = menuGame.shrineRects.find(r => r.action === 'travel-next');
-const menuInput = { mx: nextRect.x + nextRect.w / 2, my: nextRect.y + nextRect.h / 2,
+assert(!menuGame.shrineRects.some(r => r.action === 'travel-prev' || r.action === 'travel-next'),
+   'map travel does not use list pagination');
+const destinationRect = menuGame.shrineRects.find(r => r.action === 'travel:1');
+const fartherRect = menuGame.shrineRects.find(r => r.action === 'travel:4');
+assert(fartherRect.x > destinationRect.x && fartherRect.y === destinationRect.y,
+   'shrine markers follow their world coordinates');
+const menuInput = { mx: destinationRect.x + destinationRect.w / 2, my: destinationRect.y + destinationRect.h / 2,
    hit: () => false, mouseHit: () => true, mouseDown: () => true };
-menuGame.navigateMenu(menuInput, menuGame.shrineRects, 'shrineSelection', action => menuGame.activateShrineAction(action));
-assert.equal(menuGame.shrinePage, 1, 'scaled next-page button activates on mouse press');
-menuGame.activateShrineAction('travel-next');
-menuGame.activateShrineAction('travel-next');
-assert.equal(menuGame.shrinePage, 2, 'pages clamp to available destinations');
-menuGame.drawShrineMenu(menuCanvas, 640, 360);
-assert.equal(menuGame.shrineRects.filter(r => r.action.startsWith('travel:')).length, 1);
-assert(menuGame.shrineRects.find(r => r.action === 'travel-next').disabled);
+let mapAction = null;
+menuGame.navigateMenu(menuInput, menuGame.shrineRects, 'shrineSelection', action => { mapAction = action; });
+assert.equal(mapAction, 'travel:1', 'clicking a scaled map marker selects its destination');
+const lockedRect = menuGame.shrineRects.find(r => r.action === 'travel:2');
+menuInput.mx = lockedRect.x + lockedRect.w / 2;
+menuInput.my = lockedRect.y + lockedRect.h / 2;
+mapAction = null;
+menuGame.navigateMenu(menuInput, menuGame.shrineRects, 'shrineSelection', action => { mapAction = action; });
+assert.equal(mapAction, null, 'clicking an undiscovered shrine cannot select it');
 menuGame.findRestBlockers = () => [{}];
 menuGame.activateShrineAction('category:sanctuary');
 menuGame.drawShrineMenu(menuCanvas, 640, 360);

@@ -3,6 +3,13 @@
 /** Combat arts, equipment, appearance options and the equipment menu. */
 const LOADOUT_KEY = 'roninsPath.loadout';
 const BASE_ART_CHARGES = 3;
+const REALITY_TEAR_ART = {
+    id: 'reality-tear', name: 'Reality Rend', kanji: '裂', cost: 3, unlock: 0,
+    color: rgb(255, 225, 130), desc: 'Tear reality in front of you. Everything caught in the rift dies.',
+    info: 'Instant death  -  reality seals after 2.4 seconds', dur: 0.85, iframes: [0, 0.85],
+    hits: [{ t: 0.35, atk: new Attack('reality-tear', 0, 0.1, 0, 300, 110, 0, 0, 0) }],
+    blade: t => 2.7 - U.clamp((t - 0.25) / 0.15, 0, 1) * 4,
+};
 
 function artAtk(name, range, arc, dmg, post, pierce) {
     const a = new Attack(name, 0, 0.09, 0, range, arc, dmg, post, 0);

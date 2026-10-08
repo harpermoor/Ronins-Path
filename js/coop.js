@@ -27,6 +27,20 @@ class Coop {
         else this.bodyFor(0);
         this.link.on('coop-player', (d, c) => { if (this.host) this.receivePlayer(d, c); });
         this.link.on('coop-attack', (d, c) => { if (this.host) this.receiveAttack(d, c); });
+        this.link.on('coop-reality-tear', (d, c) => {
+            if (this.host) {
+                const p = c && this.bodies.get(c.idx);
+                if (p && this.game.ultimate && p.st === 'ART' && p.art.id === 'reality-tear'
+                    && this.game.time >= (p.realityTearReadyAt || 0)) {
+                    p.realityTearReadyAt = this.game.time + REALITY_TEAR_ART.dur;
+                    this.game.openRealityTear(p);
+                }
+            } else if (d.owner !== this.slot && d.tear && Number.isFinite(d.tear.x)
+                && Number.isFinite(d.tear.y) && Number.isFinite(d.tear.facing)) {
+                this.game.addRealityTear({ x: U.clamp(d.tear.x, 0, WORLD_SIZE), y: U.clamp(d.tear.y, 0, WORLD_SIZE),
+                    facing: d.tear.facing, range: 300, arc: 110 * DEG, t: 0 });
+            }
+        });
         this.link.on('coop-ff', (d, c) => { if (this.host) this.receiveFriendlyFire(d, c); });
         this.link.on('coop-mikiri-player', (d, c) => { if (this.host) this.receivePlayerMikiri(d, c); });
         this.link.on('coop-settings', d => { if (!this.host && d && d.s) this.game.applyCoopSettings(d.s); });
@@ -135,7 +149,8 @@ class Coop {
                 return state;
             }).filter(Boolean), dead: game.enemies.flatMap((e, i) => e.st === 'DEAD' ? [i] : []),
             kills: game.kills, elites: game.elitesSlain, boss: game.bossSpawned, defeated: game.bossDefeated,
-            buddha: game.buddha === true, ng: game.ngPlus,
+            buddha: game.buddha === true, ultimate: game.ultimate === true,
+            ultimatePending: !!game.johnJava && game.johnJava.ultimate === true && !game.ultimate, ng: game.ngPlus,
             camps: game.world.camps.map(c => c.cleared), shrines: game.world.shrines.map(s => s.discovered) });
         } else {
             const p = this.game.player;
@@ -251,10 +266,13 @@ class Coop {
         }
         const victory = d.defeated === true && !game.bossDefeated;
         game.bossDefeated = d.defeated === true;
-        if (victory) game.beginJohnJava();
+        if ((d.ultimatePending === true || (victory && d.ultimate === true))
+            && game.buddha && !game.ultimate) game.beginUltimateAscension();
+        else if (victory) game.beginJohnJava();
         if (d.buddha === true) {
             game.grantBuddha();
         }
+        if (d.ultimate === true && d.buddha === true) game.grantUltimatePower();
         if (Array.isArray(d.camps)) game.world.camps.forEach((c, i) => { if (d.camps[i]) c.cleared = true; });
         if (Array.isArray(d.shrines)) game.world.shrines.forEach((s, i) => { if (d.shrines[i]) s.discovered = true; });
     }

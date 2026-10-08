@@ -145,6 +145,12 @@
         canvas.focus();
         startJourney(canvas, sanitizeJourneyDifficulty(difficultySelect.value));
     };
+    $('btn-new-game').onclick = () => {
+        if (SaveGame.read() !== null && !window.confirm('Start a new game? Your saved journey will be replaced.')) return;
+        menu.hidden = true;
+        canvas.focus();
+        startJourney(canvas, sanitizeJourneyDifficulty(difficultySelect.value), true);
+    };
     $('btn-tutorial').onclick = () => {
         const card = $('tutorial-card');
         card.hidden = !card.hidden;

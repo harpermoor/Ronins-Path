@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Defeating Buddha difficulty while already in Buddha form summons John Java, Henry HTML, Cid CSS, and Joseph Javascript for a fusion finale. Their persistent ultimate reward replaces your combat art with Reality Rend: a jagged slash-arc tear that instantly kills enemies inside, including bosses, and seals after 2.4 seconds.
+- Fast travel now uses a clickable world map with shrine markers instead of destination lists; undiscovered shrines remain locked and unsafe destinations remain blocked.
+- Mikiri counters now deal 75% of spear enemies' maximum posture, up from 50%, including Buddha block-based counters.
+- Added a New Game button between Continue Journey and How to play, with confirmation before replacing a saved journey.
 - Buddha form now revives the player once after death per shrine rest; five deathblows recharge the revive.
 - Buddha form now dodges and swings 25% faster.
 - Iai Flash now deals 120 damage and uses gold effects in Buddha form.

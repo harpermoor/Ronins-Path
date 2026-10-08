@@ -62,7 +62,6 @@ class Game {
         this.shrineRects = [];
         this.shrineSelection = 0;
         this.shrineCategory = 'sanctuary';
-        this.shrinePage = 0;
         this.kills = 0;
         this.elitesSlain = 0;
         this.totalElites = 0;
@@ -74,6 +73,8 @@ class Game {
         this.bossSpawned = false;
         this.bossDefeated = false;
         this.buddha = false;
+        this.ultimate = false;
+        this.realityTears = [];
         this.johnJava = null;
         this.vignette = null;
         this.redVignette = null;
@@ -420,6 +421,7 @@ class Game {
         } else this.timeScale = U.lerp(this.timeScale, 1, 1 - Math.exp(-dt * 8));
         const sdt = dt * this.timeScale;
         this.time += sdt;
+        this.updateRealityTears(sdt);
         this.updateJohnJava(sdt);
         if (this.johnJava && !this.johnJava.finished) {
             if (this.coop) this.coop.tick(dt);
@@ -489,7 +491,6 @@ class Game {
                 this.shrineMenu = s;
                 this.shrineSelection = 0;
                 this.shrineCategory = 'sanctuary';
-                this.shrinePage = 0;
                 this.shrineRects = [];
             }
             this.restAtShrine(s);
@@ -527,13 +528,6 @@ class Game {
         }
         if (action === 'category:sanctuary' || action === 'category:travel') {
             this.shrineCategory = action.slice(9);
-            this.shrineSelection = 2;
-            this.shrineRects = [];
-            return;
-        }
-        if (action === 'travel-prev' || action === 'travel-next') {
-            const lastPage = Math.max(0, Math.ceil(this.world.shrines.length / 6) - 1);
-            this.shrinePage = U.clamp((this.shrinePage || 0) + (action === 'travel-next' ? 1 : -1), 0, lastPage);
             this.shrineSelection = 2;
             this.shrineRects = [];
             return;
@@ -671,7 +665,8 @@ class Game {
         this.boss = null;
         this.bossSpawned = false;
         this.bossDefeated = false;
-        if (this.buddha) this.johnJava = null;
+        if (this.buddha && !(this.johnJava && this.johnJava.ultimate && !this.johnJava.finished)) this.johnJava = null;
+        this.realityTears = [];
         this.wardShrine = null;
         this.restBlockers = [];
         this.totalElites = 0;
@@ -894,7 +889,7 @@ class Game {
         const fx = this.fx;
         const a = p.angleTo(e);
         const cx = (p.x + e.x) / 2, cy = (p.y + e.y) / 2;
-        e.posture += e.maxPosture * 0.5;
+        e.posture += e.maxPosture * (impact === 'mikiri' && e.type === 'SPEAR' ? 0.75 : 0.5);
         e.lastDamageT = this.time;
         e.showBars = 3;
         e.perilousT = 0;
@@ -1009,7 +1004,8 @@ class Game {
             player.hp = player.maxHp;
             player.gourds = player.maxGourds;
             this.banner('THE LAND IS AT PEACE', 'The Ashen Daimyo has fallen. You are the last sword standing.', rgb(255, 215, 120));
-            this.beginJohnJava();
+            if (this.buddha && this.difficultyTier === 'buddha' && !this.ultimate) this.beginUltimateAscension();
+            else this.beginJohnJava();
             this.saveSoon();
         } else if (e.elite) {
             this.elitesSlain++;
@@ -1060,12 +1056,32 @@ class Game {
         this.banner('JOHN JAVA', 'A visitor descends from the heavens...', rgb(255, 235, 150));
     }
 
+    beginUltimateAscension() {
+        if (this.ultimate || (this.johnJava && this.johnJava.ultimate && !this.johnJava.finished)) return;
+        this.johnJava = { x: this.player.x + 65, y: this.player.y - 35, t: 0, invaders: [],
+            summoned: false, smitten: false, finished: false, ultimate: true };
+        this.banner('THE FOUR ARCHITECTS', 'The heavens return to rewrite your destiny.', rgb(255, 225, 130));
+    }
+
+    grantUltimatePower() {
+        if (this.ultimate) return;
+        this.ultimate = true;
+        this.buddha = true;
+        this.player.applyLoadout();
+        if (this.coop && this.coop.party) for (const p of this.coop.party) p.applyLoadout();
+        this.player.hp = this.player.maxHp;
+        this.player.refillBuddhaRevive();
+        this.player.artCharges = this.player.maxArtCharges;
+        this.banner('REALITY TRANSCENDED', 'Reality Rend is yours. Your combat art can now tear the fabric of the world.', rgb(255, 225, 130));
+        this.saveSoon();
+    }
+
     updateJohnJava(dt) {
         const john = this.johnJava;
         if (!john || john.finished) return;
         const previous = john.t;
         john.t = Math.min(JOHN_FINISH_TIME, john.t + dt);
-        if (previous < JOHN_SUMMON_TIME && john.t >= JOHN_SUMMON_TIME) this.summonHeavenlyInvaders();
+        if (!john.ultimate && previous < JOHN_SUMMON_TIME && john.t >= JOHN_SUMMON_TIME) this.summonHeavenlyInvaders();
         if (john.summoned && !john.smitten) {
             const rush = U.clamp((john.t - JOHN_SUMMON_TIME) / (JOHN_SMITE_TIME - JOHN_SUMMON_TIME), 0, 1);
             const eased = 1 - (1 - rush) * (1 - rush);
@@ -1075,7 +1091,7 @@ class Game {
                 e.walkAnim += dt * 18;
             }
         }
-        if (previous < JOHN_SMITE_TIME && john.t >= JOHN_SMITE_TIME) this.smiteHeavenlyInvaders();
+        if (!john.ultimate && previous < JOHN_SMITE_TIME && john.t >= JOHN_SMITE_TIME) this.smiteHeavenlyInvaders();
         if (previous < JOHN_BLESS_TIME && john.t >= JOHN_BLESS_TIME) {
             this.fx.ring(john.x, john.y, 8, 140, 1.2, 4, rgb(255, 225, 130));
             this.sfx.play('SHRINE');
@@ -1089,7 +1105,10 @@ class Game {
             this.zoomKick(0.12);
             this.sfx.play('IAI');
         }
-        if (previous < JOHN_GRANT_TIME && john.t >= JOHN_GRANT_TIME && (!this.coop || this.coop.host)) this.grantBuddha();
+        if (previous < JOHN_GRANT_TIME && john.t >= JOHN_GRANT_TIME && (!this.coop || this.coop.host)) {
+            if (john.ultimate) this.grantUltimatePower();
+            else this.grantBuddha();
+        }
         if (john.t >= JOHN_FINISH_TIME) john.finished = true;
     }
 
@@ -1143,6 +1162,10 @@ class Game {
     drawJohnJava(g) {
         const john = this.johnJava;
         if (!john || john.finished) return;
+        if (john.ultimate) {
+            this.drawArchitects(g);
+            return;
+        }
         const descent = U.clamp(john.t / 1.8, 0, 1);
         const ascent = U.clamp((john.t - JOHN_ASCEND_TIME) / (JOHN_FINISH_TIME - JOHN_ASCEND_TIME), 0, 1);
         const height = john.t < JOHN_ASCEND_TIME
@@ -1216,7 +1239,7 @@ class Game {
                 g.fillStyle = 'rgba(255,229,160,' + fade + ')';
                 fillCircle(g, x, y, 2 + charge * 2);
             }
-            if (t < JOHN_GRANT_TIME) {
+            if (t < JOHN_GRANT_TIME && !john.ultimate) {
                 g.beginPath();
                 g.moveTo(john.x, john.y - 25);
                 g.quadraticCurveTo((john.x + p.x) / 2, p.y - 140, p.x, p.y - 20);
@@ -1224,6 +1247,138 @@ class Game {
             }
         }
         g.restore();
+    }
+
+    drawArchitects(g) {
+        const john = this.johnJava, p = this.player;
+        const names = ['John Java', 'Henry HTML', 'Cid CSS', 'Joseph Javascript'];
+        const colors = [rgb(255, 225, 130), rgb(255, 140, 90), rgb(120, 195, 255), rgb(240, 225, 90)];
+        const descent = 420 * Math.pow(1 - U.clamp(john.t / JOHN_SUMMON_TIME, 0, 1), 2);
+        const fusion = U.clamp((john.t - JOHN_BLESS_TIME) / (JOHN_GRANT_TIME - JOHN_BLESS_TIME), 0, 1);
+        if (fusion >= 1) return;
+        g.save();
+        g.globalAlpha = 1 - Math.pow(fusion, 4);
+        for (let i = 0; i < names.length; i++) {
+            const a = i * TAU / 4 + john.t * fusion;
+            const radius = 110 * (1 - fusion);
+            const x = p.x + Math.cos(a) * radius, y = p.y + Math.sin(a) * radius * 0.65 - descent;
+            g.strokeStyle = css(colors[i]);
+            g.lineWidth = 3 + fusion * 5;
+            g.beginPath();
+            g.moveTo(x, y);
+            g.lineTo(p.x, p.y - 15);
+            g.stroke();
+            g.beginPath();
+            g.arc(x, y, 30, 0, TAU);
+            g.stroke();
+            Draw.body(g, x, y, 16, Math.atan2(p.y - y, p.x - x), rgb(245, 235, 210),
+                colors[i], colors[i], 3, 0);
+            g.font = 'bold 14px serif';
+            g.textAlign = 'center';
+            g.fillStyle = css(colors[i]);
+            g.fillText(names[i], x, y - 42);
+        }
+        g.restore();
+    }
+
+    openRealityTear(p) {
+        if (!p.enlightened() || !this.ultimate) return;
+        const tear = { x: p.x, y: p.y, facing: p.facing, range: 300, arc: 110 * DEG, t: 0 };
+        this.addRealityTear(tear);
+        this.sfx.play('BREAK');
+        this.shake(15);
+        this.fx.slash(p.x, p.y, tear.range, p.facing + tear.arc / 2, -tear.arc, 0.5, 18, rgb(255, 235, 150));
+        if (this.coop) {
+            let owner = this.coop.slot;
+            for (const [id, body] of this.coop.bodies) if (body === p) owner = id;
+            this.coop.link.send({ t: 'coop-reality-tear',
+                tear: { x: tear.x, y: tear.y, facing: tear.facing }, owner });
+        }
+        this.updateRealityTears(0);
+    }
+
+    addRealityTear(tear) {
+        if (this.ctx) {
+            const image = document.createElement('canvas');
+            image.width = this.canvas.width;
+            image.height = this.canvas.height;
+            image.getContext('2d').drawImage(this.canvas, 0, 0);
+            tear.image = image;
+        }
+        this.realityTears.push(tear);
+    }
+
+    updateRealityTears(dt) {
+        if (!this.realityTears) return;
+        for (const tear of this.realityTears) {
+            tear.t += dt;
+            if (tear.t >= 2.4 || (this.coop && !this.coop.host)) continue;
+            for (const e of this.enemies) {
+                if (e.st === 'DEAD') continue;
+                const d = U.dist(tear.x, tear.y, e.x, e.y);
+                const a = Math.atan2(e.y - tear.y, e.x - tear.x);
+                if (d <= tear.range && Math.abs(U.angDiff(tear.facing, a)) <= tear.arc / 2) {
+                    e.lives = 0;
+                    e.die(a);
+                }
+            }
+        }
+        this.realityTears = this.realityTears.filter(tear => tear.t < 2.4);
+    }
+
+    drawRealityTears(g) {
+        for (const tear of this.realityTears || []) {
+            const opening = Math.min(U.clamp(tear.t / 0.15, 0, 1), U.clamp((2.4 - tear.t) / 0.5, 0, 1));
+            g.save();
+            g.translate(tear.x, tear.y);
+            g.rotate(tear.facing);
+            if (tear.image) {
+                g.save();
+                g.beginPath();
+                for (let i = 0; i <= 32; i++) {
+                    const a = -tear.arc / 2 + i * tear.arc / 32;
+                    const radius = tear.range + (i % 2 ? 8 : 24) * opening;
+                    const x = Math.cos(a) * radius, y = Math.sin(a) * radius * opening;
+                    if (i === 0) g.moveTo(x, y);
+                    else g.lineTo(x, y);
+                }
+                for (let i = 32; i >= 0; i--) {
+                    const a = -tear.arc / 2 + i * tear.arc / 32;
+                    g.lineTo(Math.cos(a) * tear.range * 0.9, Math.sin(a) * tear.range * 0.9 * opening);
+                }
+                g.closePath();
+                g.clip();
+                g.setTransform(1, 0, 0, 1, 0, 0);
+                g.drawImage(tear.image, 12 * opening, -8 * opening);
+                g.restore();
+            }
+            g.beginPath();
+            g.moveTo(0, 0);
+            for (let i = 0; i <= 32; i++) {
+                const a = -tear.arc / 2 + i * tear.arc / 32;
+                const radius = tear.range * (i % 2 ? 0.91 : 1);
+                g.lineTo(Math.cos(a) * radius, Math.sin(a) * radius * opening);
+            }
+            g.closePath();
+            g.fillStyle = '#05020c';
+            g.fill();
+            g.strokeStyle = '#ffe9a0';
+            g.lineWidth = 3;
+            g.stroke();
+            g.clip();
+            g.strokeStyle = 'rgba(180,135,255,0.7)';
+            g.lineWidth = 2;
+            for (let i = 0; i < 12; i++) {
+                const x = 30 + i * 24;
+                const y = Math.sin(i * 2.4 + tear.t * 3) * 90 * opening;
+                g.beginPath();
+                g.moveTo(x - 12, y - 20);
+                g.lineTo(x + 8, y);
+                g.lineTo(x - 5, y + 18);
+                g.stroke();
+            }
+            g.restore();
+        }
     }
 
     drawJohnJavaScene(g, sw, sh) {
@@ -1238,7 +1393,12 @@ class Game {
         const bar = Math.min(80, sh * 0.13);
         g.fillRect(0, 0, sw, bar);
         g.fillRect(0, sh - bar, sw, bar);
-        const lines = t < JOHN_SUMMON_TIME ? ['THE HEAVENS OPEN', 'A light descends upon the silent battlefield.']
+        const lines = john.ultimate
+            ? t < JOHN_SUMMON_TIME ? ['THE FOUR ARCHITECTS', 'John Java, Henry HTML, Cid CSS, and Joseph Javascript descend.']
+                : t < JOHN_BLESS_TIME ? ['BEYOND BUDDHA', '"You have conquered the ultimate trial. Now become its author."']
+                    : t < JOHN_GRANT_TIME ? ['THE GREAT FUSION', '"Our forms become one. Our power becomes yours."']
+                        : ['REALITY TRANSCENDED', 'Reality Rend unlocked. Even the fabric of this world yields to your blade.']
+            : t < JOHN_SUMMON_TIME ? ['THE HEAVENS OPEN', 'A light descends upon the silent battlefield.']
             : t < JOHN_SMITE_TIME ? ['JOHN JAVA', '"No darkness shall lay a hand upon you."']
                 : t < JOHN_BLESS_TIME ? ['DIVINE JUDGMENT', 'And the horde was silenced in a single breath.']
                     : t < JOHN_GRANT_TIME ? ['JOHN JAVA', '"By heaven and earth, I bless your soul. Rise beyond the blade."']
@@ -1331,6 +1491,7 @@ class Game {
         this.drawBuddhaBlessing(g);
         this.fx.drawWorld(g);
         world.drawCanopies(g, vis, player.x, player.y, this.time);
+        this.drawRealityTears(g);
         this.fx.drawPetals(g);
         const db = this.deathblowTarget();
         for (const e of visEnemies) {
@@ -1677,8 +1838,6 @@ class Game {
         const X = (sw / scale - W) / 2, Y = (sh / scale - H) / 2;
         const travel = this.shrineCategory === 'travel';
         const safe = this.canUseShrine();
-        const lastPage = Math.max(0, Math.ceil(shrines.length / 6) - 1);
-        this.shrinePage = U.clamp(this.shrinePage || 0, 0, lastPage);
         this.shrineRects = [];
         const button = (action, title, copy, x, y, w, h, opts) => {
             const hovered = this.input && this.input.mx >= x * scale && this.input.mx <= (x + w) * scale
@@ -1709,19 +1868,53 @@ class Game {
         g.font = 'bold 18px serif';
         this.text(g, travel ? 'CHOOSE A DESTINATION' : 'REST & GROWTH', X + 24, Y + 180, rgb(220,190,135), false);
         if (travel) {
-            shrines.slice(this.shrinePage * 6, this.shrinePage * 6 + 6).forEach((s, index) => {
+            const mapX = X + 24, mapY = Y + 202, mapSize = 300, inset = 14;
+            g.fillStyle = 'rgb(39,45,32)';
+            g.fillRect(mapX, mapY, mapSize, mapSize);
+            if (this.world.minimap) g.drawImage(this.world.minimap,
+                mapX + inset, mapY + inset, mapSize - inset * 2, mapSize - inset * 2);
+            g.strokeStyle = 'rgb(112,84,58)';
+            g.strokeRect(mapX, mapY, mapSize, mapSize);
+            let focused = null;
+            let available = this.shrineRects.filter(r => !r.disabled).length;
+            shrines.forEach((s, index) => {
                 const here = s === this.shrineMenu;
                 const blocked = s.discovered && !here && this.findRestBlockers(s).length > 0;
-                button('travel:' + (this.shrinePage * 6 + index), s.discovered ? s.name : 'Undiscovered Shrine',
-                    here ? 'CURRENT SHRINE' : !s.discovered ? 'Explore to unlock.' : blocked ? 'Enemies nearby - travel blocked.' : 'Travel here and recover.',
-                    X + 24 + (index % 2) * (colW + 12), Y + 202 + Math.floor(index / 2) * 80, colW, 68,
-                    { disabled: here || !s.discovered || blocked || !safe });
+                const disabled = here || !s.discovered || blocked || !safe;
+                const x = mapX + inset + U.clamp(s.x / WORLD_SIZE, 0, 1) * (mapSize - inset * 2);
+                const y = mapY + inset + U.clamp(s.y / WORLD_SIZE, 0, 1) * (mapSize - inset * 2);
+                const hovered = this.input && Math.abs(this.input.mx / scale - x) <= 12
+                    && Math.abs(this.input.my / scale - y) <= 12;
+                const keyboardSelected = !disabled && available === this.shrineSelection;
+                this.shrineRects.push({ action: 'travel:' + index, x: x - 12, y: y - 12, w: 24, h: 24, disabled });
+                if (!disabled) available++;
+                if (keyboardSelected && !focused) focused = { s, here, blocked };
+                if (hovered) focused = { s, here, blocked };
+                const color = here ? rgb(170,225,255) : !s.discovered ? rgb(105,100,90)
+                    : blocked ? rgb(235,95,75) : rgb(255,220,130);
+                g.fillStyle = css(color);
+                fillCircle(g, x, y, hovered && !disabled && this.input.mouseDown(1) ? 9 : 7);
+                g.strokeStyle = hovered || keyboardSelected ? '#fff4cb' : 'rgb(25,20,17)';
+                g.lineWidth = hovered || keyboardSelected ? 3 : 2;
+                g.beginPath();
+                g.arc(x, y, 10, 0, TAU);
+                g.stroke();
+                g.font = 'bold 12px sans-serif';
+                this.text(g, !s.discovered ? '?' : here ? 'S' : String(index + 1), x, y + 4, rgb(25,20,17), true);
             });
-            if (lastPage > 0) {
-                button('travel-prev', 'Previous', 'Earlier destinations', X + 24, Y + 450, 180, 52, { disabled: this.shrinePage === 0 });
-                button('travel-next', 'Next', 'More destinations', X + W - 204, Y + 450, 180, 52, { disabled: this.shrinePage === lastPage });
+            g.font = HUD_FONT;
+            const infoX = X + 350;
+            this.text(g, 'Click a shrine on the map to travel.', infoX, Y + 225, rgb(244,233,216), false);
+            this.text(g, 'Gold: unlocked   Blue: current shrine', infoX, Y + 257, rgb(255,220,130), false);
+            this.text(g, 'Gray: locked   Red: enemies nearby', infoX, Y + 282, rgb(190,180,160), false);
+            if (focused) {
+                g.font = 'bold 18px serif';
+                this.text(g, focused.s.discovered ? focused.s.name : 'Undiscovered Shrine',
+                    infoX, Y + 340, rgb(255,220,150), false);
                 g.font = HUD_FONT;
-                this.text(g, 'Page ' + (this.shrinePage + 1) + ' / ' + (lastPage + 1), X + W / 2, Y + 479, rgb(190,180,160), true);
+                this.text(g, focused.here ? 'You are here.' : !focused.s.discovered ? 'Explore to unlock this shrine.'
+                    : focused.blocked ? 'Enemies nearby - travel blocked.' : !safe ? 'Your current shrine is unavailable.'
+                        : 'Travel here and recover.', infoX, Y + 370, rgb(190,180,160), false);
             }
         } else {
             button('rest', 'Rest & Recover', 'Restore health, gourds, and throws.', X + 24, Y + 202, colW, 80, { disabled: !safe });
@@ -2039,9 +2232,9 @@ class Game {
 }
 
 // ---------------- boot (called from the main menu) ----------------
-function startJourney(canvas, difficultyTier) {
+function startJourney(canvas, difficultyTier, newGame = false) {
     const params = new URLSearchParams(location.search);
-    const save = SaveGame.read();
+    const save = newGame ? null : SaveGame.read();
     let seed;
     if (params.has('seed') && Number.isFinite(Number(params.get('seed')))) seed = Number(params.get('seed'));
     else if (save !== null) seed = save.seed;

@@ -25,7 +25,7 @@ function journey(tier = 'kachi') {
         canvas: { width: 800, height: 600 }, zoomKickV: 0,
         world: { shrines: [shrine], camps: [], resolve() {} }, lastShrine: shrine,
         enemies: [], kills: 0, elitesSlain: 0, totalElites: 5, ngPlus: 0,
-        bossSpawned: false, bossDefeated: false, buddha: false, johnJava: null,
+        bossSpawned: false, bossDefeated: false, buddha: false, ultimate: false, realityTears: [], johnJava: null,
         exp: 73, pointsEarned: 0, skillPoints: 0, deathCount: 0,
         fx: new Proxy({}, { get: (_, name) => (...args) => calls.push([name, args]) }),
         sfx: { play() {} }, banner: (...args) => calls.push(['banner', args]),
@@ -35,6 +35,90 @@ function journey(tier = 'kachi') {
     });
     game.player = new Player(game, 0, 0);
     return { game, calls };
+}
+
+{
+    for (const [tier, buddha, expected] of [['buddha', true, true], ['buddha', false, false], ['kachi', true, false]]) {
+        const { game } = journey(tier);
+        game.buddha = buddha;
+        game.onEnemyKilled({ boss: true, elite: true, camp: null, x: 0, y: 0 });
+        assert.equal(game.johnJava.ultimate === true, expected, 'fusion requires Buddha form and Buddha difficulty victory');
+    }
+    const { game, calls } = journey('buddha');
+    game.buddha = true;
+    game.beginUltimateAscension();
+    const pending = SaveGame.serialize(game);
+    const resumed = journey('buddha').game;
+    SaveGame.apply(resumed, pending);
+    assert.equal(resumed.johnJava.ultimate, true, 'pending fusion survives saving and loading');
+    game.updateJohnJava(JOHN_BLESS_TIME);
+    assert.equal(game.ultimate, false, 'ultimate power waits until the fusion completes');
+    const labels = [];
+    const canvas = new Proxy({ fillText(text) { labels.push(text); } },
+        { get: (obj, key) => key in obj ? obj[key] : () => {} });
+    game.drawArchitects(canvas);
+    for (const name of ['John Java', 'Henry HTML', 'Cid CSS', 'Joseph Javascript']) assert(labels.includes(name));
+    game.updateJohnJava(JOHN_GRANT_TIME - JOHN_BLESS_TIME);
+    assert.equal(game.ultimate, true);
+    assert.equal(game.player.art.id, 'reality-tear');
+    const completed = journey('buddha').game;
+    SaveGame.apply(completed, SaveGame.serialize(game));
+    assert.equal(completed.ultimate, true, 'ultimate power persists');
+    assert.equal(completed.player.art.id, 'reality-tear');
+    SaveGame.apply(completed, { ...SaveGame.serialize(game), bossDefeated: false, ngPlus: 1 });
+    assert.equal(completed.ultimate, true, 'ultimate power survives New Game +');
+    const deaths = [];
+    const foe = (x, y, boss = false) => ({ x, y, r: 15, st: 'FREE', lives: 3, boss,
+        die() { this.st = 'DEAD'; deaths.push(this); } });
+    const inside = foe(100, 0, true), behind = foe(-100, 0), side = foe(0, 100), far = foe(301, 0);
+    game.enemies = [inside, behind, side, far];
+    game.realityTears = [];
+    game.player.tryArt(0);
+    game.player.stT = 0.35;
+    game.player.artUpdate(0, 0);
+    assert.equal(game.realityTears.length, 1, 'the combat art opens exactly one tear at impact');
+    assert.equal(inside.st, 'DEAD', 'the tear instantly kills bosses inside the forward slash arc');
+    assert.equal(inside.lives, 0, 'the tear bypasses additional deathblow lives');
+    for (const outside of [behind, side, far]) assert.equal(outside.st, 'FREE', 'enemies outside the slash arc survive');
+    game.player.artUpdate(0, 0);
+    assert.equal(game.realityTears.length, 1, 'the same art does not create repeated tears');
+    far.x = 200;
+    game.updateRealityTears(1);
+    assert.equal(far.st, 'DEAD', 'enemies entering the open tear also die');
+    game.realityTears[0].image = {};
+    game.drawRealityTears(canvas);
+    game.updateRealityTears(1.4);
+    assert.equal(game.realityTears.length, 0, 'the tear seals after 2.4 seconds');
+    assert.equal(deaths.length, 2);
+    assert(calls.some(([name]) => name === 'save'), 'the ultimate reward is saved');
+    game.statMods = {};
+    game.player.applyLoadout();
+    assert.notEqual(game.player.art.id, 'reality-tear', 'ultimate power never applies to stat-modified duels');
+}
+
+{
+    const { game } = journey('buddha');
+    const handlers = {}, sent = [];
+    const link = { conns: [], on(name, callback) { handlers[name] = callback; }, send(data) { sent.push(data); } };
+    const coop = new Coop(game, link, true, {}, 0);
+    const partner = coop.bodyFor(1);
+    game.grantUltimatePower();
+    assert.equal(partner.art.id, 'reality-tear', 'ultimate power updates co-op party loadouts');
+    partner.st = 'ART';
+    partner.facing = 0;
+    handlers['coop-reality-tear']({}, { idx: 1 });
+    assert.equal(game.realityTears.length, 1, 'the host creates a guest-requested tear');
+    assert.equal(sent[0].owner, 1);
+    handlers['coop-reality-tear']({}, { idx: 1 });
+    assert.equal(game.realityTears.length, 1, 'duplicate guest requests do not create another tear');
+    const guest = journey('buddha').game, guestHandlers = {};
+    const guestCoop = new Coop(guest, { conns: [], on(name, callback) { guestHandlers[name] = callback; } }, false, {}, 1);
+    guestCoop.receiveWorld({ enemies: [], dead: [], defeated: true, buddha: true, ultimate: true });
+    assert.equal(guest.player.art.id, 'reality-tear', 'the host shares ultimate power with guests');
+    guestHandlers['coop-reality-tear'](sent[0]);
+    assert.equal(guest.realityTears.length, 0, 'guests do not duplicate their own predicted tear');
+    guestHandlers['coop-reality-tear']({ ...sent[0], owner: 0 });
+    assert.equal(guest.realityTears.length, 1, 'guests display other players’ tears');
 }
 
 {

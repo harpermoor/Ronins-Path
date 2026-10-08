@@ -202,7 +202,7 @@ class Player extends Actor {
         }
         this.throwAtk = new Attack(this.throwable.id, 0, 0, 0, this.throwable.range, 0,
             this.throwable.damage * s.dmg, this.throwable.posture * s.post, 0);
-        this.art = lo.artDef();
+        this.art = this.enlightened() && this.g.ultimate === true ? REALITY_TEAR_ART : lo.artDef();
         const artStats = Object.assign({}, s, { dmg: s.dmg * s.artDmg });
         this.artAtks = this.art.hits.map(h => scaledAttack(h.atk, artStats));
         if (enlightened) for (const atk of [...this.comboAtk, this.stabAtk, ...this.artAtks]) atk.range *= 1.5;
@@ -690,6 +690,10 @@ class Player extends Actor {
         while (this.artIdx < a.hits.length && t >= a.hits[this.artIdx].t) {
             const h = a.hits[this.artIdx], atk = this.curArtAtks[this.artIdx];
             this.artIdx++;
+            if (a.id === 'reality-tear') {
+                g.openRealityTear(this);
+                continue;
+            }
             this.artAtk = atk;
             this.artAtkEnd = h.t + atk.active;
             this.hitSet.clear();
