@@ -157,6 +157,22 @@
         #preferences-dialog .clear-binding { padding: 2px; font-size: 11px; background: transparent; }
         #preferences-dialog .note { color: #c9bba5; font-size: 13px; }
         #preferences-status { min-height: 24px; color: #ffd98c; }
+        #update-dialog {
+            width: min(460px, calc(100vw - 40px)); box-sizing: border-box; padding: 28px;
+            color: #eadfcf; background: #17110f; border: 1px solid #8b6544; border-radius: 8px;
+            font: 15px/1.5 Arial, sans-serif; text-align: center;
+        }
+        #update-dialog::backdrop { background: rgba(0, 0, 0, 0.82); }
+        #update-dialog h2 { margin: 0 0 12px; color: #d6b987; font: bold 28px Georgia, serif; }
+        #update-dialog p { margin: 0 0 20px; color: #c9bba5; }
+        #update-dialog menu { display: grid; gap: 10px; margin: 0; padding: 0; }
+        #update-dialog button {
+            padding: 11px 14px; color: #f4e9d8; background: #34231d; border: 1px solid #6b5443;
+            border-radius: 4px; font: bold 15px Georgia, serif; cursor: pointer;
+        }
+        #update-dialog button:first-child { background: linear-gradient(135deg, #712e25, #3f1c18); border-color: #a7533f; }
+        #update-dialog button:hover { background-color: #563028; }
+        #update-dialog button:focus-visible { outline: 2px solid #e0b576; outline-offset: 3px; }
         @media (max-width: 640px) {
             #preferences-dialog { padding: 16px; }
             #preferences-dialog .preference-columns { grid-template-columns: 1fr; gap: 0; }
@@ -313,6 +329,14 @@
         <button id="reset-keybinds" type="button">Restore default keybinds</button>
         <button id="reset-preferences" type="button">Restore all defaults</button>
     </dialog>
+    <dialog id="update-dialog" aria-labelledby="update-title" aria-describedby="update-message">
+        <h2 id="update-title">Update available</h2>
+        <p id="update-message">A new version of Ronin's Path is available. Refresh now to receive the update, or stay on this version for now.</p>
+        <menu>
+            <button id="update-refresh" type="button">Refresh and update</button>
+            <button id="update-stay" type="button">Stay on this version</button>
+        </menu>
+    </dialog>
     <script src="js/util.js"></script>
     <script src="js/preferences.js"></script>
     <script src="js/sfx.js"></script>
@@ -331,6 +355,7 @@
     <script src="js/duel.js"></script>
     <script src="js/changelog.js"></script>
     <script src="js/preferences-menu.js"></script>
+    <script src="js/update-notice.js"></script>
     <script src="js/menu.js"></script>
 </body>
 </html>

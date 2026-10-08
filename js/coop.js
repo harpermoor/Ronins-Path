@@ -253,7 +253,6 @@ class Coop {
         if (victory) game.beginJohnJava();
         if (d.buddha === true) {
             game.grantBuddha();
-            if (game.johnJava) game.johnJava.t = 3;
         }
         if (Array.isArray(d.camps)) game.world.camps.forEach((c, i) => { if (d.camps[i]) c.cleared = true; });
         if (Array.isArray(d.shrines)) game.world.shrines.forEach((s, i) => { if (d.shrines[i]) s.discovered = true; });

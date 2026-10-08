@@ -188,7 +188,8 @@ const server = http.createServer((req, res) => {
             'Content-Length': stat.size,
             'Content-Type': contentType(file),
             'X-Content-Type-Options': 'nosniff',
-            'Cache-Control': file.endsWith('.html') || file.endsWith('.md') ? 'no-cache' : 'public, max-age=300',
+            'Cache-Control': file.endsWith('.html') || file.endsWith('.md') || file.endsWith('.js')
+                ? 'no-cache' : 'public, max-age=300',
         });
         if (req.method === 'HEAD') res.end();
         else fs.createReadStream(file).pipe(res);

@@ -6,6 +6,7 @@ const PERFECT_PARRY_WINDOW = 0.05;
 const PERFECT_DODGE_WINDOW = 0.06;
 const BUDDHA_PARRY_WINDOW = 0.14, BUDDHA_DODGE_WINDOW = 0.1;
 const HEAVY_STAB_HOLD = 0.36;
+const GOURD_HEAL_TIME = 0.25, GOURD_HEAL_END = 0.45;
 const P_COMBO = [
     new Attack('cut1', 0.08, 0.09, 0.20, 84, 150, 14, 12, 190),
     new Attack('cut2', 0.07, 0.09, 0.20, 84, 150, 14, 12, 190),
@@ -148,6 +149,11 @@ class Player extends Actor {
             s.move *= mods.speed;
             s.deflect = mods.parry;
         }
+        const enlightened = this.enlightened();
+        if (enlightened) {
+            s.dmg *= 5;
+            s.post *= 5;
+        }
         this.maxHp = s.maxHp;
         this.hp = Math.min(this.hp, this.maxHp);
         this.maxPosture = s.maxPosture;
@@ -185,6 +191,7 @@ class Player extends Actor {
         this.art = lo.artDef();
         const artStats = Object.assign({}, s, { dmg: s.dmg * s.artDmg });
         this.artAtks = this.art.hits.map(h => scaledAttack(h.atk, artStats));
+        if (enlightened) for (const atk of [...this.comboAtk, this.stabAtk, ...this.artAtks]) atk.range *= 1.5;
     }
 
     sneaking() { return this.st === 'FREE' && this.guarding && Math.hypot(this.vx, this.vy) < 160; }
@@ -346,14 +353,14 @@ class Player extends Actor {
                 this.vx = U.lerp(this.vx, this.moveX * this.speed * 0.35, 1 - Math.exp(-dt * 16));
                 this.vy = U.lerp(this.vy, this.moveY * this.speed * 0.35, 1 - Math.exp(-dt * 16));
                 this.move(g.world, this.vx * dt, this.vy * dt);
-                if (this.stT >= 0.45 && !this.healed) {
+                if (this.stT >= GOURD_HEAL_TIME && !this.healed) {
                     this.healed = true;
                     this.gourds--;
                     this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.5);
                     g.fx.heal(this.x, this.y);
                     g.sfx.play('HEAL');
                 }
-                if (this.stT >= 0.75) this.toFree();
+                if (this.stT >= GOURD_HEAL_END) this.toFree();
                 break;
             case 'DEATHBLOW': {
                 const e = this.dbTarget;
@@ -800,7 +807,8 @@ class Player extends Actor {
         this.stT = 0;
         this.facing = ang;
         this.dragonDone = false;
-        const a = new Attack('dragonflash', 0, 0.1, 0, 260, 42, this.dragonDamage, 70, 0);
+        const a = new Attack('dragonflash', 0, 0.1, 0, 260 * (this.enlightened() ? 1.5 : 1), 42,
+            this.dragonDamage, 70 * (this.enlightened() ? 5 : 1), 0);
         a.art = true;
         a.heavy = true;
         a.pierce = true;

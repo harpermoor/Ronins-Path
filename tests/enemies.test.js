@@ -48,6 +48,7 @@ const perfectDodgeEnemy = new Enemy(game, 'RONIN', 100, 100, false, null, 91);
 const originalTarget = { x: 0, y: 0, st: 'FREE' };
 perfectDodgeEnemy.g = { time: 1, player: originalTarget, fx: { text() {} } };
 const shadowTarget = { x: 0, y: 100, expires: 3 };
+originalTarget.afterimage = shadowTarget;
 const dodger = { x: 0, y: 100, afterimage: shadowTarget,
     angleTo(target) { return Math.atan2(target.y - this.y, target.x - this.x); } };
 perfectDodgeEnemy.onPerfectDodge(dodger);
@@ -56,8 +57,12 @@ assert.equal(perfectDodgeEnemy.stDur, 0.65);
 assert.equal(perfectDodgeEnemy.posture, 18);
 assert(perfectDodgeEnemy.kbx > 0, 'perfect dodge knocks the attacker away to create a counter opening');
 assert.equal(perfectDodgeEnemy.pickTarget(), shadowTarget, 'attacker locks on to the afterimage');
+const secondEnemy = new Enemy(game, 'SPEAR', 120, 100, false, null, 92);
+secondEnemy.g = perfectDodgeEnemy.g;
+assert.equal(secondEnemy.pickTarget(), shadowTarget, 'other enemies targeting the player also lock on to the afterimage');
 perfectDodgeEnemy.g.time = 3;
 assert.equal(perfectDodgeEnemy.pickTarget(), originalTarget, 'attacker returns to the player after two seconds');
+assert.equal(secondEnemy.pickTarget(), originalTarget, 'other enemies return to the player when the afterimage expires');
 for (const elite of [false, true]) {
     for (const [perfect, duration] of [[false, 1.2], [true, 2.4]]) {
         const parriedEnemy = new Enemy(game, 'RONIN', 100, 100, elite, null, 92);

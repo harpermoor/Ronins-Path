@@ -133,7 +133,10 @@ const SaveGame = {
         game.camY = p.y;
         if (game.bossDefeated || d.blessingPending === true) {
             game.beginJohnJava();
-            if (game.buddha) game.johnJava.t = 3;
+            if (game.buddha) {
+                game.johnJava.t = 3;
+                game.johnJava.finished = true;
+            }
         }
     },
 

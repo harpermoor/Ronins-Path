@@ -2,10 +2,14 @@
 
 ## Unreleased
 
+- Healing gourds now restore health after 0.25 seconds and release the player after 0.45 seconds, down from 0.45 and 0.75 seconds.
+- Playing sessions now pause and offer to refresh when a newer game version is available, or stay temporarily on the current version.
+- Buddha form now deals 5× normal and posture damage and has 1.5× melee range.
+- All enemies targeting the player now target the afterimage left by a perfect dodge.
 - Extended enemy stun after a parry to 1.2 seconds, doubled to 2.4 seconds for perfect parries.
 - Difficulty now changes enemy tactics: higher tiers react faster, read attacks more effectively, punish openings, flank, and coordinate group pressure.
 - Death no longer removes EXP.
-- After the Ashen Daimyo falls, John Java descends from the heavens and grants a glowing Buddha form with 140 ms perfect parries and 100 ms perfect dodges. The blessing persists through saves and New Game + and is shared in co-op, but never affects duels.
+- After the Ashen Daimyo falls, John Java descends, summons a horde that rushes the player, shields the pair, and smites the horde before granting Buddha form and ascending. The blessing persists through saves and New Game + and is shared in co-op, but never affects duels; it includes 140 ms perfect parries and 100 ms perfect dodges.
 - Added a customizable quick-rest action (B by default) at safe shrines, restoring supplies without opening the shrine menu.
 - Breaking the player's guard no longer deals health damage; the stagger opening and vulnerability to follow-up attacks remain.
 - Extended the perfect parry window from 30 ms to 80 ms.

@@ -373,7 +373,9 @@ class Enemy extends Actor {
         const g = this.g, me = g.player;
         if (this.dodgeAfterimage && g.time < this.dodgeAfterimage.expires) return this.dodgeAfterimage;
         this.dodgeAfterimage = null;
-        if (!g.coop || !g.coop.host) return me;
+        const withAfterimage = target => target.afterimage && g.time < target.afterimage.expires
+            ? target.afterimage : target;
+        if (!g.coop || !g.coop.host) return withAfterimage(me);
         let best = me, bd = me.st === 'DEAD' ? Infinity : this.distTo(me);
         for (const b of g.coop.party) {
             if (b.st === 'DEAD') continue;
@@ -383,7 +385,7 @@ class Enemy extends Actor {
                 best = b;
             }
         }
-        return best;
+        return withAfterimage(best);
     }
 
     update(dt) {
@@ -723,7 +725,7 @@ class Enemy extends Actor {
 
         if (perfect || last) {
             this.setSt('STUN');
-            this.stDur = perfect ? 2.4 : 1.2;
+            this.stDur = perfect ? 1.4 : 0.8;
             this.releaseToken();
             this.attackCd = 0.6;
             g.slowmo(0.16);

@@ -22,6 +22,8 @@ const COLTON_DEATH_TAUNTS = [
 // Living enemies inside this radius of a shrine prevent resting; aware enemies hunting the player block from further out.
 const REST_SAFE_R = 480;
 const REST_HUNT_R = 900;
+const JOHN_SUMMON_TIME = 1.8, JOHN_SMITE_TIME = 4.4, JOHN_GRANT_TIME = 4.45, JOHN_ASCEND_TIME = 5.1,
+    JOHN_FINISH_TIME = 7.2, JOHN_INVADER_COUNT = 24;
 class Game {
     constructor(seed, canvas, save, opts) {
         const o = opts || {};
@@ -205,6 +207,7 @@ class Game {
 
     // ================= loop =================
     run() {
+        GameUpdateNotice.watch(this);
         let last = performance.now(), acc = 0;
         const frame = now => {
             acc += (now - last) / 1000;
@@ -341,6 +344,7 @@ class Game {
     zoom() { return 1.0 + this.zoomKickV; }
 
     tick(dt) {
+        if (this.updateNoticeOpen) return;
         const inp = this.input, player = this.player, world = this.world, fx = this.fx;
         if (inp.hit('settings')) PreferencesMenu.open();
         if (Preferences.open && !this.coop) return;
@@ -417,6 +421,11 @@ class Game {
         const sdt = dt * this.timeScale;
         this.time += sdt;
         this.updateJohnJava(sdt);
+        if (this.johnJava && !this.johnJava.finished) {
+            if (this.coop) this.coop.tick(dt);
+            fx.update(sdt);
+            return;
+        }
 
         player.update(sdt);
         if (!this.coop || this.coop.host) {
@@ -1015,21 +1024,71 @@ class Game {
 
     beginJohnJava() {
         if (this.johnJava) return;
-        this.johnJava = { x: this.player.x + 65, y: this.player.y - 35, t: 0 };
+        this.johnJava = { x: this.player.x + 65, y: this.player.y - 35, t: 0, invaders: [], summoned: false,
+            smitten: false, finished: false };
         this.banner('JOHN JAVA', 'A visitor descends from the heavens...', rgb(255, 235, 150));
     }
 
     updateJohnJava(dt) {
         const john = this.johnJava;
-        if (!john) return;
-        const arriving = john.t < 3;
-        john.t = Math.min(3, john.t + dt);
-        if (arriving && john.t >= 3 && (!this.coop || this.coop.host)) this.grantBuddha();
+        if (!john || john.finished) return;
+        const previous = john.t;
+        john.t = Math.min(JOHN_FINISH_TIME, john.t + dt);
+        if (previous < JOHN_SUMMON_TIME && john.t >= JOHN_SUMMON_TIME) this.summonHeavenlyInvaders();
+        if (john.summoned && !john.smitten) {
+            const rush = U.clamp((john.t - JOHN_SUMMON_TIME) / (JOHN_SMITE_TIME - JOHN_SUMMON_TIME), 0, 1);
+            const eased = 1 - (1 - rush) * (1 - rush);
+            for (const e of john.invaders) {
+                e.x = U.lerp(e.startX, e.endX, eased);
+                e.y = U.lerp(e.startY, e.endY, eased);
+                e.walkAnim += dt * 18;
+            }
+        }
+        if (previous < JOHN_SMITE_TIME && john.t >= JOHN_SMITE_TIME) this.smiteHeavenlyInvaders();
+        if (previous < JOHN_GRANT_TIME && john.t >= JOHN_GRANT_TIME && (!this.coop || this.coop.host)) this.grantBuddha();
+        if (john.t >= JOHN_FINISH_TIME) john.finished = true;
+    }
+
+    summonHeavenlyInvaders() {
+        const john = this.johnJava, p = this.player;
+        const z = this.zoom(), rx = this.canvas.width / (2 * z) + 100, ry = this.canvas.height / (2 * z) + 100;
+        for (let i = 0; i < JOHN_INVADER_COUNT; i++) {
+            const angle = i * TAU / JOHN_INVADER_COUNT, type = ['RONIN', 'SPEAR', 'BRUTE'][i % 3];
+            const startX = p.x + Math.cos(angle) * rx, startY = p.y + Math.sin(angle) * ry;
+            const endX = p.x + 48 * Math.cos(angle), endY = p.y + 48 * Math.sin(angle);
+            const e = new Enemy(this, type, startX, startY, false, null, 810000 + i, true);
+            e.startX = startX;
+            e.startY = startY;
+            e.endX = endX;
+            e.endY = endY;
+            e.facing = Math.atan2(p.y - startY, p.x - startX);
+            e.aware = true;
+            john.invaders.push(e);
+        }
+        john.summoned = true;
+    }
+
+    smiteHeavenlyInvaders() {
+        const john = this.johnJava;
+        if (john.smitten) return;
+        john.smitten = true;
+        for (const e of john.invaders) {
+            const angle = Math.atan2(this.player.y - e.y, this.player.x - e.x);
+            this.fx.line(e.x, e.y - 500, e.x, e.y + 500, 0.45, 8, rgb(255, 245, 190));
+            this.fx.sparks(e.x, e.y, angle, 1.4, 8, 520, rgb(255, 235, 150));
+        }
+        this.fx.ring(this.player.x, this.player.y, 12, 260, 0.75, 8, rgb(255, 240, 170));
+        this.fx.impact(this.player.x, this.player.y, 'parry');
+        this.flash(rgb(255, 245, 200), 0.6);
+        this.shake(18);
+        this.hitstop(0.3);
+        this.sfx.play('BREAK');
     }
 
     grantBuddha() {
         if (this.buddha) return;
         this.buddha = true;
+        this.player.applyLoadout();
         this.fx.ring(this.player.x, this.player.y, 20, 180, 1, 5, rgb(255, 225, 100));
         this.sfx.play('SHRINE');
         this.banner('BUDDHA ASCENDED', 'John Java: "You are Buddha. Let your light guide your blade."', rgb(255, 235, 150));
@@ -1038,8 +1097,11 @@ class Game {
 
     drawJohnJava(g) {
         const john = this.johnJava;
-        if (!john) return;
-        const height = 420 * Math.pow(1 - john.t / 3, 2);
+        if (!john || john.finished) return;
+        const descent = U.clamp(john.t / 1.8, 0, 1);
+        const ascent = U.clamp((john.t - JOHN_ASCEND_TIME) / (JOHN_FINISH_TIME - JOHN_ASCEND_TIME), 0, 1);
+        const height = john.t < JOHN_ASCEND_TIME
+            ? 420 * (1 - descent) * (1 - descent) : 520 * ascent * ascent;
         const x = john.x, y = john.y - height;
         g.save();
         g.fillStyle = 'rgba(255,230,130,0.16)';
@@ -1055,6 +1117,42 @@ class Game {
         g.fillStyle = '#fff0b0';
         g.textAlign = 'center';
         g.fillText('John Java', x, y - 42);
+        g.restore();
+    }
+
+    drawJohnJavaInvaders(g) {
+        const john = this.johnJava;
+        if (!john || john.smitten) return;
+        for (const e of john.invaders) e.draw(g, this.time);
+    }
+
+    drawHeavenlyBarrier(g) {
+        const john = this.johnJava;
+        if (!john || !john.summoned) return;
+        const progress = U.clamp((john.t - (JOHN_SMITE_TIME - 0.85)) / 0.65, 0, 1);
+        if (progress <= 0) return;
+        const fade = john.smitten ? U.clamp(1 - (john.t - JOHN_SMITE_TIME) / 0.8, 0, 1) : 1;
+        const x = (this.player.x + john.x) / 2, y = (this.player.y + john.y) / 2;
+        const radius = 45 + progress * 115;
+        g.save();
+        g.translate(x, y);
+        g.scale(1, 0.72);
+        g.globalAlpha = 0.26 * fade;
+        g.fillStyle = 'rgb(255,235,150)';
+        g.beginPath();
+        g.arc(0, 0, radius, 0, TAU);
+        g.fill();
+        g.globalAlpha = 0.85 * fade;
+        g.strokeStyle = 'rgb(255,245,190)';
+        g.lineWidth = 4 + progress * 3;
+        g.beginPath();
+        g.arc(0, 0, radius, 0, TAU);
+        g.stroke();
+        g.globalAlpha = 0.6 * fade;
+        g.lineWidth = 2;
+        g.beginPath();
+        g.arc(0, 0, radius * 0.78, 0, TAU);
+        g.stroke();
         g.restore();
     }
 
@@ -1090,10 +1188,12 @@ class Game {
             if (this.coop !== null) this.coop.drawEntity(e, draw);
             else draw();
         }
+        this.drawJohnJavaInvaders(g);
         if (this.coop !== null) this.coop.draw(g);
         player.drawAfterimage(g, this.time);
         player.draw(g, this.time);
         this.drawJohnJava(g);
+        this.drawHeavenlyBarrier(g);
         this.fx.drawWorld(g);
         world.drawCanopies(g, vis, player.x, player.y, this.time);
         this.fx.drawPetals(g);

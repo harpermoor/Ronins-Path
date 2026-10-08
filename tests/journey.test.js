@@ -20,6 +20,7 @@ function journey(tier = 'kachi') {
     const game = Object.assign(Object.create(Game.prototype), {
         seed: 123, time: 0, difficultyTier: tier, difficulty: difficultyFor(null, 1, 0, tier),
         coop: null, loadout: new Loadout(), skills: new Set(),
+        canvas: { width: 800, height: 600 }, zoomKickV: 0,
         world: { shrines: [shrine], camps: [], resolve() {} }, lastShrine: shrine,
         enemies: [], kills: 0, elitesSlain: 0, totalElites: 5, ngPlus: 0,
         bossSpawned: false, bossDefeated: false, buddha: false, johnJava: null,
@@ -137,12 +138,30 @@ assert.equal(game.buddha, false, 'the blessing waits for John Java to arrive');
 const john = game.johnJava;
 game.beginJohnJava();
 assert.equal(game.johnJava, john, 'only one John Java exists');
-game.updateJohnJava(2.99);
+game.updateJohnJava(1.8);
 assert.equal(game.buddha, false);
-game.updateJohnJava(0.01);
+assert.equal(john.invaders.length, 24, 'John Java summons a large horde from beyond the screen');
+const firstInvader = john.invaders[0];
+assert(Math.hypot(firstInvader.startX - game.player.x, firstInvader.startY - game.player.y) > 400,
+    'the horde starts off screen');
+const spawnX = firstInvader.x;
+game.updateJohnJava(1);
+assert(firstInvader.x !== spawnX || firstInvader.y !== firstInvader.startY,
+    'the horde rushes toward the player');
+game.updateJohnJava(1.6);
+assert.equal(john.smitten, true, 'John Java smites the gathered horde at once');
+assert.equal(game.buddha, false, 'Buddha powers follow the smite');
+const normalDamage = game.player.comboAtk[0].damage;
+const postureDamage = game.player.comboAtk[0].posture;
+const meleeRange = game.player.comboAtk[0].range;
+game.updateJohnJava(0.05);
 assert.equal(game.buddha, true);
+assert(Math.abs(game.player.comboAtk[0].damage - normalDamage * 5) < 1e-9);
+assert(Math.abs(game.player.comboAtk[0].posture - postureDamage * 5) < 1e-9);
+assert(Math.abs(game.player.comboAtk[0].range - meleeRange * 1.5) < 1e-9);
 const saves = calls.filter(c => c[0] === 'save').length;
 game.updateJohnJava(20);
+assert.equal(john.finished, true, 'John Java ascends after granting the blessing');
 assert.equal(calls.filter(c => c[0] === 'save').length, saves, 'the blessing is awarded and saved only once');
 
 const p = game.player;
@@ -193,12 +212,14 @@ const canvas = new Proxy({
 }, { get: (obj, key) => key in obj ? obj[key] : () => {} });
 p.draw(canvas, 0);
 assert(drawCalls.includes('glow'), 'Buddha form draws its golden glow');
+game.johnJava.finished = false;
 game.johnJava.t = 0;
 game.drawJohnJava(canvas);
-game.johnJava.t = 3;
+game.johnJava.t = 1.8;
 game.drawJohnJava(canvas);
 assert(drawCalls.includes('John Java'), 'the descending NPC is visibly named');
 assert.equal(johnLabelY[1] - johnLabelY[0], 420, 'John Java visibly descends from above to ground level');
+game.johnJava.finished = true;
 
 const saved = SaveGame.serialize(game);
 assert.equal(saved.buddha, true);
@@ -228,7 +249,7 @@ const waiting = journey().game;
 SaveGame.apply(waiting, pending);
 assert.equal(waiting.buddha, false);
 assert.equal(waiting.johnJava.t, 0, 'saving during descent resumes the blessing');
-waiting.updateJohnJava(3);
+waiting.updateJohnJava(4.45);
 assert.equal(waiting.buddha, true);
 const earlyReset = journey().game;
 earlyReset.bossDefeated = true;
@@ -237,7 +258,7 @@ earlyReset.saveNow = () => {};
 earlyReset.resetMap(789);
 assert.equal(earlyReset.buddha, false, 'an early map reset cannot skip the descent');
 assert(earlyReset.johnJava);
-earlyReset.updateJohnJava(3);
+earlyReset.updateJohnJava(4.45);
 assert.equal(earlyReset.buddha, true, 'an early map reset does not lose the pending blessing');
 const oldSave = { ...saved };
 delete oldSave.buddha;
