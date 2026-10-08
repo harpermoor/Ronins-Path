@@ -300,7 +300,7 @@ assert.equal(artControlsPlayer.st, 'ART', 'the dedicated combat art button still
 
 // Red sweeps deflect only in the half-window; thrusts and other perilous moves remain unguardable.
 g.parryBurst = () => {};
-const defend = (age, perilous, sweep, sourceX = 50) => {
+const defend = (age, perilous, sweep, sourceX = 50, thrust = false) => {
     p.toFree();
     p.x = p.y = 0;
     p.facing = 0;
@@ -312,7 +312,7 @@ const defend = (age, perilous, sweep, sourceX = 50) => {
     g.time = 0;
     p.guardStart = -age;
     fxEvents.length = 0;
-    return p.receive(sourceX, 0, 14, 10, perilous, sweep);
+    return p.receive(sourceX, 0, 14, 10, perilous, sweep, thrust);
 };
 const deflectResult = vm.runInContext('P_DEFLECT', context);
 const perfectResult = vm.runInContext('P_PERFECT', context);
@@ -322,7 +322,7 @@ assert(fxEvents.some(e => e.name === 'impact' && e.args[2] === 'sweep'));
 assert.equal(defend(0.09001, true, true), P_HIT_RESULT);
 assert(!fxEvents.some(e => e.name === 'impact'));
 assert.equal(defend(0.19, true, true), P_HIT_RESULT);
-assert.equal(defend(0.01, true, false), P_HIT_RESULT);
+assert.equal(defend(0.01, true, false, 50, true), P_HIT_RESULT);
 assert.equal(defend(0.01, true, true, -50), P_HIT_RESULT);
 assert.equal(defend(0.1, false, false), deflectResult);
 assert(!fxEvents.some(e => e.name === 'impact'));
@@ -339,6 +339,18 @@ assert.equal(defend(perfectParryWindow + 0.00001, false, false), deflectResult,
 assert.equal(defend(0.04, false, false), perfectResult);
 assert.equal(defend(0.06, false, false), deflectResult);
 assert.equal(defend(perfectParryWindow, true, true), perfectResult);
+g.buddha = true;
+assert.equal(defend(0.14, true, false, 50, true), vm.runInContext('P_BUDDHA_MIKIRI', context),
+    'a perfect Buddha block counters perilous thrusts');
+assert.equal(defend(0.14001, true, false, 50, true), P_HIT_RESULT,
+    'Buddha thrust counters still require perfect timing');
+assert.equal(defend(0.14, true, true), vm.runInContext('P_BUDDHA_SWEEP', context),
+    'a perfect Buddha block counters perilous sweeps');
+assert.equal(defend(0.14, false, true), vm.runInContext('P_BUDDHA_SWEEP', context),
+    'a perfect Buddha block also counters regular sweep attacks');
+assert.equal(defend(0.14001, true, true), deflectResult,
+    'a non-perfect block deflects, but does not counter, a perilous sweep');
+g.buddha = false;
 p.guardWindow = 0.05;
 p.guardStart = -0.05001;
 assert.equal(p.receive(50, 0, 14, 10, false), vm.runInContext('P_BLOCK', context),
@@ -438,9 +450,18 @@ assert.equal(p.ki, dodgeKi);
 assert(!fxEvents.some(e => e.name === 'impact'));
 p.toFree();
 const mikiriFoe = { x: 100, y: 0, posture: 0, maxPosture: 100, releaseToken() {}, setSt(st) { this.st = st; } };
+g.resolveCounter = Game.prototype.resolveCounter;
 fxEvents.length = 0;
 Game.prototype.onMikiri.call(g, p, mikiriFoe);
 assert(fxEvents.some(e => e.name === 'impact' && e.args[2] === 'mikiri'));
+const sweepCounterFoe = { x: 100, y: 0, posture: 0, maxPosture: 100, releaseToken() {}, setSt(st) { this.st = st; } };
+fxEvents.length = 0;
+Game.prototype.onSweepCounter.call(g, p, sweepCounterFoe);
+assert.equal(sweepCounterFoe.posture, 50);
+assert.equal(sweepCounterFoe.st, 'STUN');
+assert(fxEvents.some(e => e.name === 'text' && e.args[0] === 'SWEEP COUNTER'));
+assert(fxEvents.some(e => e.name === 'impact' && e.args[2] === 'sweep'));
+delete g.resolveCounter;
 let guestMikiri = false;
 g.coop = { host: false, settings: { friendlyFire: false }, action() { guestMikiri = true; } };
 fxEvents.length = 0;

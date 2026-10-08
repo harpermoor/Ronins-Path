@@ -1,6 +1,7 @@
 'use strict';
 
-const P_IGNORE = 0, P_DEFLECT = 1, P_BLOCK = 2, P_HIT = 3, P_PERFECT = 4, P_PERFECT_DODGE = 5;
+const P_IGNORE = 0, P_DEFLECT = 1, P_BLOCK = 2, P_HIT = 3, P_PERFECT = 4, P_PERFECT_DODGE = 5,
+    P_BUDDHA_MIKIRI = 6, P_BUDDHA_SWEEP = 7;
 const PERFECT_WINDOW = 0.18, DODGE_TIME = 0.34, DODGE_IFRAMES = 0.25;
 const BUDDHA_SPEED = 0.8;
 const PERFECT_PARRY_WINDOW = 0.05;
@@ -807,6 +808,7 @@ class Player extends Actor {
 
     startIai(ang) {
         const g = this.g;
+        const color = this.enlightened() ? rgb(255, 205, 75) : rgb(150, 200, 255);
         this.ki = 0;
         this.st = 'IAI';
         this.stT = 0;
@@ -821,7 +823,7 @@ class Player extends Actor {
         this.guarding = false;
         g.sfx.play('IAI');
         g.zoomKick(0.08);
-        g.fx.ring(this.x, this.y, 10, 70, 0.3, 4, rgb(150, 200, 255));
+        g.fx.ring(this.x, this.y, 10, 70, 0.3, 4, color);
     }
 
     startDragon(ang) {
@@ -870,16 +872,17 @@ class Player extends Actor {
 
     iai(dt) {
         const g = this.g;
+        const color = this.enlightened() ? rgb(255, 205, 75) : rgb(170, 210, 255);
         if (this.stT < 0.16) {
             this.move(g.world, this.iaiDx * 2100 * dt, this.iaiDy * 2100 * dt);
-            g.fx.wisp(this.x, this.y, rgb(170, 210, 255));
+            g.fx.wisp(this.x, this.y, color);
             for (const e of g.enemies) {
                 if (e.st === 'DEAD' || this.iaiVictims.includes(e)) continue;
                 if (U.segDist(e.x, e.y, this.iaiSx, this.iaiSy, this.x, this.y) < e.r + 45) this.iaiVictims.push(e);
             }
         } else if (!this.iaiLine) {
             this.iaiLine = true;
-            g.fx.line(this.iaiSx, this.iaiSy, this.x, this.y, 0.9, 5, rgb(150, 200, 255));
+            g.fx.line(this.iaiSx, this.iaiSy, this.x, this.y, 0.9, 5, color);
         }
         if (this.stT >= 0.5 && !this.iaiDone) {
             this.iaiDone = true;
@@ -888,17 +891,21 @@ class Player extends Actor {
         if (this.stT >= 0.7) this.toFree();
     }
 
-    /** Called when an attack reaches the player. Returns P_IGNORE, P_DEFLECT, P_BLOCK or P_HIT. */
-    receive(sx, sy, dmg, post, perilous, sweep = false) {
+    /** Called when an attack reaches the player; returns a P_* result for attack resolution. */
+    receive(sx, sy, dmg, post, perilous, sweep = false, thrust = false) {
         const g = this.g;
         if (this.st === 'DEAD') return P_IGNORE;
         const ang = Math.atan2(sy - this.y, sx - this.x);
         const front = Math.abs(U.angDiff(this.facing, ang)) < 105 * DEG;
         const guardAge = g.time - this.guardStart;
         const guardWindow = this.guardDuration();
-        const sweepParry = perilous && sweep && guardAge <= guardWindow * 0.5;
+        const sweepParry = perilous && sweep && guardAge >= 0 && guardAge <= guardWindow * 0.5;
+        const buddhaPerfect = this.enlightened() && guardAge >= 0
+            && guardAge <= Math.min(BUDDHA_PARRY_WINDOW, guardWindow * (sweepParry ? 0.5 : 1));
+        const buddhaMikiri = perilous && thrust && buddhaPerfect;
+        const buddhaSweep = sweep && (!perilous || sweepParry) && buddhaPerfect;
         const dodgeParry = this.st === 'DODGE' && this.guarding && front && guardAge >= 0
-            && guardAge <= guardWindow && (!perilous || sweepParry);
+            && guardAge <= guardWindow && (!perilous || sweepParry || buddhaMikiri);
         if (this.st === 'DODGE' && this.stT < this.dodgeIframes && !dodgeParry) {
             if (this.stT <= (this.enlightened() ? BUDDHA_DODGE_WINDOW : PERFECT_DODGE_WINDOW)) {
                 const cx = this.x + Math.cos(ang) * (this.r + 12), cy = this.y + Math.sin(ang) * (this.r + 12);
@@ -920,7 +927,7 @@ class Player extends Actor {
         if (this.invulnerable() && !dodgeParry) return P_IGNORE;
         dmg *= this.dmgTaken;
         const cx = this.x + Math.cos(ang) * (this.r + 12), cy = this.y + Math.sin(ang) * (this.r + 12);
-        if ((!perilous || sweepParry) && (this.st === 'FREE' || dodgeParry) && this.guarding && front) {
+        if ((!perilous || sweepParry || buddhaMikiri) && (this.st === 'FREE' || dodgeParry) && this.guarding && front) {
             if (guardAge <= guardWindow * (sweepParry ? 0.5 : 1)) {
                 const perfect = guardAge >= 0
                     && guardAge <= Math.min(this.enlightened() ? BUDDHA_PARRY_WINDOW : PERFECT_PARRY_WINDOW,
@@ -956,6 +963,8 @@ class Player extends Actor {
                 const s = perfect ? 'PERFECT PARRY' : this.deflectStreak > 1 ? 'DEFLECT x' + this.deflectStreak : 'DEFLECT';
                 g.fx.text(s, this.x, this.y - 42, perfect || this.deflectStreak >= 4 ? rgb(255, 250, 200) : rgb(255, 215, 90),
                     perfect ? 20 + k * 3 : 16 + k * 3);
+                if (perfect && buddhaMikiri) return P_BUDDHA_MIKIRI;
+                if (perfect && buddhaSweep) return P_BUDDHA_SWEEP;
                 return perfect ? P_PERFECT : P_DEFLECT;
             }
             this.posture += post;

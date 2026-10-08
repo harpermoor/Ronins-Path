@@ -24,11 +24,11 @@ const EA = {
     SP_T1: new Attack('thrust', .50, .14, .50, 118, 26, 13, 16, 170).markThrust(),
     SP_T2: new Attack('thrust2', .28, .14, .50, 118, 26, 13, 16, 170).markThrust(),
     SP_HOOK: new Attack('hook', .52, .15, .56, 104, 115, 17, 22, 110),
-    SP_SWEEP: new Attack('sweep', .60, .16, .60, 108, 200, 16, 22, 70),
+    SP_SWEEP: new Attack('sweep', .60, .16, .60, 108, 200, 16, 22, 70).markSweep(),
     SP_PER: new Attack('lunge', .75, .20, .80, 150, 24, 30, 10, 620).markPerilous().markThrust(),
     BR_SMASH: new Attack('smash', .85, .18, .90, 108, 160, 30, 42, 130),
     BR_UPPERCUT: new Attack('uppercut', .68, .16, .76, 104, 95, 25, 32, 160),
-    BR_SWEEP: new Attack('sweep', .55, .16, .70, 112, 190, 22, 30, 80),
+    BR_SWEEP: new Attack('sweep', .55, .16, .70, 112, 190, 22, 30, 80).markSweep(),
     BR_PER: new Attack('crush', 1.0, .07, 1.0, 98, 180, 38, 0, 90).markPerilous(),
     R_DASH: withDash(new Attack('dash', .50, .12, .55, 80, 120, 18, 22, 320), 430),
     R_SPIN: new Attack('spin', .55, .16, .60, 80, 300, 16, 22, 120),
@@ -689,11 +689,14 @@ class Enemy extends Actor {
                         this.x + Math.cos(edge) * atk.range, this.y + Math.sin(edge) * atk.range) <= p.r;
             }
             if (d <= atk.range + p.r && inArc) {
-                const res = p.receive(this.x, this.y, atk.damage * this.dmgScale, atk.posture * this.dmgScale, atk.perilous, atk.sweep);
+                const res = p.receive(this.x, this.y, atk.damage * this.dmgScale, atk.posture * this.dmgScale,
+                    atk.perilous, atk.sweep, atk.thrust);
                 if (g.coop && g.coop.host && p !== g.player && res !== P_IGNORE)
                     g.coop.impact(p, res, this.x, this.y, atk.perilous);
                 if (res !== P_IGNORE) this.atkHit = true;
-                if (res === P_DEFLECT || res === P_PERFECT) this.onDeflected(res === P_PERFECT);
+                if (res === P_BUDDHA_MIKIRI) g.onBuddhaMikiri(p, this);
+                else if (res === P_BUDDHA_SWEEP) g.onSweepCounter(p, this);
+                else if (res === P_DEFLECT || res === P_PERFECT) this.onDeflected(res === P_PERFECT);
                 else if (res === P_PERFECT_DODGE) this.onPerfectDodge(p);
                 else if (res === P_BLOCK) {
                     this.kbx = -Math.cos(this.facing) * 60;
@@ -770,7 +773,8 @@ class Enemy extends Actor {
             this.facing = ang + Math.PI;
             const skill = this.elite ? 0.3 : this.vet ? 0.18 : this.type === 'RONIN' ? 0.12 : this.type === 'SPEAR' ? 0.08 : 0.04;
             const parryChance = Math.min(0.9, (skill + this.blockStreak * 0.18 + Math.max(0, this.attackRead - 1) * 0.2) * tactics / 0.4);
-            if (!pa.art && pa.arc > 0 && (this.blockStreak > 0 || this.attackRead > 1)
+            const apparitionActive = p.afterimage && g.time < p.afterimage.expires;
+            if (!apparitionActive && !pa.art && pa.arc > 0 && (this.blockStreak > 0 || this.attackRead > 1)
                 && this.rnd.nextDouble() < parryChance) {
                 this.parryPlayer(p, ang, cx, cy);
                 return;

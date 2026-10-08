@@ -22,8 +22,8 @@ const COLTON_DEATH_TAUNTS = [
 // Living enemies inside this radius of a shrine prevent resting; aware enemies hunting the player block from further out.
 const REST_SAFE_R = 480;
 const REST_HUNT_R = 900;
-const JOHN_SUMMON_TIME = 1.8, JOHN_SMITE_TIME = 4.4, JOHN_GRANT_TIME = 4.45, JOHN_ASCEND_TIME = 5.1,
-    JOHN_FINISH_TIME = 7.2, JOHN_INVADER_COUNT = 24;
+const JOHN_SUMMON_TIME = 1.8, JOHN_SMITE_TIME = 4.4, JOHN_BLESS_TIME = 5.4, JOHN_GRANT_TIME = 8,
+    JOHN_ASCEND_TIME = 10, JOHN_FINISH_TIME = 12.5, JOHN_INVADER_COUNT = 24;
 class Game {
     constructor(seed, canvas, save, opts) {
         const o = opts || {};
@@ -865,6 +865,32 @@ class Game {
             p.gainArtCharge();
             return;
         }
+        this.resolveCounter(p, e, 'MIKIRI COUNTER', 'mikiri');
+    }
+
+    onBuddhaMikiri(p, e) {
+        this.fx.impact((p.x + e.x) / 2, (p.y + e.y) / 2, 'mikiri');
+        if (this.coop && !this.coop.host) {
+            this.coop.action('buddha-mikiri', e);
+            p.ki = Math.min(100, p.ki + 25);
+            p.gainArtCharge();
+            return;
+        }
+        this.resolveCounter(p, e, 'MIKIRI COUNTER', 'mikiri');
+    }
+
+    onSweepCounter(p, e) {
+        this.fx.impact((p.x + e.x) / 2, (p.y + e.y) / 2, 'sweep');
+        if (this.coop && !this.coop.host) {
+            this.coop.action('sweep-counter', e);
+            p.ki = Math.min(100, p.ki + 25);
+            p.gainArtCharge();
+            return;
+        }
+        this.resolveCounter(p, e, 'SWEEP COUNTER', 'sweep');
+    }
+
+    resolveCounter(p, e, label, impact) {
         const fx = this.fx;
         const a = p.angleTo(e);
         const cx = (p.x + e.x) / 2, cy = (p.y + e.y) / 2;
@@ -882,13 +908,14 @@ class Game {
         fx.sparks(cx, cy, a + Math.PI, 3.0, 40, 600, rgb(140, 220, 255));
         fx.ring(cx, cy, 5, 90, 0.4, 5, rgb(180, 230, 255));
         fx.dust(p.x, p.y, 12);
-        fx.text('MIKIRI COUNTER', p.x, p.y - 48, rgb(140, 220, 255), 20);
+        fx.text(label, p.x, p.y - 48, rgb(140, 220, 255), 20);
         this.sfx.play('CLANG');
         this.sfx.play('BLOCK');
         this.hitstop(0.12);
         this.shake(11);
         this.slowmo(0.35);
         this.flash(rgb(180, 230, 255), 0.2);
+        if (impact === 'sweep') fx.ring(cx, cy, 8, 115, 0.42, 5, rgb(255, 225, 150));
         if (e.posture >= e.maxPosture) e.breakPosture();
     }
 
@@ -952,8 +979,9 @@ class Game {
             for (const e of victims) this.coop.action('iai', e);
             return;
         }
+        const color = p.enlightened() ? rgb(255, 205, 75) : rgb(170, 210, 255);
         this.sfx.play('DEATHBLOW');
-        this.flash(rgb(200, 230, 255), 0.25);
+        this.flash(p.enlightened() ? rgb(255, 225, 145) : rgb(200, 230, 255), 0.25);
         if (victims.length === 0) return;
         this.hitstop(0.12);
         this.shake(12);
@@ -961,10 +989,10 @@ class Game {
             if (e.st === 'DEAD') continue;
             const a = this.rnd.nextDouble() * Math.PI;
             this.fx.line(e.x - Math.cos(a) * 55, e.y - Math.sin(a) * 55, e.x + Math.cos(a) * 55, e.y + Math.sin(a) * 55, 0.6, 4,
-                rgb(170, 210, 255));
-            this.fx.sparks(e.x, e.y, a, 1.0, 14, 500, rgb(170, 210, 255));
+                color);
+            this.fx.sparks(e.x, e.y, a, 1.0, 14, 500, color);
             e.beingExecuted = false;
-            e.takeRaw(45 * PLAYER_DAMAGE_SCALE, 70, a);
+            e.takeRaw(IAI_FLASH_DAMAGE, 70, a);
         }
     }
 
@@ -1048,6 +1076,19 @@ class Game {
             }
         }
         if (previous < JOHN_SMITE_TIME && john.t >= JOHN_SMITE_TIME) this.smiteHeavenlyInvaders();
+        if (previous < JOHN_BLESS_TIME && john.t >= JOHN_BLESS_TIME) {
+            this.fx.ring(john.x, john.y, 8, 140, 1.2, 4, rgb(255, 225, 130));
+            this.sfx.play('SHRINE');
+        }
+        if (previous < JOHN_GRANT_TIME && john.t >= JOHN_GRANT_TIME) {
+            this.fx.line(this.player.x, this.player.y - 600, this.player.x, this.player.y, 1, 22, rgb(255, 235, 150));
+            for (let i = 0; i < 3; i++)
+                this.fx.ring(this.player.x, this.player.y, 12 + i * 20, 200 + i * 90, 1.3, 6 - i, rgb(255, 225, 100));
+            this.flash(rgb(255, 240, 180), 0.65);
+            this.shake(12);
+            this.zoomKick(0.12);
+            this.sfx.play('IAI');
+        }
         if (previous < JOHN_GRANT_TIME && john.t >= JOHN_GRANT_TIME && (!this.coop || this.coop.host)) this.grantBuddha();
         if (john.t >= JOHN_FINISH_TIME) john.finished = true;
     }
@@ -1108,6 +1149,14 @@ class Game {
             ? 420 * (1 - descent) * (1 - descent) : 520 * ascent * ascent;
         const x = john.x, y = john.y - height;
         g.save();
+        g.fillStyle = 'rgba(255,235,170,0.12)';
+        g.beginPath();
+        g.moveTo(x - 100, y - 650);
+        g.lineTo(x + 100, y - 650);
+        g.lineTo(x + 35, john.y + 20);
+        g.lineTo(x - 35, john.y + 20);
+        g.closePath();
+        g.fill();
         g.fillStyle = 'rgba(255,230,130,0.16)';
         fillCircle(g, x, y, 36);
         g.strokeStyle = 'rgba(255,240,170,0.8)';
@@ -1117,10 +1166,91 @@ class Game {
         g.stroke();
         Draw.body(g, x, y, 16, Math.PI / 2, rgb(245, 235, 200), rgb(255, 215, 100),
             rgb(255, 245, 190), this.loadout.look.hatStyle, 0);
+        const blessing = U.clamp((john.t - JOHN_BLESS_TIME) / 0.8, 0, 1)
+            * (1 - U.clamp((john.t - JOHN_ASCEND_TIME) / 0.5, 0, 1));
+        g.strokeStyle = '#ffe5a0';
+        g.lineWidth = 6;
+        for (const side of [-1, 1]) {
+            const hx = x + side * (18 + blessing * 12), hy = y + 8 - blessing * 35;
+            g.beginPath();
+            g.moveTo(x + side * 10, y + 5);
+            g.lineTo(hx, hy);
+            g.stroke();
+            g.fillStyle = '#fff0c0';
+            fillCircle(g, hx, hy, 5);
+            if (blessing > 0) {
+                g.strokeStyle = 'rgba(255,225,130,0.7)';
+                g.beginPath();
+                g.arc(hx, hy, 8 + blessing * 7, 0, TAU);
+                g.stroke();
+            }
+        }
         g.font = 'bold 16px serif';
         g.fillStyle = '#fff0b0';
         g.textAlign = 'center';
         g.fillText('John Java', x, y - 42);
+        g.restore();
+    }
+
+    drawBuddhaBlessing(g) {
+        const john = this.johnJava;
+        if (!john || john.finished) return;
+        const p = this.player, t = john.t;
+        const charge = U.clamp((t - JOHN_BLESS_TIME) / (JOHN_GRANT_TIME - JOHN_BLESS_TIME), 0, 1);
+        const fade = 1 - U.clamp((t - JOHN_ASCEND_TIME) / (JOHN_FINISH_TIME - JOHN_ASCEND_TIME), 0, 1);
+        g.save();
+        if (t >= JOHN_BLESS_TIME) {
+            const radius = 40 + charge * 75;
+            g.fillStyle = 'rgba(255,220,110,' + (0.08 + charge * 0.15) * fade + ')';
+            g.fillRect(p.x - radius * 0.45, p.y - 650, radius * 0.9, 650);
+            g.strokeStyle = 'rgba(255,235,160,' + fade * (0.35 + charge * 0.5) + ')';
+            g.lineWidth = 2 + charge * 2;
+            for (let i = 0; i < 3; i++) {
+                g.beginPath();
+                g.ellipse(p.x, p.y - 10 - i * 18 * charge, radius + i * 12, radius * 0.45, t * 0.5 + i, 0, TAU);
+                g.stroke();
+            }
+            for (let i = 0; i < 12; i++) {
+                const a = i * TAU / 12 + t * 0.7;
+                const x = p.x + Math.cos(a) * radius, y = p.y + Math.sin(a) * radius * 0.55 - charge * 35;
+                g.fillStyle = 'rgba(255,229,160,' + fade + ')';
+                fillCircle(g, x, y, 2 + charge * 2);
+            }
+            if (t < JOHN_GRANT_TIME) {
+                g.beginPath();
+                g.moveTo(john.x, john.y - 25);
+                g.quadraticCurveTo((john.x + p.x) / 2, p.y - 140, p.x, p.y - 20);
+                g.stroke();
+            }
+        }
+        g.restore();
+    }
+
+    drawJohnJavaScene(g, sw, sh) {
+        const john = this.johnJava;
+        if (!john || john.finished) return;
+        const t = john.t;
+        const fade = Math.min(U.clamp(t / 0.6, 0, 1),
+            1 - U.clamp((t - JOHN_ASCEND_TIME) / (JOHN_FINISH_TIME - JOHN_ASCEND_TIME), 0, 1));
+        g.save();
+        g.globalAlpha = fade;
+        g.fillStyle = 'rgba(0,0,0,0.85)';
+        const bar = Math.min(80, sh * 0.13);
+        g.fillRect(0, 0, sw, bar);
+        g.fillRect(0, sh - bar, sw, bar);
+        const lines = t < JOHN_SUMMON_TIME ? ['THE HEAVENS OPEN', 'A light descends upon the silent battlefield.']
+            : t < JOHN_SMITE_TIME ? ['JOHN JAVA', '"No darkness shall lay a hand upon you."']
+                : t < JOHN_BLESS_TIME ? ['DIVINE JUDGMENT', 'And the horde was silenced in a single breath.']
+                    : t < JOHN_GRANT_TIME ? ['JOHN JAVA', '"By heaven and earth, I bless your soul. Rise beyond the blade."']
+                        : t < JOHN_ASCEND_TIME ? ['BUDDHA AWAKENED', '"Let compassion be your strength, and your light be eternal."']
+                            : ['JOHN JAVA', '"Walk now as Buddha. The heavens watch over you."'];
+        g.textAlign = 'center';
+        g.fillStyle = '#ffe5a0';
+        g.font = 'bold 18px serif';
+        g.fillText(lines[0], sw / 2, bar * 0.6, sw - 40);
+        g.font = 'italic 16px serif';
+        g.fillStyle = '#fff1cf';
+        g.fillText(lines[1], sw / 2, sh - bar * 0.45, sw - 40);
         g.restore();
     }
 
@@ -1198,6 +1328,7 @@ class Game {
         player.draw(g, this.time);
         this.drawJohnJava(g);
         this.drawHeavenlyBarrier(g);
+        this.drawBuddhaBlessing(g);
         this.fx.drawWorld(g);
         world.drawCanopies(g, vis, player.x, player.y, this.time);
         this.fx.drawPetals(g);
@@ -1221,6 +1352,7 @@ class Game {
         if (this.coop) this.coop.drawStatus(g, sw);
         if (this.menu.open) this.menu.draw(g, sw, sh);
         this.fx.drawImpact(g, sw, sh, this.camX, this.camY, z);
+        this.drawJohnJavaScene(g, sw, sh);
     }
 
     /** Ground ring around the nearby shrine: gold when it is safe to rest, red with enemy markers when not. */

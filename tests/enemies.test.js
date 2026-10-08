@@ -14,6 +14,7 @@ const { Enemy, Game, EA, difficultyFor, ENEMY_DAMAGE_SCALE, NORMAL_ENEMY_HP_SCAL
     '({ Enemy, Game, EA, difficultyFor, ENEMY_DAMAGE_SCALE, NORMAL_ENEMY_HP_SCALE, NORMAL_ENEMY_POSTURE_SCALE, '
         + 'NORMAL_ENEMY_DAMAGE_SCALE, NORMAL_ENEMY_SPEED_SCALE })', context);
 
+assert(EA.SP_SWEEP.sweep && EA.BR_SWEEP.sweep, 'all enemy sweep attacks are identified for Buddha counters');
 assert.equal(vm.runInContext('sanitizeJourneyDifficulty("ronin")', context), 'kachi');
 assert.equal(vm.runInContext('JOURNEY_DIFFICULTY_ORDER.includes("ronin")', context), false);
 assert.equal(difficultyFor(null, 1, 0, 'colton').enemyHp, 0.65);
@@ -63,6 +64,30 @@ assert.equal(secondEnemy.pickTarget(), shadowTarget, 'other enemies targeting th
 perfectDodgeEnemy.g.time = 3;
 assert.equal(perfectDodgeEnemy.pickTarget(), originalTarget, 'attacker returns to the player after two seconds');
 assert.equal(secondEnemy.pickTarget(), originalTarget, 'other enemies return to the player when the afterimage expires');
+const parryGame = { time: 1, difficulty: game.difficulty,
+    fx: { sparks() {}, text() {} }, sfx: { play() {} }, hitstop() {}, shake() {} };
+const testedSwing = { damage: 10, posture: 10, arc: 1, heavy: false };
+function blockingEnemy(target) {
+    const enemy = new Enemy(parryGame, 'RONIN', 100, 100, false, null, 93);
+    enemy.st = 'ENGAGE';
+    enemy.aware = true;
+    enemy.blockChance = 1;
+    enemy.blockStreak = 1;
+    enemy.attackRead = 2;
+    enemy.lastSwingT = parryGame.time;
+    enemy.rnd.nextDouble = () => 0;
+    let recoilCount = 0;
+    const player = { x: 0, y: 100, afterimage: target, ki: 0,
+        angleTo(other) { return Math.atan2(other.y - this.y, other.x - this.x); },
+        recoil() { recoilCount++; } };
+    enemy.takeHit(player, testedSwing);
+    return { enemy, recoilCount };
+}
+const apparitionParry = blockingEnemy({ expires: 2 });
+assert.equal(apparitionParry.recoilCount, 0, 'enemies cannot parry while a perfect-dodge apparition is active');
+assert.equal(apparitionParry.enemy.blockStreak, 2, 'the enemy may still block the attack normally');
+const normalParry = blockingEnemy(null);
+assert.equal(normalParry.recoilCount, 1, 'enemies retain their normal parry behavior after the apparition ends');
 for (const elite of [false, true]) {
     for (const [perfect, duration] of [[false, 1.2], [true, 2.4]]) {
         const parriedEnemy = new Enemy(game, 'RONIN', 100, 100, elite, null, 92);

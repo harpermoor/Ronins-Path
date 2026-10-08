@@ -4,6 +4,10 @@
 
 - Buddha form now revives the player once after death per shrine rest; five deathblows recharge the revive.
 - Buddha form now dodges and swings 25% faster.
+- Iai Flash now deals 120 damage and uses gold effects in Buddha form.
+- Buddha can now counter perilous thrusts with a perfectly timed block and turn perfectly blocked sweeps into a sweep counter.
+- Enemies can no longer parry the player while a perfect-dodge apparition is active.
+- Expanded the Buddha awakening into a cinematic with heavenly light, dramatic dialogue, John Java's raised-hand blessing, orbiting golden halos, and a radiant transformation before his ascent.
 - Healing gourds now restore health after 0.25 seconds and release the player after 0.45 seconds, down from 0.45 and 0.75 seconds.
 - Playing sessions now pause and offer to refresh when a newer game version is available, or stay temporarily on the current version.
 - Buddha form now deals 5× normal and posture damage and has 1.5× melee range.

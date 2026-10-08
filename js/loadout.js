@@ -240,6 +240,7 @@ class Loadout {
 }
 
 const PLAYER_DAMAGE_SCALE = 0.94;
+const IAI_FLASH_DAMAGE = 120;
 const MAX_PLAYER_HP = 180;
 const MAX_PLAYER_GOURDS = 5;
 

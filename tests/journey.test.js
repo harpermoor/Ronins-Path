@@ -10,9 +10,11 @@ for (const name of ['util', 'preferences', 'draw', 'effects', 'world', 'skills',
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', name + '.js'), 'utf8'), context);
 }
 const { Game, Player, Enemy, Loadout, SaveGame, Coop, EA, difficultyFor, JOURNEY_DIFFICULTY_ORDER,
-    P_PERFECT, P_DEFLECT, P_PERFECT_DODGE, P_IGNORE } = vm.runInContext(
+    P_PERFECT, P_DEFLECT, P_PERFECT_DODGE, P_IGNORE, IAI_FLASH_DAMAGE,
+    JOHN_BLESS_TIME, JOHN_GRANT_TIME, JOHN_ASCEND_TIME, JOHN_FINISH_TIME } = vm.runInContext(
     '({ Game, Player, Enemy, Loadout, SaveGame, Coop, EA, difficultyFor, JOURNEY_DIFFICULTY_ORDER, '
-        + 'P_PERFECT, P_DEFLECT, P_PERFECT_DODGE, P_IGNORE })', context);
+        + 'P_PERFECT, P_DEFLECT, P_PERFECT_DODGE, P_IGNORE, IAI_FLASH_DAMAGE, '
+        + 'JOHN_BLESS_TIME, JOHN_GRANT_TIME, JOHN_ASCEND_TIME, JOHN_FINISH_TIME })', context);
 
 function journey(tier = 'kachi') {
     const calls = [];
@@ -27,11 +29,27 @@ function journey(tier = 'kachi') {
         exp: 73, pointsEarned: 0, skillPoints: 0, deathCount: 0,
         fx: new Proxy({}, { get: (_, name) => (...args) => calls.push([name, args]) }),
         sfx: { play() {} }, banner: (...args) => calls.push(['banner', args]),
-        saveSoon: () => calls.push(['save']), shake() {}, slowmo() {}, hitstop() {}, zoomKick() {}, flash() {},
+        saveSoon: () => calls.push(['save']), shake() {}, slowmo() {}, hitstop() {}, zoomKick() {},
+        flash: (...args) => calls.push(['flash', args]), rnd: { nextDouble: () => 0 },
         gainExp() {},
     });
     game.player = new Player(game, 0, 0);
     return { game, calls };
+}
+
+{
+    const { game, calls } = journey();
+    const damageHits = [];
+    const victim = { x: 100, y: 0, st: 'FREE', beingExecuted: true,
+        takeRaw: (...args) => damageHits.push(args) };
+    game.buddha = true;
+    Game.prototype.resolveIai.call(game, { enlightened: () => true }, [victim]);
+    assert.equal(damageHits[0][0], IAI_FLASH_DAMAGE, 'Iai Flash deals 120 damage');
+    assert(calls.some(([name, args]) => name === 'sparks' && args.at(-1)[0] === 255 && args.at(-1)[1] === 205
+        && args.at(-1)[2] === 75), 'Buddha Iai Flash effects are gold');
+    assert(calls.some(([name, args]) => name === 'flash' && args[0][0] === 255 && args[0][1] === 225
+        && args[0][2] === 145), 'Buddha Iai Flash screen flash is gold');
+    assert.equal(victim.beingExecuted, false);
 }
 
 const reactionTimes = [];
@@ -154,7 +172,11 @@ assert.equal(game.buddha, false, 'Buddha powers follow the smite');
 const normalDamage = game.player.comboAtk[0].damage;
 const postureDamage = game.player.comboAtk[0].posture;
 const meleeRange = game.player.comboAtk[0].range;
-game.updateJohnJava(0.05);
+game.updateJohnJava(JOHN_BLESS_TIME - john.t);
+assert.equal(game.buddha, false, 'John Java performs his blessing before the transformation');
+assert(calls.some(([name, args]) => name === 'ring' && args[0] === john.x && args[1] === john.y),
+    'the blessing starts with a halo around John Java');
+game.updateJohnJava(JOHN_GRANT_TIME - john.t);
 assert.equal(game.buddha, true);
 assert(Math.abs(game.player.comboAtk[0].damage - normalDamage * 5) < 1e-9);
 assert(Math.abs(game.player.comboAtk[0].posture - postureDamage * 5) < 1e-9);
@@ -176,9 +198,14 @@ game.player.hp = 0;
 game.player.die();
 assert.equal(game.player.buddhaReviveReady, false, 'the recharged revive can be used again');
 const saves = calls.filter(c => c[0] === 'save').length;
-game.updateJohnJava(20);
+game.updateJohnJava(JOHN_ASCEND_TIME - john.t);
+assert.equal(john.finished, false, 'the scene remains active while John Java ascends');
+game.updateJohnJava(JOHN_FINISH_TIME - john.t);
 assert.equal(john.finished, true, 'John Java ascends after granting the blessing');
 assert.equal(calls.filter(c => c[0] === 'save').length, saves, 'the blessing is awarded and saved only once');
+const finishedEffects = calls.length;
+game.updateJohnJava(20);
+assert.equal(calls.length, finishedEffects, 'a finished ceremony does not repeat its dramatic effects');
 
 const p = game.player;
 function parry(age) {
@@ -235,6 +262,14 @@ game.johnJava.t = 1.8;
 game.drawJohnJava(canvas);
 assert(drawCalls.includes('John Java'), 'the descending NPC is visibly named');
 assert.equal(johnLabelY[1] - johnLabelY[0], 420, 'John Java visibly descends from above to ground level');
+game.johnJava.t = JOHN_BLESS_TIME + 1;
+game.drawJohnJava(canvas);
+game.drawBuddhaBlessing(canvas);
+game.drawJohnJavaScene(canvas, 800, 600);
+assert(drawCalls.some(text => text.includes('I bless your soul')), 'the cinematic presents John Java’s theatrical blessing');
+game.johnJava.t = JOHN_GRANT_TIME;
+game.drawJohnJavaScene(canvas, 800, 600);
+assert(drawCalls.includes('BUDDHA AWAKENED'), 'the cinematic announces the transformation');
 game.johnJava.finished = true;
 
 const saved = SaveGame.serialize(game);
@@ -272,7 +307,7 @@ const waiting = journey().game;
 SaveGame.apply(waiting, pending);
 assert.equal(waiting.buddha, false);
 assert.equal(waiting.johnJava.t, 0, 'saving during descent resumes the blessing');
-waiting.updateJohnJava(4.45);
+waiting.updateJohnJava(JOHN_GRANT_TIME);
 assert.equal(waiting.buddha, true);
 const earlyReset = journey().game;
 earlyReset.bossDefeated = true;
@@ -281,7 +316,7 @@ earlyReset.saveNow = () => {};
 earlyReset.resetMap(789);
 assert.equal(earlyReset.buddha, false, 'an early map reset cannot skip the descent');
 assert(earlyReset.johnJava);
-earlyReset.updateJohnJava(4.45);
+earlyReset.updateJohnJava(JOHN_GRANT_TIME);
 assert.equal(earlyReset.buddha, true, 'an early map reset does not lose the pending blessing');
 const oldSave = { ...saved };
 delete oldSave.buddha;

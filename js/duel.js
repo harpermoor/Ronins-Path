@@ -796,7 +796,7 @@ class Duel {
 
     resolveIai(p, victims) {
         this.sfx.play('DEATHBLOW');
-        this.flash(rgb(200, 230, 255), 0.25);
+        this.flash(p.enlightened() ? rgb(255, 225, 145) : rgb(200, 230, 255), 0.25);
         if (victims.length === 0) return;
         this.hitstop(0.12);
         this.shake(12);
@@ -804,10 +804,11 @@ class Duel {
             if (e.st === 'DEAD') continue;
             const a = p.angleTo(e) + Math.PI / 2;
             this.fx.line(e.x - Math.cos(a) * 55, e.y - Math.sin(a) * 55, e.x + Math.cos(a) * 55, e.y + Math.sin(a) * 55, 0.6, 4,
-                rgb(170, 210, 255));
-            this.fx.sparks(e.x, e.y, a, 1.0, 14, 500, rgb(170, 210, 255));
+                p.enlightened() ? rgb(255, 205, 75) : rgb(170, 210, 255));
+            this.fx.sparks(e.x, e.y, a, 1.0, 14, 500,
+                p.enlightened() ? rgb(255, 205, 75) : rgb(170, 210, 255));
             this.fx.blood(e.x, e.y, a, 14, 300);
-            const dmg = 45 * e.dmgTaken;
+            const dmg = IAI_FLASH_DAMAGE * e.dmgTaken;
             this.fx.text(String(Math.trunc(dmg)), e.x, e.y - 30, rgb(255, 230, 120), 15);
             e.hp -= dmg;
             e.posture = Math.min(e.maxPosture, e.posture + 70);

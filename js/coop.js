@@ -312,6 +312,18 @@ class Coop {
             this.game.fx.text(text, p.x, p.y - 42, perfect ? rgb(255, 250, 200) : rgb(255, 215, 90),
                 (perfect ? 20 : 16) + k * 3);
             if (perfect) this.game.fx.impact(cx, cy, 'parry');
+        } else if (d.result === P_BUDDHA_MIKIRI || d.result === P_BUDDHA_SWEEP) {
+            const ang = Number.isFinite(d.sourceX) && Number.isFinite(d.sourceY)
+                ? Math.atan2(d.sourceY - p.y, d.sourceX - p.x) : p.facing;
+            const cx = p.x + Math.cos(ang) * (p.r + 12), cy = p.y + Math.sin(ang) * (p.r + 12);
+            const sweep = d.result === P_BUDDHA_SWEEP;
+            this.game.fx.sparks(cx, cy, ang, 3, 40, 600, rgb(140, 220, 255));
+            this.game.fx.ring(cx, cy, 5, 90, 0.4, 5, rgb(180, 230, 255));
+            this.game.fx.text(sweep ? 'SWEEP COUNTER' : 'MIKIRI COUNTER', p.x, p.y - 48, rgb(140, 220, 255), 20);
+            this.game.fx.impact(cx, cy, sweep ? 'sweep' : 'mikiri');
+            this.game.hitstop(0.12);
+            this.game.slowmo(0.35);
+            this.game.flash(rgb(180, 230, 255), 0.2);
         } else if (d.result === P_PERFECT_DODGE) {
             p.leaveDodgeAfterimage();
             const ang = Number.isFinite(d.sourceX) && Number.isFinite(d.sourceY)
@@ -479,7 +491,15 @@ class Coop {
             game.executeDeathblow(p, e);
         } else if (d.kind === 'mikiri' && e.atk && e.atk.thrust && p.distTo(e) < e.atk.range + 80) {
             game.onMikiri(p, e);
-        } else if (d.kind === 'iai' && p.distTo(e) < 310) e.takeRaw(45 * PLAYER_DAMAGE_SCALE, 70, p.angleTo(e));
+        } else if (d.kind === 'buddha-mikiri' && p.enlightened() && e.atk && e.atk.perilous && e.atk.thrust
+            && (e.st === 'ACTIVE' || (e.st === 'WINDUP' && e.stDur - e.stT < 0.32))
+            && p.distTo(e) < e.atk.range + 80) {
+            game.onBuddhaMikiri(p, e);
+        } else if (d.kind === 'sweep-counter' && p.enlightened() && e.atk && e.atk.sweep
+            && (e.st === 'ACTIVE' || (e.st === 'WINDUP' && e.stDur - e.stT < 0.32))
+            && p.distTo(e) < e.atk.range + 80) {
+            game.onSweepCounter(p, e);
+        } else if (d.kind === 'iai' && p.distTo(e) < 310) e.takeRaw(IAI_FLASH_DAMAGE, 70, p.angleTo(e));
     }
 
     draw(g) {
