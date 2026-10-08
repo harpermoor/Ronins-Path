@@ -168,7 +168,7 @@ class Player extends Actor {
         this.throws = Math.min(this.throws, this.maxThrows);
         this.maxArtCharges = s.charges;
         this.artCharges = Math.min(this.artCharges, this.maxArtCharges);
-        this.speed = 245 * s.move;
+        this.speed = 245 * s.move * (this.g.devSpeedBuff ? 2 : 1);
         this.perfectWindow = s.deflect;
         this.guardWindow = s.deflect;
         this.dmgTaken = s.def;
@@ -315,6 +315,7 @@ class Player extends Actor {
 
     update(dt) {
         const g = this.g;
+        if (g.devAttackSpeedBuff) dt *= 2.5;
         this.stT += dt;
         this.bufAttack -= dt;
         this.bufParry -= dt;
@@ -997,7 +998,7 @@ class Player extends Actor {
         const artArmor = this.artArmored(perilous);
         if (artArmor && this.curArt.weapon === 'hammer') dmg *= 0.7;
         this.lastDmgTaken = dmg;
-        this.hp -= dmg;
+        this.hp = g.devInfiniteHealth ? this.maxHp : this.hp - dmg;
         this.posture = Math.min(this.maxPosture, this.posture + post * (artArmor ? 0.2 : 0.35));
         this.postureCd = 1.0;
         this.hurtFlash = 0.3;

@@ -105,6 +105,27 @@
         #menu .menu-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
         #menu .menu-footer .note { max-width: 700px; font-size: 12px; }
         #menu .main-panel a.feedback { position: static; flex: 0 0 auto; padding: 9px 12px; font-size: 13px; }
+        #dev-panel {
+            position: fixed; top: 16px; left: 16px; z-index: 10; width: min(300px, calc(100vw - 32px));
+            max-height: calc(100vh - 32px); overflow-y: auto; box-sizing: border-box; padding: 12px;
+            color: #eadfcf; background: rgba(18, 14, 12, 0.94); border: 1px solid #a7533f;
+            border-radius: 6px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55); font: 13px Arial, sans-serif;
+        }
+        #dev-panel[hidden] { display: none; }
+        #dev-panel header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        #dev-panel h2 { margin: 0; color: #ffd98c; font: bold 16px Georgia, serif; }
+        #dev-panel button, #dev-panel select {
+            box-sizing: border-box; padding: 6px; color: #f4e9d8; background: #2b1d18;
+            border: 1px solid #70543a; border-radius: 3px; font: 12px Arial, sans-serif;
+        }
+        #dev-panel button { cursor: pointer; }
+        #dev-panel button:hover { background: #563028; }
+        #dev-panel .dev-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        #dev-panel .dev-spawn { display: flex; gap: 6px; margin-bottom: 8px; }
+        #dev-panel .dev-spawn select { min-width: 0; flex: 1; }
+        #dev-panel .dev-toggle { display: flex; align-items: center; gap: 7px; padding: 5px 0; }
+        #dev-panel .dev-toggles { margin: 4px 0 8px; border-block: 1px solid #44372e; }
+        #dev-panel .dev-note { margin: 9px 0 0; color: #9f9180; font-size: 11px; }
         @media (max-width: 640px) {
             #menu { padding: 12px 0; }
             #menu .main-panel { width: calc(100vw - 20px); max-height: calc(100vh - 24px); gap: 13px; padding: 20px 15px; }
@@ -302,6 +323,31 @@
     </div>
     <a id="pause-feedback" href="https://github.com/harpermoor/Ronins-Path/issues/new" target="_blank" rel="noopener noreferrer" hidden>Send Feedback (public)</a>
     <button id="play-preferences" type="button" hidden>Settings</button>
+    <section id="dev-panel" aria-label="Developer testing tools" hidden>
+        <header><h2>Developer Tools</h2><button id="dev-close" type="button">Close</button></header>
+        <div class="dev-spawn">
+            <select id="dev-enemy-type" aria-label="Enemy to spawn">
+                <option value="RONIN">Ronin</option>
+                <option value="SPEAR">Spear</option>
+                <option value="BRUTE">Brute</option>
+                <option value="BOSS">Ashen Daimyo</option>
+            </select>
+            <button id="dev-spawn" type="button">Spawn</button>
+        </div>
+        <div class="dev-actions">
+            <button id="dev-kill-all" type="button">Kill all enemies</button>
+            <button id="dev-kill-player" type="button">Kill player</button>
+            <button id="dev-win" type="button">Win game</button>
+            <button id="dev-heal" type="button">Restore health</button>
+        </div>
+        <div class="dev-toggles">
+            <label class="dev-toggle"><input id="dev-infinite-health" type="checkbox"> Infinite health</label>
+            <label class="dev-toggle"><input id="dev-infinite-damage" type="checkbox"> Infinite damage</label>
+            <label class="dev-toggle"><input id="dev-speed" type="checkbox"> Speed buff</label>
+            <label class="dev-toggle"><input id="dev-attack-speed" type="checkbox"> Attack speed buff</label>
+        </div>
+        <p class="dev-note">Single-player only.</p>
+    </section>
     <dialog id="preferences-dialog" aria-labelledby="preferences-title">
         <header><h2 id="preferences-title">Settings</h2><button id="close-preferences" type="button">Close</button></header>
         <div class="preference-columns">

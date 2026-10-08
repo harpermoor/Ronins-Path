@@ -38,6 +38,37 @@ function journey(tier = 'kachi') {
 }
 
 {
+    for (const tier of ['kachi', 'buddha']) {
+        const { game, calls } = journey(tier);
+        game.buddha = game.ultimate = true;
+        game.player.applyLoadout();
+        game.grantBuddha = () => assert.fail('repeat victories must not grant Buddha again');
+        game.grantUltimatePower = () => assert.fail('repeat victories must not replay the fusion');
+        game.onEnemyKilled({ boss: true, elite: true, camp: null, x: 0, y: 0 });
+        assert.equal(game.johnJava.dap, true, 'Reality Rend holders receive the dap finale on every difficulty');
+        const labels = [];
+        const canvas = new Proxy({ fillText(text) { labels.push(text); } },
+            { get: (obj, key) => key in obj ? obj[key] : () => {} });
+        game.drawJohnJava(canvas);
+        game.updateJohnJava(JOHN_BLESS_TIME);
+        game.drawJohnJava(canvas);
+        game.drawJohnJavaScene(canvas, 800, 600);
+        game.drawBuddhaBlessing(canvas);
+        assert(labels.includes('RESPECT'), 'the repeat-victory scene announces the dap');
+        assert.equal(game.johnJava.invaders.length, 0, 'the dap scene does not summon a horde');
+        assert.equal(calls.filter(([name]) => name === 'sparks').length, 1, 'the dap has a single contact effect');
+        game.updateJohnJava(JOHN_FINISH_TIME - JOHN_BLESS_TIME);
+        assert.equal(game.johnJava.finished, true, 'John Java ascends after the dap');
+        assert.equal(game.player.art.id, 'reality-tear', 'Reality Rend remains equipped');
+        assert(!calls.some(([name]) => name === 'flash'), 'repeat victories do not replay transformation effects');
+        const resumed = journey(tier).game;
+        SaveGame.apply(resumed, SaveGame.serialize(game));
+        assert.equal(resumed.johnJava.dap, true, 'the restored finale retains its repeat-victory variant');
+        assert.equal(resumed.johnJava.finished, true, 'loading a completed journey does not replay the dap');
+    }
+}
+
+{
     for (const [tier, buddha, expected] of [['buddha', true, true], ['buddha', false, false], ['kachi', true, false]]) {
         const { game } = journey(tier);
         game.buddha = buddha;

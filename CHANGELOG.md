@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- After Reality Rend is unlocked, repeat victories have John Java descend, dap up the player, and ascend instead of replaying the Buddha awakening.
+- Added a single-player developer tools panel for spawning enemies, ending fights, restoring health, and enabling combat test buffs.
 - Defeating Buddha difficulty while already in Buddha form summons John Java, Henry HTML, Cid CSS, and Joseph Javascript for a fusion finale. Their persistent ultimate reward replaces your combat art with Reality Rend: a jagged slash-arc tear that instantly kills enemies inside, including bosses, and seals after 2.4 seconds.
 - Fast travel now uses a clickable world map with shrine markers instead of destination lists; undiscovered shrines remain locked and unsafe destinations remain blocked.
 - Mikiri counters now deal 75% of spear enemies' maximum posture, up from 50%, including Buddha block-based counters.

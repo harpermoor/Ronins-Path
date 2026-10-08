@@ -74,6 +74,11 @@ class Game {
         this.bossDefeated = false;
         this.buddha = false;
         this.ultimate = false;
+        this.devMode = false;
+        this.devInfiniteHealth = false;
+        this.devInfiniteDamage = false;
+        this.devSpeedBuff = false;
+        this.devAttackSpeedBuff = false;
         this.realityTears = [];
         this.johnJava = null;
         this.vignette = null;
@@ -124,6 +129,96 @@ class Game {
         };
         window.addEventListener('resize', resize);
         resize();
+        this.setupDeveloperTools();
+    }
+
+    setupDeveloperTools() {
+        this.devPanel = document.getElementById('dev-panel');
+        if (!this.devPanel) return;
+        const toggle = (id, property, changed) => {
+            const input = document.getElementById(id);
+            input.addEventListener('change', () => {
+                this[property] = input.checked;
+                if (changed) changed();
+            });
+        };
+        toggle('dev-infinite-health', 'devInfiniteHealth', () => {
+            if (this.devInfiniteHealth) this.player.hp = this.player.maxHp;
+        });
+        toggle('dev-infinite-damage', 'devInfiniteDamage');
+        toggle('dev-speed', 'devSpeedBuff', () => this.player.applyLoadout());
+        toggle('dev-attack-speed', 'devAttackSpeedBuff');
+        document.getElementById('dev-close').addEventListener('click', () => this.setDevMode(false));
+        document.getElementById('dev-spawn').addEventListener('click', () => {
+            const type = document.getElementById('dev-enemy-type').value;
+            if (type === 'BOSS') this.spawnFinalBoss();
+            else {
+                const x = this.player.x + Math.cos(this.player.facing) * 150;
+                const y = this.player.y + Math.sin(this.player.facing) * 150;
+                this.addEnemy(new Enemy(this, type, x, y, false, null, this.rnd.nextInt(1000000000)), null);
+            }
+        });
+        document.getElementById('dev-kill-all').addEventListener('click', () => {
+            for (let i = 0; i < this.enemies.length; i++) {
+                const enemy = this.enemies[i];
+                if (enemy.st === 'DEAD') continue;
+                enemy.lives = 1;
+                enemy.die(this.player.angleTo(enemy));
+            }
+        });
+        document.getElementById('dev-kill-player').addEventListener('click', () => {
+            this.player.lastStandUsed = true;
+            this.player.buddhaReviveReady = false;
+            this.player.die();
+        });
+        document.getElementById('dev-win').addEventListener('click', () => {
+            const boss = this.enemies.find(enemy => enemy.boss && enemy.st !== 'DEAD') || this.spawnFinalBoss();
+            if (boss) {
+                boss.lives = 1;
+                boss.die(this.player.angleTo(boss));
+            }
+        });
+        document.getElementById('dev-heal').addEventListener('click', () => {
+            this.player.hp = this.player.maxHp;
+            this.player.posture = 0;
+            this.player.gourds = this.player.maxGourds;
+        });
+        const devSequence = ['KeyY', 'KeyP', 'KeyU', 'KeyO', 'KeyI'];
+        let devSequenceIndex = 0;
+        window.addEventListener('keydown', e => {
+            if (e.repeat || e.ctrlKey || e.altKey || e.metaKey || Preferences.open || this.coop || this.duel) return;
+            const active = document.activeElement;
+            if (active && active !== this.canvas && !this.devPanel.contains(active)) return;
+            if (e.code === devSequence[devSequenceIndex]) {
+                devSequenceIndex++;
+                if (devSequenceIndex === devSequence.length) {
+                    devSequenceIndex = 0;
+                    e.preventDefault();
+                    this.setDevMode(!this.devMode);
+                }
+            } else devSequenceIndex = e.code === devSequence[0] ? 1 : 0;
+        });
+    }
+
+    setDevMode(enabled) {
+        this.devMode = !!enabled && !this.coop && !this.duel;
+        if (this.devPanel) this.devPanel.hidden = !this.devMode;
+    }
+
+    disableDeveloperTools() {
+        if (!this.devPanel) return;
+        this.setDevMode(false);
+        for (const [id, property] of [
+            ['dev-infinite-health', 'devInfiniteHealth'],
+            ['dev-infinite-damage', 'devInfiniteDamage'],
+            ['dev-speed', 'devSpeedBuff'],
+            ['dev-attack-speed', 'devAttackSpeedBuff'],
+        ]) {
+            this[property] = false;
+            const input = document.getElementById(id);
+            if (input) input.checked = false;
+        }
+        this.player.applyLoadout();
     }
 
     spawnEnemies() {
@@ -1052,7 +1147,7 @@ class Game {
     beginJohnJava() {
         if (this.johnJava) return;
         this.johnJava = { x: this.player.x + 65, y: this.player.y - 35, t: 0, invaders: [], summoned: false,
-            smitten: false, finished: false };
+            smitten: false, finished: false, dap: this.ultimate };
         this.banner('JOHN JAVA', 'A visitor descends from the heavens...', rgb(255, 235, 150));
     }
 
@@ -1081,6 +1176,15 @@ class Game {
         if (!john || john.finished) return;
         const previous = john.t;
         john.t = Math.min(JOHN_FINISH_TIME, john.t + dt);
+        if (john.dap) {
+            if (previous < JOHN_BLESS_TIME && john.t >= JOHN_BLESS_TIME) {
+                const x = (john.x + this.player.x) / 2, y = (john.y + this.player.y) / 2;
+                this.fx.sparks(x, y, 0, TAU, 12, 140, rgb(255, 225, 130));
+                this.sfx.play('CLANG');
+            }
+            if (john.t >= JOHN_FINISH_TIME) john.finished = true;
+            return;
+        }
         if (!john.ultimate && previous < JOHN_SUMMON_TIME && john.t >= JOHN_SUMMON_TIME) this.summonHeavenlyInvaders();
         if (john.summoned && !john.smitten) {
             const rush = U.clamp((john.t - JOHN_SUMMON_TIME) / (JOHN_SMITE_TIME - JOHN_SUMMON_TIME), 0, 1);
@@ -1189,7 +1293,7 @@ class Game {
         g.stroke();
         Draw.body(g, x, y, 16, Math.PI / 2, rgb(245, 235, 200), rgb(255, 215, 100),
             rgb(255, 245, 190), this.loadout.look.hatStyle, 0);
-        const blessing = U.clamp((john.t - JOHN_BLESS_TIME) / 0.8, 0, 1)
+        const blessing = john.dap ? 0 : U.clamp((john.t - JOHN_BLESS_TIME) / 0.8, 0, 1)
             * (1 - U.clamp((john.t - JOHN_ASCEND_TIME) / 0.5, 0, 1));
         g.strokeStyle = '#ffe5a0';
         g.lineWidth = 6;
@@ -1208,6 +1312,23 @@ class Game {
                 g.stroke();
             }
         }
+        if (john.dap) {
+            const reach = U.clamp((john.t - JOHN_BLESS_TIME + 0.6) / 0.6, 0, 1)
+                * (1 - U.clamp((john.t - JOHN_BLESS_TIME - 0.4) / 0.6, 0, 1));
+            const p = this.player;
+            const hx = (x + p.x) / 2, hy = (y + p.y) / 2;
+            for (const [sx, sy] of [[x, y], [p.x, p.y]]) {
+                const handX = U.lerp(sx, hx, reach), handY = U.lerp(sy + 8, hy, reach);
+                g.strokeStyle = '#ffe5a0';
+                g.lineWidth = 6;
+                g.beginPath();
+                g.moveTo(sx, sy + 5);
+                g.lineTo(handX, handY);
+                g.stroke();
+                g.fillStyle = '#fff0c0';
+                fillCircle(g, handX, handY, 5);
+            }
+        }
         g.font = 'bold 16px serif';
         g.fillStyle = '#fff0b0';
         g.textAlign = 'center';
@@ -1217,7 +1338,7 @@ class Game {
 
     drawBuddhaBlessing(g) {
         const john = this.johnJava;
-        if (!john || john.finished) return;
+        if (!john || john.finished || john.dap) return;
         const p = this.player, t = john.t;
         const charge = U.clamp((t - JOHN_BLESS_TIME) / (JOHN_GRANT_TIME - JOHN_BLESS_TIME), 0, 1);
         const fade = 1 - U.clamp((t - JOHN_ASCEND_TIME) / (JOHN_FINISH_TIME - JOHN_ASCEND_TIME), 0, 1);
@@ -1393,7 +1514,12 @@ class Game {
         const bar = Math.min(80, sh * 0.13);
         g.fillRect(0, 0, sw, bar);
         g.fillRect(0, sh - bar, sw, bar);
-        const lines = john.ultimate
+        const lines = john.dap
+            ? t < JOHN_SUMMON_TIME ? ['JOHN JAVA RETURNS', 'A familiar friend descends from the heavens.']
+                : t < JOHN_BLESS_TIME ? ['JOHN JAVA', '"Another victory? Bring it in."']
+                    : t < JOHN_ASCEND_TIME ? ['RESPECT', 'John Java daps you up. No blessing needed.']
+                        : ['UNTIL NEXT TIME', '"Keep tearing it up. See you after the next one."']
+            : john.ultimate
             ? t < JOHN_SUMMON_TIME ? ['THE FOUR ARCHITECTS', 'John Java, Henry HTML, Cid CSS, and Joseph Javascript descend.']
                 : t < JOHN_BLESS_TIME ? ['BEYOND BUDDHA', '"You have conquered the ultimate trial. Now become its author."']
                     : t < JOHN_GRANT_TIME ? ['THE GREAT FUSION', '"Our forms become one. Our power becomes yours."']

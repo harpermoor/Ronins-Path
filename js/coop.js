@@ -54,6 +54,7 @@ class Coop {
             this.game.note('Party disconnected. Continuing solo.', false);
         };
         game.coop = this;
+        if (game.disableDeveloperTools) game.disableDeveloperTools();
     }
 
     /** Kept for the call sites that only ever expect a single partner. */

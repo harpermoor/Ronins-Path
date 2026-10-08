@@ -800,7 +800,7 @@ class Enemy extends Actor {
             return;
         }
         this.blockStreak = 0;
-        const dmg = pa.damage * (wasAware ? 1 : 2);
+        const dmg = g.devInfiniteDamage ? this.hp + 1 : pa.damage * (wasAware ? 1 : 2);
         this.hp -= dmg;
         this.posture += pa.posture * 0.6;
         this.hitFlash = 0.12;
@@ -812,7 +812,7 @@ class Enemy extends Actor {
         g.fx.text(String(Math.trunc(dmg)), this.x + this.rnd.nextGaussian() * 6, this.y - 30, WHITE, 13);
         p.ki += 4;
         if (this.hp <= 0) {
-            if (this.elite) {
+            if (this.elite && !g.devInfiniteDamage) {
                 this.hp = 1;
                 this.breakPosture();
             } else this.die(ang);
@@ -865,13 +865,13 @@ class Enemy extends Actor {
         if (!this.aware) this.alert(true);
         this.showBars = 4;
         this.lastDamageT = g.time;
-        this.hp -= dmg;
+        this.hp -= g.devInfiniteDamage ? this.hp + 1 : dmg;
         this.posture += post;
         this.hitFlash = 0.15;
         g.fx.blood(this.x, this.y, ang, 14, 300);
         g.fx.text(String(Math.trunc(dmg)), this.x, this.y - 30, rgb(255, 230, 120), 15);
         if (this.hp <= 0) {
-            if (this.elite) {
+            if (this.elite && !g.devInfiniteDamage) {
                 this.hp = 1;
                 this.breakPosture();
             } else this.die(ang);
