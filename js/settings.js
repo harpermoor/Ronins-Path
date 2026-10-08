@@ -12,12 +12,12 @@ const DUEL_SETTINGS_KEY = 'roninsPath.duelSettings.v1';
 const COOP_SETTINGS_KEY = 'roninsPath.coopSettings.v1';
 const JOURNEY_DIFFICULTY_KEY = 'roninsPath.journeyDifficulty.v1';
 const JOURNEY_DIFFICULTIES = {
-    colton: { name: 'Colton', enemyHp: 0.65, enemyPosture: 0.7, enemyDmg: 0.55 },
-    ashigaru: { name: 'Ashigaru', enemyHp: 0.85, enemyPosture: 0.9, enemyDmg: 0.8 },
-    kachi: { name: 'Kachi', enemyHp: 1, enemyPosture: 1, enemyDmg: 1 },
-    hatamoto: { name: 'Hatamoto', enemyHp: 1.3, enemyPosture: 1.2, enemyDmg: 1.3 },
-    daimyo: { name: 'Daimyo', enemyHp: 1.65, enemyPosture: 1.5, enemyDmg: 1.65 },
-    buddha: { name: 'Buddha', enemyHp: 12, enemyPosture: 10, enemyDmg: 8 },
+    colton: { name: 'Colton', enemyHp: 0.65, enemyPosture: 0.7, enemyDmg: 0.55, enemySkill: 0 },
+    ashigaru: { name: 'Ashigaru', enemyHp: 0.85, enemyPosture: 0.9, enemyDmg: 0.8, enemySkill: 0.2 },
+    kachi: { name: 'Kachi', enemyHp: 1, enemyPosture: 1, enemyDmg: 1, enemySkill: 0.4 },
+    hatamoto: { name: 'Hatamoto', enemyHp: 1.3, enemyPosture: 1.2, enemyDmg: 1.3, enemySkill: 0.6 },
+    daimyo: { name: 'Daimyo', enemyHp: 1.65, enemyPosture: 1.5, enemyDmg: 1.65, enemySkill: 0.8 },
+    buddha: { name: 'Buddha', enemyHp: 12, enemyPosture: 10, enemyDmg: 8, enemySkill: 1 },
 };
 const JOURNEY_DIFFICULTY_ORDER = ['colton', 'ashigaru', 'kachi', 'hatamoto', 'daimyo', 'buddha'];
 
@@ -102,11 +102,17 @@ function difficultyFor(coop, players, ngPlus, tier) {
     const party = 1 + (coop ? coop.enemyScale / 100 : 0) * extra;
     return {
         ngPlus: ng,
+        enemySkill: rank.enemySkill,
         enemyHp: rank.enemyHp * party * (1 + 0.22 * ng),
         enemyPosture: rank.enemyPosture * party * (1 + 0.14 * ng),
         enemyDmg: rank.enemyDmg * (1 + 0.1 * ng),
         enemyCount: 1 + (coop ? coop.countScale / 100 : 0) * extra + 0.05 * ng,
     };
+}
+
+function enemySkillFor(game) {
+    return game.difficulty && Number.isFinite(game.difficulty.enemySkill)
+        ? U.clamp(game.difficulty.enemySkill, 0, 1) : 0.4;
 }
 
 const MatchSettings = {

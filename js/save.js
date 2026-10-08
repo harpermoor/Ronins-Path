@@ -65,6 +65,8 @@ const SaveGame = {
             ngPlus: game.ngPlus,
             bossSpawned: game.bossSpawned,
             bossDefeated: game.bossDefeated,
+            buddha: game.buddha === true,
+            blessingPending: !!game.johnJava && !game.buddha,
             exp: game.exp,
             pointsEarned: game.pointsEarned,
             skills: [...game.skills],
@@ -99,6 +101,7 @@ const SaveGame = {
         game.elitesSlain = Math.trunc(num(d.elitesSlain, 0, game.totalElites, 0));
         game.ngPlus = Math.trunc(num(d.ngPlus, 0, NG_PLUS_MAX, 0));
         game.bossDefeated = d.bossDefeated === true;
+        game.buddha = d.buddha === true;
         if (d.bossSpawned === true && !game.bossDefeated) game.spawnFinalBoss();
         game.loadout.apply(d.loadout, game.elitesSlain);
         game.pointsEarned = Math.trunc(num(d.pointsEarned, 0, 1000, 0));
@@ -128,6 +131,10 @@ const SaveGame = {
         world.resolve(p);
         game.camX = p.x;
         game.camY = p.y;
+        if (game.bossDefeated || d.blessingPending === true) {
+            game.beginJohnJava();
+            if (game.buddha) game.johnJava.t = 3;
+        }
     },
 
     exportFile(game) {

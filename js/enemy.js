@@ -300,6 +300,7 @@ class Enemy extends Actor {
     }
 
     pickCombo() {
+        const skill = enemySkillFor(this.g);
         if (this.target) {
             const p = this.target;
             const signature = this.boss ? EA.DAIMYO_ASHFALL : ELITE_SUPERS[this.eliteStyle];
@@ -315,16 +316,16 @@ class Enemy extends Actor {
                     return choice;
                 }
             }
-            if (p.st === 'HEAL' || p.st === 'STAGGER') {
+            if ((p.st === 'HEAL' || p.st === 'STAGGER') && this.rnd.nextDouble() < skill) {
                 const minWindup = Math.min(...this.combos.filter(c => c.length > 1).map(c => c[0].windup));
                 const quick = this.combos.filter(c => c.length > 1 && c[0].windup <= minWindup + 0.06);
                 if (quick.length) return quick[this.rnd.nextInt(quick.length)];
             }
-            if (p.guarding && this.rnd.nextDouble() < (this.elite ? 0.75 : 0.6)) {
+            if (p.guarding && this.rnd.nextDouble() < (this.elite ? 0.75 : 0.6) * skill / 0.4) {
                 const pressure = this.combos.filter(c => c.some(a => a.perilous));
                 if (pressure.length) return pressure[this.rnd.nextInt(pressure.length)];
             }
-            if ((p.st === 'ATTACK' || p.st === 'ART' || p.st === 'THROW') && this.rnd.nextDouble() < 0.7) {
+            if ((p.st === 'ATTACK' || p.st === 'ART' || p.st === 'THROW') && this.rnd.nextDouble() < Math.min(0.95, skill * 1.75)) {
                 const minWindup = Math.min(...this.combos.map(c => c[0].windup));
                 const counters = this.combos.filter(c => c[0].windup <= minWindup + 0.08);
                 if (counters.length) return counters[this.rnd.nextInt(counters.length)];
@@ -334,20 +335,23 @@ class Enemy extends Actor {
                 if (finishers.length) return finishers[this.rnd.nextInt(finishers.length)];
             }
         }
-        let choice = this.combos[this.rnd.nextInt(this.combos.length)];
-        if (this.combos.length > 1 && choice === this.lastCombo) {
-            choice = this.combos[(this.combos.indexOf(choice) + 1 + this.rnd.nextInt(this.combos.length - 1)) % this.combos.length];
+        const choices = skill < 0.4 ? this.combos.filter(c => c.length <= (skill === 0 ? 1 : 2)) : this.combos;
+        let choice = choices[this.rnd.nextInt(choices.length)];
+        if (choices.length > 1 && choice === this.lastCombo) {
+            choice = choices[(choices.indexOf(choice) + 1 + this.rnd.nextInt(choices.length - 1)) % choices.length];
         }
         this.lastCombo = choice;
         return choice;
     }
 
     isParrySpamming(p) {
-        return p !== null && p !== undefined && Number.isFinite(p.spam) && p.spam >= ENEMY_PARRY_SPAM_THRESHOLD;
+        return enemySkillFor(this.g) >= 0.4 && p !== null && p !== undefined
+            && Number.isFinite(p.spam) && p.spam >= ENEMY_PARRY_SPAM_THRESHOLD;
     }
 
     pickGap() {
-        if (this.target && (this.target.st === 'HEAL' || this.target.st === 'STAGGER')) {
+        if (this.target && (this.target.st === 'HEAL' || this.target.st === 'STAGGER')
+            && this.rnd.nextDouble() < enemySkillFor(this.g)) {
             const chains = this.gap.filter(c => c.length > 1);
             if (chains.length) return chains[this.rnd.nextInt(chains.length)];
         }
@@ -426,7 +430,7 @@ class Enemy extends Actor {
             const aimedAtMe = Math.abs(U.angDiff(p.facing, p.angleTo(this))) < 1.2 || (p.st === 'ART' && p.curArt.spin);
             if (aimedAtMe && d < 220 + this.r) this.pressureT = 2.2;
             if (this.st === 'ENGAGE' && pAlive && aimedAtMe && d < 170 + this.r && this.dodgeCd <= 0
-                && this.rnd.nextDouble() < this.dodgeChance) {
+                && this.rnd.nextDouble() < this.dodgeChance * (0.4 + 1.5 * enemySkillFor(g))) {
                 this.startDodge(p, p.st === 'ART' || this.rnd.nextDouble() < 0.4, true);
             }
         }
@@ -434,7 +438,7 @@ class Enemy extends Actor {
             case 'IDLE': this.idle(dt, d, toP, p, pAlive); break;
             case 'ALERT':
                 this.facing = U.turn(this.facing, toP, dt * 8);
-                if (this.stT > 0.45) this.setSt('ENGAGE');
+                if (this.stT > 0.75 - 0.55 * enemySkillFor(g)) this.setSt('ENGAGE');
                 break;
             case 'ENGAGE': this.engage(dt, d, toP, p, pAlive); break;
             case 'WINDUP': this.windup(dt, d, toP, p); break;
@@ -515,7 +519,8 @@ class Enemy extends Actor {
         g.fx.text('!', this.x, this.y - 36, rgb(255, 220, 60), 24);
         if (this.elite) g.engageBoss(this);
         if (propagate) {
-            for (const e of g.enemies) if (e !== this && !e.aware && e.st !== 'DEAD' && this.distTo(e) < 520) e.alert(false);
+            for (const e of g.enemies) if (e !== this && !e.aware && e.st !== 'DEAD'
+                && this.distTo(e) < 280 + 600 * enemySkillFor(g)) e.alert(false);
         }
     }
 
@@ -559,6 +564,7 @@ class Enemy extends Actor {
     }
 
     circle(dt, d, toP, ideal, spMul) {
+        const flank = this.g.enemyFlankDirection ? this.g.enemyFlankDirection(this) : 0;
         this.strafeT -= dt;
         if (this.strafeT <= 0) {
             this.strafeT = 1 + this.rnd.nextDouble() * 2;
@@ -567,6 +573,7 @@ class Enemy extends Actor {
                 this.startDodge(this.target || this.g.player, false, false);
                 return;
             }
+            if (flank !== 0) this.strafeDir = flank;
         }
         const radial = U.clamp((d - ideal) / 60, -1, 1);
         const mx = Math.cos(toP) * radial + Math.cos(toP + Math.PI / 2) * this.strafeDir * 0.6;
@@ -716,7 +723,7 @@ class Enemy extends Actor {
 
         if (perfect || last) {
             this.setSt('STUN');
-            this.stDur = perfect ? (this.elite ? 0.65 : 0.9) : (this.elite ? 0.5 : 0.8);
+            this.stDur = perfect ? 2.4 : 1.2;
             this.releaseToken();
             this.attackCd = 0.6;
             g.slowmo(0.16);
@@ -754,12 +761,13 @@ class Enemy extends Actor {
         const wasAware = this.aware;
         if (!this.aware) this.alert(true);
         const neutral = wasAware && (this.st === 'ENGAGE' || this.st === 'ALERT' || this.st === 'RETURN');
-        const readBonus = Math.max(0, this.attackRead - 1) * 0.08;
-        const blockChance = Math.min(0.92, this.blockChance + this.blockStreak * 0.1 + readBonus);
+        const tactics = enemySkillFor(g);
+        const readBonus = Math.max(0, this.attackRead - 1) * 0.2 * tactics;
+        const blockChance = Math.min(0.92, this.blockChance * (0.4 + 1.5 * tactics) + this.blockStreak * 0.25 * tactics + readBonus);
         if (neutral && !pa.pierce && this.rnd.nextDouble() < blockChance * (pa.art ? 0.5 : 1)) {
             this.facing = ang + Math.PI;
             const skill = this.elite ? 0.3 : this.vet ? 0.18 : this.type === 'RONIN' ? 0.12 : this.type === 'SPEAR' ? 0.08 : 0.04;
-            const parryChance = Math.min(0.9, skill + this.blockStreak * 0.18 + Math.max(0, this.attackRead - 1) * 0.2);
+            const parryChance = Math.min(0.9, (skill + this.blockStreak * 0.18 + Math.max(0, this.attackRead - 1) * 0.2) * tactics / 0.4);
             if (!pa.art && pa.arc > 0 && (this.blockStreak > 0 || this.attackRead > 1)
                 && this.rnd.nextDouble() < parryChance) {
                 this.parryPlayer(p, ang, cx, cy);

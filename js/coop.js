@@ -133,7 +133,8 @@ class Coop {
                 state.atk = e.atk ? e.atk.name : null;
                 return state;
             }).filter(Boolean), dead: game.enemies.flatMap((e, i) => e.st === 'DEAD' ? [i] : []),
-            kills: game.kills, elites: game.elitesSlain, boss: game.bossSpawned, defeated: game.bossDefeated, ng: game.ngPlus,
+            kills: game.kills, elites: game.elitesSlain, boss: game.bossSpawned, defeated: game.bossDefeated,
+            buddha: game.buddha === true, ng: game.ngPlus,
             camps: game.world.camps.map(c => c.cleared), shrines: game.world.shrines.map(s => s.discovered) });
         } else {
             const p = this.game.player;
@@ -247,7 +248,13 @@ class Coop {
                 game.player.gourds = game.player.maxGourds;
             }
         }
+        const victory = d.defeated === true && !game.bossDefeated;
         game.bossDefeated = d.defeated === true;
+        if (victory) game.beginJohnJava();
+        if (d.buddha === true) {
+            game.grantBuddha();
+            if (game.johnJava) game.johnJava.t = 3;
+        }
         if (Array.isArray(d.camps)) game.world.camps.forEach((c, i) => { if (d.camps[i]) c.cleared = true; });
         if (Array.isArray(d.shrines)) game.world.shrines.forEach((s, i) => { if (d.shrines[i]) s.discovered = true; });
     }

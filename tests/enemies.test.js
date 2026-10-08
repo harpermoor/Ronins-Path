@@ -58,6 +58,19 @@ assert(perfectDodgeEnemy.kbx > 0, 'perfect dodge knocks the attacker away to cre
 assert.equal(perfectDodgeEnemy.pickTarget(), shadowTarget, 'attacker locks on to the afterimage');
 perfectDodgeEnemy.g.time = 3;
 assert.equal(perfectDodgeEnemy.pickTarget(), originalTarget, 'attacker returns to the player after two seconds');
+for (const elite of [false, true]) {
+    for (const [perfect, duration] of [[false, 1.2], [true, 2.4]]) {
+        const parriedEnemy = new Enemy(game, 'RONIN', 100, 100, elite, null, 92);
+        parriedEnemy.g = { time: 1, fx: { dust() {}, text() {} }, slowmo() {} };
+        parriedEnemy.target = { deflectStreak: 1, deflectPost: 1 };
+        parriedEnemy.atk = { posture: 0 };
+        parriedEnemy.combo = [{}];
+        parriedEnemy.comboIdx = 0;
+        parriedEnemy.onDeflected(perfect);
+        assert.equal(parriedEnemy.st, 'STUN');
+        assert.equal(parriedEnemy.stDur, duration, 'perfect parries double the enemy stun duration');
+    }
+}
 const types = [
     ['RONIN', 82, 82, 150, 'backhand'],
     ['SPEAR', 72, 72, 140, 'hook'],

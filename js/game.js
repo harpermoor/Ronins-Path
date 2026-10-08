@@ -71,6 +71,8 @@ class Game {
         this.boss = null;
         this.bossSpawned = false;
         this.bossDefeated = false;
+        this.buddha = false;
+        this.johnJava = null;
         this.vignette = null;
         this.redVignette = null;
         this.vigW = 0;
@@ -85,7 +87,6 @@ class Game {
         this.exp = 0;
         this.pointsEarned = 0;
         this.skillPoints = 0;
-        this.lastExpLoss = 0;
         this.deathCount = 0;
         this.lastDeathTaunt = null;
         this.parryT = 0;
@@ -415,6 +416,7 @@ class Game {
         } else this.timeScale = U.lerp(this.timeScale, 1, 1 - Math.exp(-dt * 8));
         const sdt = dt * this.timeScale;
         this.time += sdt;
+        this.updateJohnJava(sdt);
 
         player.update(sdt);
         if (!this.coop || this.coop.host) {
@@ -659,12 +661,17 @@ class Game {
         this.boss = null;
         this.bossSpawned = false;
         this.bossDefeated = false;
+        if (this.buddha) this.johnJava = null;
         this.wardShrine = null;
         this.restBlockers = [];
         this.totalElites = 0;
         this.spawnEnemies();
         this.lastShrine = this.world.shrines[0];
         player.respawn(this.lastShrine.x, this.lastShrine.y + 60);
+        if (this.johnJava) {
+            this.johnJava.x = player.x + 65;
+            this.johnJava.y = player.y - 35;
+        }
         this.world.resolve(player);
         this.camX = player.x;
         this.camY = player.y;
@@ -733,15 +740,28 @@ class Game {
     enemyShouldHangBack(e) {
         if (e.elite || e.hasToken || this.enemyPressured(e)) return false;
         const group = this.enemyGroup(e);
-        return group.length === 2 && group.some(o => o !== e && o.hasToken);
+        return group.length >= 2 && group.some(o => o !== e && o.hasToken)
+            && (enemySkillFor(this) < 0.6 || !this.requestToken(e));
     }
 
     requestToken(e) {
         if (e.elite) return true;
         const group = this.enemyGroup(e);
         const attackers = group.filter(o => o !== e && o.hasToken);
+        const skill = enemySkillFor(this);
+        if (skill < 0.4) return attackers.length === 0;
+        if (skill >= 0.6) return attackers.length < (skill >= 0.8 ? 3 : 2);
         if (group.length === 2 && attackers.length > 0) return this.enemyPressured(e);
         return attackers.length < 2;
+    }
+
+    enemyFlankDirection(e) {
+        if (enemySkillFor(this) < 0.6 || e.hasToken || e.elite) return 0;
+        const lead = this.enemyGroup(e).find(o => o !== e && o.hasToken);
+        if (!lead) return 0;
+        const p = e.target || this.player;
+        const offset = U.angDiff(p.angleTo(e), p.angleTo(lead) + Math.PI);
+        return Math.abs(offset) < 0.15 ? 0 : -Math.sign(offset);
     }
 
     engageBoss(e) {
@@ -949,6 +969,7 @@ class Game {
             player.hp = player.maxHp;
             player.gourds = player.maxGourds;
             this.banner('THE LAND IS AT PEACE', 'The Ashen Daimyo has fallen. You are the last sword standing.', rgb(255, 215, 120));
+            this.beginJohnJava();
             this.saveSoon();
         } else if (e.elite) {
             this.elitesSlain++;
@@ -989,10 +1010,52 @@ class Game {
         this.deathCount++;
         this.lastDeathTaunt = this.difficultyTier === 'colton'
             ? COLTON_DEATH_TAUNTS[(this.deathCount - 1) % COLTON_DEATH_TAUNTS.length] : null;
-        // as in Sekiro, death costs half of the EXP not yet turned into a skill point
-        this.lastExpLoss = Math.floor(this.exp / 2);
-        this.exp -= this.lastExpLoss;
         for (const e of this.enemies) e.releaseToken();
+    }
+
+    beginJohnJava() {
+        if (this.johnJava) return;
+        this.johnJava = { x: this.player.x + 65, y: this.player.y - 35, t: 0 };
+        this.banner('JOHN JAVA', 'A visitor descends from the heavens...', rgb(255, 235, 150));
+    }
+
+    updateJohnJava(dt) {
+        const john = this.johnJava;
+        if (!john) return;
+        const arriving = john.t < 3;
+        john.t = Math.min(3, john.t + dt);
+        if (arriving && john.t >= 3 && (!this.coop || this.coop.host)) this.grantBuddha();
+    }
+
+    grantBuddha() {
+        if (this.buddha) return;
+        this.buddha = true;
+        this.fx.ring(this.player.x, this.player.y, 20, 180, 1, 5, rgb(255, 225, 100));
+        this.sfx.play('SHRINE');
+        this.banner('BUDDHA ASCENDED', 'John Java: "You are Buddha. Let your light guide your blade."', rgb(255, 235, 150));
+        this.saveSoon();
+    }
+
+    drawJohnJava(g) {
+        const john = this.johnJava;
+        if (!john) return;
+        const height = 420 * Math.pow(1 - john.t / 3, 2);
+        const x = john.x, y = john.y - height;
+        g.save();
+        g.fillStyle = 'rgba(255,230,130,0.16)';
+        fillCircle(g, x, y, 36);
+        g.strokeStyle = 'rgba(255,240,170,0.8)';
+        g.lineWidth = 3;
+        g.beginPath();
+        g.arc(x, y, 28, 0, TAU);
+        g.stroke();
+        Draw.body(g, x, y, 16, Math.PI / 2, rgb(245, 235, 200), rgb(255, 215, 100),
+            rgb(255, 245, 190), this.loadout.look.hatStyle, 0);
+        g.font = 'bold 16px serif';
+        g.fillStyle = '#fff0b0';
+        g.textAlign = 'center';
+        g.fillText('John Java', x, y - 42);
+        g.restore();
     }
 
     // ================= render =================
@@ -1030,6 +1093,7 @@ class Game {
         if (this.coop !== null) this.coop.draw(g);
         player.drawAfterimage(g, this.time);
         player.draw(g, this.time);
+        this.drawJohnJava(g);
         this.fx.drawWorld(g);
         world.drawCanopies(g, vis, player.x, player.y, this.time);
         this.fx.drawPetals(g);
@@ -1295,10 +1359,6 @@ class Game {
                 g.font = SUB_FONT;
                 this.text(g, 'Press ' + Preferences.label('interact') + ' to resurrect at ' + this.lastShrine.name,
                     sw / 2, sh / 2 + 140, rgb(230, 220, 210), true);
-                if (this.lastExpLoss > 0) {
-                    g.font = HUD_FONT;
-                    this.text(g, 'Lost ' + this.lastExpLoss + ' EXP', sw / 2, sh / 2 + 168, rgb(200, 140, 140), true);
-                }
                 if (this.lastDeathTaunt !== null) {
                     g.font = HUD_FONT;
                     this.text(g, this.lastDeathTaunt, sw / 2, sh / 2 + 196, rgb(225, 175, 145), true);

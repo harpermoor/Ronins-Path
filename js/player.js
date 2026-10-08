@@ -4,6 +4,7 @@ const P_IGNORE = 0, P_DEFLECT = 1, P_BLOCK = 2, P_HIT = 3, P_PERFECT = 4, P_PERF
 const PERFECT_WINDOW = 0.18, DODGE_TIME = 0.34, DODGE_IFRAMES = 0.25;
 const PERFECT_PARRY_WINDOW = 0.05;
 const PERFECT_DODGE_WINDOW = 0.06;
+const BUDDHA_PARRY_WINDOW = 0.14, BUDDHA_DODGE_WINDOW = 0.1;
 const HEAVY_STAB_HOLD = 0.36;
 const P_COMBO = [
     new Attack('cut1', 0.08, 0.09, 0.20, 84, 150, 14, 12, 190),
@@ -187,6 +188,10 @@ class Player extends Actor {
     }
 
     sneaking() { return this.st === 'FREE' && this.guarding && Math.hypot(this.vx, this.vy) < 160; }
+
+    enlightened() { return this.g.buddha === true && !this.g.statMods; }
+
+    guardDuration() { return this.guardWindow * (this.enlightened() ? 5 / 3 : 1); }
 
     /** Enemies hold off while a deathblow plays out. */
     untargetable() { return this.st === 'DEATHBLOW'; }
@@ -381,7 +386,7 @@ class Player extends Actor {
             this.bufParry = 0;
             this.startGuard();
         }
-        this.guarding = this.guardHeld || (g.time - this.guardStart < this.guardWindow);
+        this.guarding = this.guardHeld || (g.time - this.guardStart < this.guardDuration());
         // holding the dodge button while moving sprints; tapping it still rolls
         this.sprinting = this.dodgeHeld && !this.guarding && (this.moveX !== 0 || this.moveY !== 0);
         const sp = this.speed * (this.guarding ? 0.5 : this.sprinting ? 1.5 : 1);
@@ -850,11 +855,12 @@ class Player extends Actor {
         const ang = Math.atan2(sy - this.y, sx - this.x);
         const front = Math.abs(U.angDiff(this.facing, ang)) < 105 * DEG;
         const guardAge = g.time - this.guardStart;
-        const sweepParry = perilous && sweep && guardAge <= this.guardWindow * 0.5;
+        const guardWindow = this.guardDuration();
+        const sweepParry = perilous && sweep && guardAge <= guardWindow * 0.5;
         const dodgeParry = this.st === 'DODGE' && this.guarding && front && guardAge >= 0
-            && guardAge <= this.guardWindow && (!perilous || sweepParry);
+            && guardAge <= guardWindow && (!perilous || sweepParry);
         if (this.st === 'DODGE' && this.stT < this.dodgeIframes && !dodgeParry) {
-            if (this.stT <= PERFECT_DODGE_WINDOW) {
+            if (this.stT <= (this.enlightened() ? BUDDHA_DODGE_WINDOW : PERFECT_DODGE_WINDOW)) {
                 const cx = this.x + Math.cos(ang) * (this.r + 12), cy = this.y + Math.sin(ang) * (this.r + 12);
                 this.leaveDodgeAfterimage();
                 this.ki = Math.min(100, this.ki + 18);
@@ -875,9 +881,10 @@ class Player extends Actor {
         dmg *= this.dmgTaken;
         const cx = this.x + Math.cos(ang) * (this.r + 12), cy = this.y + Math.sin(ang) * (this.r + 12);
         if ((!perilous || sweepParry) && (this.st === 'FREE' || dodgeParry) && this.guarding && front) {
-            if (guardAge <= this.guardWindow * (sweepParry ? 0.5 : 1)) {
+            if (guardAge <= guardWindow * (sweepParry ? 0.5 : 1)) {
                 const perfect = guardAge >= 0
-                    && guardAge <= Math.min(PERFECT_PARRY_WINDOW, this.guardWindow * (sweepParry ? 0.5 : 1));
+                    && guardAge <= Math.min(this.enlightened() ? BUDDHA_PARRY_WINDOW : PERFECT_PARRY_WINDOW,
+                        guardWindow * (sweepParry ? 0.5 : 1));
                 this.posture = Math.min(this.maxPosture - 1, this.posture + (perfect ? 0 : post * 0.12));
                 this.spam = 0;
                 this.deflectStreak++;
@@ -1040,6 +1047,20 @@ class Player extends Actor {
             g2.restore();
             return;
         }
+        if (this.enlightened()) {
+            g2.save();
+            const glow = g2.createRadialGradient(x, y, r * 0.4, x, y, r * 3);
+            glow.addColorStop(0, 'rgba(255,235,130,0.5)');
+            glow.addColorStop(1, 'rgba(255,220,80,0)');
+            g2.fillStyle = glow;
+            fillCircle(g2, x, y, r * 3);
+            g2.strokeStyle = 'rgba(255,235,140,0.75)';
+            g2.lineWidth = 2;
+            g2.beginPath();
+            g2.arc(x, y, r + 9 + Math.sin(time * 3) * 2, 0, TAU);
+            g2.stroke();
+            g2.restore();
+        }
         let handRel = 0.9, handForward = 0, bodyLeanX = 0, bodyLeanY = 0;
         let blade = facing + 0.55, bodyFacing = facing;
         if (st === 'ATTACK') {
@@ -1179,7 +1200,7 @@ class Player extends Actor {
         const hy = bodyY + Math.sin(facing + handRel) * r * 0.9 + Math.sin(facing) * handForward;
         const sword = this.sword;
         Draw.weapon(g2, hx, hy, blade, sword, this.guardFlash > 0 ? rgb(255, 230, 150) : sword.color);
-        if (st === 'FREE' && this.guarding && this.g.time - this.guardStart <= this.guardWindow) {
+        if (st === 'FREE' && this.guarding && this.g.time - this.guardStart <= this.guardDuration()) {
             g2.fillStyle = 'rgba(255,240,200,0.353)';
             fillCircle(g2, hx, hy, 14);
         }

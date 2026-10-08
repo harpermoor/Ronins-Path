@@ -22,12 +22,12 @@
     const difficultySelect = $('journey-difficulty');
     const difficultyNote = $('difficulty-note');
     const difficultyDescriptions = {
-        colton: 'Colton: enemies are much less durable and deal less damage.',
-        ashigaru: 'Ashigaru: a forgiving challenge with weakened enemies.',
-        kachi: 'Kachi: balanced enemy strength.',
-        hatamoto: 'Hatamoto: tougher foes that hit harder.',
-        daimyo: 'Daimyo: the land offers no mercy.',
-        buddha: 'Buddha: extreme trial. Enemies have 12x health, 10x posture, and 8x damage. A single mistake can end your journey.',
+        colton: 'Colton: forgiving stats, slow reactions, short attack chains, and one attacker at a time.',
+        ashigaru: 'Ashigaru: weakened enemies with cautious reactions and limited teamwork.',
+        kachi: 'Kachi: balanced enemies that read repeated attacks and take turns pressuring you.',
+        hatamoto: 'Hatamoto: tougher foes react faster, flank you, and coordinate attacks in pairs.',
+        daimyo: 'Daimyo: skilled foes punish openings, share alerts, and attack in groups of three.',
+        buddha: 'Buddha: extreme trial. Enemies have 12x health, 10x posture, 8x damage, and their sharpest reactions and combat reads.',
     };
     const updateJourneyDifficulty = () => {
         const tier = sanitizeJourneyDifficulty(difficultySelect.value);

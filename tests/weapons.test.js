@@ -281,6 +281,7 @@ const defend = (age, perilous, sweep, sourceX = 50) => {
 };
 const deflectResult = vm.runInContext('P_DEFLECT', context);
 const perfectResult = vm.runInContext('P_PERFECT', context);
+const perfectParryWindow = vm.runInContext('PERFECT_PARRY_WINDOW', context);
 assert.equal(defend(0.09, true, true), deflectResult);
 assert(fxEvents.some(e => e.name === 'impact' && e.args[2] === 'sweep'));
 assert.equal(defend(0.09001, true, true), P_HIT_RESULT);
@@ -297,12 +298,12 @@ assert.equal(p.ki, 24);
 assert.equal(p.posture, 0);
 assert(fxEvents.some(e => e.name === 'text' && e.args[0] === 'PERFECT PARRY'));
 assert(fxEvents.some(e => e.name === 'impact' && e.args[2] === 'parry'));
-assert.equal(defend(0.08, false, false), perfectResult);
-assert.equal(defend(0.08001, false, false), deflectResult,
-   'a deflect just outside 80 ms must not grant a perfect parry');
+assert.equal(defend(perfectParryWindow, false, false), perfectResult);
+assert.equal(defend(perfectParryWindow + 0.00001, false, false), deflectResult,
+   'a deflect just outside the configured perfect window must not grant a perfect parry');
 assert.equal(defend(0.04, false, false), perfectResult);
-assert.equal(defend(0.06, false, false), perfectResult);
-assert.equal(defend(0.08, true, true), perfectResult);
+assert.equal(defend(0.06, false, false), deflectResult);
+assert.equal(defend(perfectParryWindow, true, true), perfectResult);
 p.guardWindow = 0.05;
 p.guardStart = -0.05001;
 assert.equal(p.receive(50, 0, 14, 10, false), vm.runInContext('P_BLOCK', context),
@@ -393,7 +394,7 @@ assert.equal(p.receive(50, 0, 14, 10, false), vm.runInContext('P_PERFECT_DODGE',
    'the first 50 ms of a dodge grant a perfect counter');
 const dodgeKi = p.ki;
 fxEvents.length = 0;
-for (const age of [0.05001, 0.21]) {
+for (const age of [vm.runInContext('PERFECT_DODGE_WINDOW', context) + 0.00001, 0.21]) {
    p.stT = age;
    assert.equal(p.receive(50, 0, 14, 10, false), vm.runInContext('P_IGNORE', context),
       'later dodge invulnerability must not grant a perfect counter');
@@ -562,7 +563,7 @@ assert(vm.runInContext('PLAYER_SYNC', context).includes('poiseLeft'));
 assert(vm.runInContext('COOP_PLAYER_FIELDS', context).includes('poiseLeft'));
 assert(vm.runInContext('PLAYER_SYNC', context).includes('artHitsLeft'));
 assert(vm.runInContext('COOP_PLAYER_FIELDS', context).includes('artHitsLeft'));
-assert.equal(vm.runInContext('NET_VERSION', context), 12);
+assert.equal(vm.runInContext('NET_VERSION', context), 13);
 assert.equal(vm.runInContext('COOP_SYNC_INTERVAL', context), 0.05);
 const Duel = vm.runInContext('Duel', context);
 const duel = { n: 1, players: [p] };

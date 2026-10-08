@@ -28,7 +28,11 @@ Close-range combat arts advance toward nearby enemies in your aim direction. All
 
 Red sweeps can be deflected, but require a tap within half the normal parry window; holding block will not stop them. Mikiri counters and successful red-sweep deflects trigger a brief full-screen impact effect.
 
-After a solo death, resurrecting at a shrine fully heals surviving camp defenders and restores their posture without teleporting or removing them. Defeated enemies stay dead. In co-op, individual resurrections leave the shared encounter unchanged.
+After a solo death, resurrecting at a shrine fully heals surviving camp defenders, restores their posture, and returns them to their original camp positions. Defeated enemies stay dead. Death never removes EXP. In co-op, individual resurrections leave the shared encounter unchanged.
+
+Journey difficulty also changes enemy tactics. Colton enemies react slowly, use short attack chains, and attack one at a time. Each higher tier improves reactions, defensive reads, and awareness of your openings. Hatamoto enemies flank and coordinate attacks in pairs; Daimyo and Buddha enemies can coordinate three attackers. These decisions use the world's seeded RNG; stat multipliers still apply.
+
+After defeating the Ashen Daimyo, **John Java** descends from the heavens and grants a **Buddha form** with a golden glow. Its perfect parry window is **140 ms** and its perfect dodge window is **100 ms**. The blessing preserves normal guard-spam penalties and dodge invulnerability limits, persists through saving and New Game +, and is shared by the co-op party. Duels never receive the blessing's advantages. This reward is separate from the extreme difficulty named Buddha.
 
 ## Shrine and pause menus
 
