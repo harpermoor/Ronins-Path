@@ -173,6 +173,31 @@
         #update-dialog button:first-child { background: linear-gradient(135deg, #712e25, #3f1c18); border-color: #a7533f; }
         #update-dialog button:hover { background-color: #563028; }
         #update-dialog button:focus-visible { outline: 2px solid #e0b576; outline-offset: 3px; }
+        #magic-console[hidden] { display: none; }
+        #magic-console {
+            position: fixed; inset: 0; z-index: 10; display: flex; justify-content: center; align-items: flex-start;
+            box-sizing: border-box; padding: min(12vh, 90px) 18px 18px; background: rgba(0, 0, 0, 0.55);
+            font: 14px monospace; color: #d9e6f5;
+        }
+        #magic-console .console-panel {
+            width: min(760px, 100%); padding: 16px; box-sizing: border-box; border: 1px solid #6380a1;
+            border-radius: 6px; background: rgba(9, 15, 25, 0.97); box-shadow: 0 16px 50px #000;
+        }
+        #magic-console h2 { margin: 0 0 10px; color: #a9ceff; font: bold 16px monospace; }
+        #magic-console pre {
+            height: min(44vh, 360px); overflow: auto; margin: 0 0 12px; white-space: pre-wrap;
+            color: #d8e1ec; line-height: 1.5;
+        }
+        #magic-console form { display: flex; gap: 8px; }
+        #magic-console input {
+            flex: 1; min-width: 0; padding: 10px; color: #fff; background: #101b2a;
+            border: 1px solid #536e91; border-radius: 3px; font: 15px monospace;
+        }
+        #magic-console button {
+            padding: 8px 14px; color: #eff5ff; background: #263e5a; border: 1px solid #718eb3;
+            border-radius: 3px; font: bold 14px monospace; cursor: pointer;
+        }
+        #magic-console p { margin: 10px 0 0; color: #9eafc4; font-size: 12px; }
         @media (max-width: 640px) {
             #preferences-dialog { padding: 16px; }
             #preferences-dialog .preference-columns { grid-template-columns: 1fr; gap: 0; }
@@ -183,6 +208,17 @@
 </head>
 <body>
     <canvas id="game" tabindex="0"></canvas>
+    <section id="magic-console" role="dialog" aria-label="Developer console" hidden>
+        <div class="console-panel">
+            <h2>DEVELOPER CONSOLE</h2>
+            <pre id="magic-console-output" aria-live="polite"></pre>
+            <form id="magic-console-form">
+                <input id="magic-console-input" type="text" autocomplete="off" spellcheck="false" aria-label="Console command">
+                <button type="submit">Run</button>
+            </form>
+            <p>Type help for commands. Escape closes the console. JavaScript execution is disabled.</p>
+        </div>
+    </section>
     <div id="menu">
         <div class="panel main-panel" id="menu-main" hidden>
             <header class="menu-brand">
@@ -221,6 +257,7 @@
                             <li><strong>Fight:</strong> <span data-control="attack"></span> to attack (hold for a heavy strike); tap <span data-control="guard"></span> to deflect, or hold to block. A precise deflect within 50 ms is a perfect parry that staggers foes. Use <span data-control="art"></span> for your combat art.</li>
                             <li><strong>Evade:</strong> Tap <span data-control="dodge"></span> to dodge; evade an attack in the first 60 ms to trigger a perfect dodge counter and leave an afterimage. Hold while moving to sprint.</li>
                             <li><strong>Ascend:</strong> Death preserves your EXP. Defeat the Ashen Daimyo and John Java descends from the heavens to grant a glowing Buddha form, with 140 ms perfect parries and 100 ms perfect dodges. The blessing persists through saves and New Game +, but does not affect duels.</li>
+                            <li><strong>Hidden arts:</strong> Defeat the Ashen Daimyo on Buddha difficulty without Buddha form to unlock four magic spells and a solo developer console. The console accepts documented game commands, not JavaScript.</li>
                             <li><strong>Explore:</strong> <span data-control="interact"></span> at safe shrines to open the shrine menu, upgrade skills, and fast travel; <span data-control="rest"></span> to rest without opening the menu. Use <span data-control="heal"></span> to heal and <span data-control="equipment"></span> for equipment.</li>
                             <li><strong>Learn:</strong> <span data-control="pause"></span> for pause options. Customize all controls in Settings.</li>
                         </ul>

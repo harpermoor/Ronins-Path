@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Defeating the Ashen Daimyo on Buddha difficulty without Buddha form unlocks solo-only fireball, lightning, healing, and teleport spells plus a game-command developer console.
+- The Ashen Daimyo now has a much shorter vision range and narrower field of view.
+- Increased the Ashen Daimyo's perilous stab windup to give players more time to react.
+- Buddha form now grants its special combat abilities only on Buddha difficulty; outside that difficulty, it retains faster attacks and longer reach.
+- Reality Rend, once unlocked, can now be equipped or unequipped as a combat art and used on any non-duel difficulty.
 - Defeating Buddha difficulty while already in Buddha form summons John Java, Henry HTML, Cid CSS, and Joseph Javascript for a fusion finale. Their persistent ultimate reward replaces your combat art with Reality Rend: a jagged slash-arc tear that instantly kills enemies inside, including bosses, and seals after 2.4 seconds.
 - Fast travel now uses a clickable world map with shrine markers instead of destination lists; undiscovered shrines remain locked and unsafe destinations remain blocked.
 - Mikiri counters now deal 75% of spear enemies' maximum posture, up from 50%, including Buddha block-based counters.

@@ -13,7 +13,7 @@ const { lo, g, p, shrine, fxEvents } = vm.runInContext(`(() => {
     const lo = new Loadout(), shrine = { x: 0, y: 0, name: 'Starting Shrine', discovered: true };
     const fxEvents = [];
     const fx = new Proxy({}, { get: (_, name) => (...args) => fxEvents.push({ name, args }) });
-    const g = { loadout: lo, skills: new Set(), world: { shrines: [shrine], camps: [],
+    const g = { loadout: lo, skills: new Set(), difficultyTier: 'buddha', world: { shrines: [shrine], camps: [],
         resolve() {}, solidAt: () => false }, enemies: [], totalElites: 5, lastShrine: shrine,
         rnd: { nextDouble: () => 1 }, fx, sfx: { play() {} }, time: 0,
         deathblowTarget: () => null, enemyInFront: () => false, projectileHitCheck: () => 240,
@@ -180,7 +180,7 @@ assert(hitDuringArt('hammer', 'earthshaker', 30, false)[1] < hitDuringArt('hamme
 assert.equal(hitDuringArt('hammer', 'whirlwind', 30, false)[0], 'ART');
 assert.equal(hitDuringArt('hammer', 'whirlwind', 30, true)[0], 'ART');
 assert.equal(hitDuringArt('wanderer', 'whirlwind', 14, false)[0], 'ART');
-for (const art of vm.runInContext('ARTS', context)) {
+for (const art of vm.runInContext('ARTS.filter(a => a.id !== "reality-tear")', context)) {
     lo.sword = art.weapon || 'wanderer';
     lo.art = art.id;
     p.applyLoadout();
@@ -209,7 +209,7 @@ lo.sword = 'wanderer';
 p.applyLoadout();
 
 // Close-range arts approach a foe without passing through it; Mortal Draw stays planted.
-for (const art of vm.runInContext('ARTS.filter(a => a.hits[0].atk.range < 200)', context)) {
+for (const art of vm.runInContext('ARTS.filter(a => a.id !== "reality-tear" && a.hits[0].atk.range < 200)', context)) {
     lo.sword = art.weapon || 'wanderer';
     lo.art = art.id;
     p.applyLoadout();

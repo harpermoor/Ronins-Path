@@ -74,6 +74,15 @@ class Game {
         this.bossDefeated = false;
         this.buddha = false;
         this.ultimate = false;
+        this.magicUnlocked = o.magicUnlocked === true;
+        this.magicCooldowns = {};
+        this.devGodMode = false;
+        this.devTimeScale = null;
+        this.consoleOpen = false;
+        this.consoleHistory = [];
+        this.magicConsole = document.getElementById('magic-console');
+        this.magicConsoleInput = document.getElementById('magic-console-input');
+        this.magicConsoleOutput = document.getElementById('magic-console-output');
         this.realityTears = [];
         this.johnJava = null;
         this.vignette = null;
@@ -124,6 +133,20 @@ class Game {
         };
         window.addEventListener('resize', resize);
         resize();
+        document.getElementById('magic-console-form').addEventListener('submit', event => {
+            event.preventDefault();
+            const command = this.magicConsoleInput.value.trim();
+            if (!command) return;
+            this.magicConsoleInput.value = '';
+            this.consolePrint('> ' + command);
+            this.consolePrint(this.runDeveloperCommand(command));
+        });
+        this.magicConsoleInput.addEventListener('keydown', event => {
+            if (event.code === 'Escape') {
+                event.preventDefault();
+                this.closeDeveloperConsole();
+            }
+        });
     }
 
     spawnEnemies() {
@@ -349,6 +372,8 @@ class Game {
         const inp = this.input, player = this.player, world = this.world, fx = this.fx;
         if (inp.hit('settings')) PreferencesMenu.open();
         if (Preferences.open && !this.coop) return;
+        if (this.magicUnlocked && !this.coop && inp.hit('devConsole')) this.openDeveloperConsole();
+        if (this.consoleOpen) return;
         this.realTime += dt;
         fx.updateImpact(dt);
         this.pauseFeedback.hidden = !this.paused;
@@ -397,6 +422,12 @@ class Game {
         const sw = this.canvas.width, sh = this.canvas.height;
         const z = this.zoom();
         const wx = (inp.mx - sw / 2) / z + this.camX, wy = (inp.my - sh / 2) / z + this.camY;
+        if (this.magicUnlocked && !this.coop) {
+            for (const [action, spell] of [['spellFireball', 'fireball'], ['spellLightning', 'lightning'],
+                ['spellHeal', 'heal'], ['spellTeleport', 'teleport']]) {
+                if (inp.hit(action)) this.castMagicSpell(spell, wx, wy);
+            }
+        }
         player.readInput(inp, wx, wy);
         if (inp.hit('interact')) this.interact();
         else if (inp.hit('rest')) this.interact(false);
@@ -415,10 +446,14 @@ class Game {
             return;
         }
         if ((this.autosaveT -= dt) <= 0 && player.st !== 'DEAD') this.saveNow(false);
+        for (const spell of Object.keys(this.magicCooldowns)) {
+            this.magicCooldowns[spell] = Math.max(0, this.magicCooldowns[spell] - dt);
+        }
         if (this.slowmoT > 0) {
             this.slowmoT -= dt;
             this.timeScale = 0.3;
-        } else this.timeScale = U.lerp(this.timeScale, 1, 1 - Math.exp(-dt * 8));
+        } else if (this.devTimeScale !== null) this.timeScale = this.devTimeScale;
+        else this.timeScale = U.lerp(this.timeScale, 1, 1 - Math.exp(-dt * 8));
         const sdt = dt * this.timeScale;
         this.time += sdt;
         this.updateRealityTears(sdt);
@@ -469,6 +504,145 @@ class Game {
         this.camY += (ty - this.camY) * k;
         this.camX = U.clamp(this.camX, vw / 2, WORLD_SIZE - vw / 2);
         this.camY = U.clamp(this.camY, vh / 2, WORLD_SIZE - vh / 2);
+    }
+
+    magicAvailable() { return this.magicUnlocked && !this.coop && !this.statMods; }
+
+    openDeveloperConsole() {
+        if (!this.magicAvailable()) return;
+        this.consoleOpen = true;
+        this.magicConsole.hidden = false;
+        this.magicConsoleInput.focus();
+        if (this.consoleHistory.length === 0) {
+            this.consolePrint('Developer console unlocked. Type help for commands.');
+        }
+    }
+
+    closeDeveloperConsole() {
+        this.consoleOpen = false;
+        this.magicConsole.hidden = true;
+        this.canvas.focus();
+    }
+
+    consolePrint(message) {
+        this.consoleHistory.push(String(message));
+        this.consoleHistory = this.consoleHistory.slice(-18);
+        this.magicConsoleOutput.textContent = this.consoleHistory.join('\n');
+        this.magicConsoleOutput.scrollTop = this.magicConsoleOutput.scrollHeight;
+    }
+
+    runDeveloperCommand(source) {
+        if (!this.magicAvailable()) return 'Console unavailable in this mode.';
+        const args = source.trim().split(/\s+/), command = args.shift().toLowerCase();
+        const p = this.player;
+        const number = value => value !== undefined && Number.isFinite(Number(value)) ? Number(value) : null;
+        if (command === 'help') return 'Commands: help, status, heal [amount], hp <amount>, ki <0-100>, exp <amount>, god [on|off], teleport <x> <y>, spawn <ronin|spear|brute>, clear, time <0.1-4>, spell <fireball|lightning|heal|teleport>';
+        if (command === 'status') return 'HP ' + Math.ceil(p.hp) + '/' + p.maxHp + ' | KI ' + Math.floor(p.ki)
+            + ' | EXP ' + Math.floor(this.exp) + ' | ' + this.enemies.filter(e => e.st !== 'DEAD').length + ' enemies'
+            + ' | god mode ' + (this.devGodMode ? 'on' : 'off') + ' | time ' + this.timeScale + 'x';
+        if (command === 'heal') {
+            const amount = args.length ? number(args[0]) : 50;
+            if (amount === null || amount <= 0) return 'Usage: heal [positive amount]';
+            p.hp = Math.min(p.maxHp, p.hp + U.clamp(amount, 1, 1000));
+            return 'Health restored to ' + Math.ceil(p.hp) + '/' + p.maxHp + '.';
+        }
+        if (command === 'hp' || command === 'ki' || command === 'exp') {
+            const amount = number(args[0]);
+            if (amount === null) return 'Usage: ' + command + ' <number>';
+            if (command === 'hp') p.hp = U.clamp(amount, 0, p.maxHp);
+            else if (command === 'ki') p.ki = U.clamp(amount, 0, 100);
+            else this.gainExp(U.clamp(amount, 0, 1000000), p.x, p.y);
+            return command.toUpperCase() + ' set to ' + (command === 'exp' ? Math.floor(this.exp) : Math.ceil(p[command])) + '.';
+        }
+        if (command === 'god') {
+            if (args[0] !== undefined && !['on', 'off'].includes(args[0].toLowerCase())) return 'Usage: god [on|off]';
+            this.devGodMode = args.length ? args[0].toLowerCase() === 'on' : !this.devGodMode;
+            return 'God mode ' + (this.devGodMode ? 'on.' : 'off.');
+        }
+        if (command === 'teleport') {
+            const x = number(args[0]), y = number(args[1]);
+            if (x === null || y === null || x < 0 || y < 0 || x > WORLD_SIZE || y > WORLD_SIZE) {
+                return 'Usage: teleport <x> <y> (world coordinates 0-' + WORLD_SIZE + ')';
+            }
+            p.x = x;
+            p.y = y;
+            this.world.resolve(p);
+            this.camX = p.x;
+            this.camY = p.y;
+            return 'Teleported to ' + Math.round(p.x) + ', ' + Math.round(p.y) + '.';
+        }
+        if (command === 'spawn') {
+            const type = (args[0] || 'ronin').toUpperCase();
+            if (!['RONIN', 'SPEAR', 'BRUTE'].includes(type)) return 'Usage: spawn <ronin|spear|brute>';
+            const angle = this.rnd.nextDouble() * TAU;
+            const enemy = new Enemy(this, type, p.x + Math.cos(angle) * 180, p.y + Math.sin(angle) * 180,
+                false, null, this.rnd.nextInt(0x7fffffff));
+            this.addEnemy(enemy, null);
+            return 'Spawned ' + type.toLowerCase() + '.';
+        }
+        if (command === 'clear') {
+            let count = 0;
+            for (const enemy of this.enemies) if (enemy.st !== 'DEAD') {
+                enemy.die(enemy.angleTo(p));
+                count++;
+            }
+            return 'Defeated ' + count + ' enemies.';
+        }
+        if (command === 'time') {
+            const scale = number(args[0]);
+            if (scale === null || scale < 0.1 || scale > 4) return 'Usage: time <0.1-4>';
+            this.devTimeScale = scale;
+            return 'Game speed set to ' + scale + 'x.';
+        }
+        if (command === 'spell') {
+            if (!['fireball', 'lightning', 'heal', 'teleport'].includes((args[0] || '').toLowerCase())) {
+                return 'Usage: spell <fireball|lightning|heal|teleport>';
+            }
+            const angle = p.facing;
+            return this.castMagicSpell(args[0].toLowerCase(), p.x + Math.cos(angle) * 320,
+                p.y + Math.sin(angle) * 320) ? 'Cast ' + args[0].toLowerCase() + '.' : 'Spell is cooling down.';
+        }
+        return 'Unknown command. Type help for available commands.';
+    }
+
+    castMagicSpell(spell, x, y) {
+        if (!this.magicAvailable() || !['fireball', 'lightning', 'heal', 'teleport'].includes(spell)) return false;
+        const cooldowns = { fireball: 2, lightning: 5, heal: 8, teleport: 4 };
+        if ((this.magicCooldowns[spell] || 0) > 0) return false;
+        const p = this.player, color = spell === 'lightning' ? rgb(150, 210, 255) : rgb(255, 150, 70);
+        if (spell === 'heal') {
+            if (p.hp >= p.maxHp) return false;
+            p.hp = Math.min(p.maxHp, p.hp + 55);
+            this.fx.ring(p.x, p.y, 12, 100, 0.45, 5, rgb(140, 255, 175));
+            this.fx.text('+55 HEALTH', p.x, p.y - 42, rgb(150, 255, 180), 16);
+        } else {
+            const dx = x - p.x, dy = y - p.y, distance = Math.hypot(dx, dy);
+            const limit = spell === 'teleport' ? 500 : 480;
+            const ratio = distance > limit ? limit / distance : 1;
+            x = p.x + dx * ratio;
+            y = p.y + dy * ratio;
+            if (spell === 'teleport') {
+                this.fx.ring(p.x, p.y, 8, 65, 0.3, 4, rgb(180, 150, 255));
+                p.x = x;
+                p.y = y;
+                this.world.resolve(p);
+                this.camX = p.x;
+                this.camY = p.y;
+                this.fx.ring(p.x, p.y, 8, 85, 0.35, 4, rgb(180, 150, 255));
+            } else {
+                const radius = spell === 'fireball' ? 70 : 125;
+                this.fx.line(p.x, p.y, x, y, 0.35, spell === 'fireball' ? 8 : 5, color);
+                this.fx.ring(x, y, 8, radius, 0.4, spell === 'fireball' ? 5 : 3, color);
+                for (const enemy of this.enemies) {
+                    if (enemy.st === 'DEAD' || U.dist(enemy.x, enemy.y, x, y) > radius + enemy.r) continue;
+                    enemy.takeRaw(spell === 'fireball' ? 55 : 75, spell === 'fireball' ? 35 : 55,
+                        Math.atan2(enemy.y - y, enemy.x - x));
+                }
+            }
+        }
+        this.magicCooldowns[spell] = cooldowns[spell];
+        this.sfx.play(spell === 'heal' || spell === 'teleport' ? 'SHRINE' : 'BREAK');
+        return true;
     }
 
     interact(openMenu = true) {
@@ -999,6 +1173,8 @@ class Game {
         if (e.boss) {
             this.bossDefeated = true;
             this.boss = null;
+            const magicUnlocked = this.difficultyTier === 'buddha' && !this.buddha && !this.coop && !this.magicUnlocked;
+            if (magicUnlocked) this.magicUnlocked = true;
             Object.assign(player, playerProgression(this.elitesSlain, this.bossDefeated));
             player.applyLoadout();
             player.hp = player.maxHp;
@@ -1006,6 +1182,7 @@ class Game {
             this.banner('THE LAND IS AT PEACE', 'The Ashen Daimyo has fallen. You are the last sword standing.', rgb(255, 215, 120));
             if (this.buddha && this.difficultyTier === 'buddha' && !this.ultimate) this.beginUltimateAscension();
             else this.beginJohnJava();
+            if (magicUnlocked) this.banner('THE HIDDEN ARTS', 'Magic spells and the developer console are yours. Press ` to begin.', rgb(170, 200, 255));
             this.saveSoon();
         } else if (e.elite) {
             this.elitesSlain++;
@@ -1282,7 +1459,7 @@ class Game {
     }
 
     openRealityTear(p) {
-        if (!p.enlightened() || !this.ultimate) return;
+        if (!this.ultimate || this.statMods) return;
         const tear = { x: p.x, y: p.y, facing: p.facing, range: 300, arc: 110 * DEG, t: 0 };
         this.addRealityTear(tear);
         this.sfx.play('BREAK');
@@ -1712,6 +1889,14 @@ class Game {
             + '     Kills ' + this.kills, 24, 58, rgb(220, 210, 190), false);
         this.text(g, '[' + Preferences.label('equipment') + '] equipment   [' + Preferences.label('interact')
             + '] shrine skills & travel   [' + Preferences.label('pause') + '] pause', 24, 78, rgb(180, 170, 150), false);
+        if (this.magicAvailable()) {
+            g.font = SMALL_FONT;
+            this.text(g, '[' + Preferences.label('spellFireball') + '] Fireball  ['
+                + Preferences.label('spellLightning') + '] Lightning  [' + Preferences.label('spellHeal')
+                + '] Heal  [' + Preferences.label('spellTeleport') + '] Teleport  ['
+                + Preferences.label('devConsole') + '] Console',
+                24, 132, rgb(170, 205, 255), false);
+        }
         const need = expForNextPoint(this.pointsEarned);
         g.fillStyle = 'rgba(0,0,0,0.6)';
         g.fillRect(24, 88, 204, 7);
@@ -2234,10 +2419,12 @@ class Game {
 // ---------------- boot (called from the main menu) ----------------
 function startJourney(canvas, difficultyTier, newGame = false) {
     const params = new URLSearchParams(location.search);
-    const save = newGame ? null : SaveGame.read();
+    const previousSave = SaveGame.read();
+    const save = newGame ? null : previousSave;
     let seed;
     if (params.has('seed') && Number.isFinite(Number(params.get('seed')))) seed = Number(params.get('seed'));
     else if (save !== null) seed = save.seed;
     else seed = Math.floor(Math.random() * 2 ** 48);
-    new Game(seed, canvas, save !== null && save.seed === seed ? save : null, { difficultyTier }).run();
+    new Game(seed, canvas, save !== null && save.seed === seed ? save : null,
+        { difficultyTier, magicUnlocked: previousSave !== null && previousSave.magicUnlocked === true }).run();
 }

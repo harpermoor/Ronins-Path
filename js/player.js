@@ -154,7 +154,8 @@ class Player extends Actor {
             s.deflect = mods.parry;
         }
         const enlightened = this.enlightened();
-        if (enlightened) {
+        const buddhaPower = this.buddhaPower();
+        if (buddhaPower) {
             s.dmg *= 5;
             s.post *= 5;
         }
@@ -202,7 +203,10 @@ class Player extends Actor {
         }
         this.throwAtk = new Attack(this.throwable.id, 0, 0, 0, this.throwable.range, 0,
             this.throwable.damage * s.dmg, this.throwable.posture * s.post, 0);
-        this.art = this.enlightened() && this.g.ultimate === true ? REALITY_TEAR_ART : lo.artDef();
+        const realityRendEquipped = lo.art === REALITY_TEAR_ART.id;
+        this.art = realityRendEquipped
+            ? (this.g.ultimate === true && !this.g.statMods ? REALITY_TEAR_ART : ARTS[0])
+            : lo.artDef();
         const artStats = Object.assign({}, s, { dmg: s.dmg * s.artDmg });
         this.artAtks = this.art.hits.map(h => scaledAttack(h.atk, artStats));
         if (enlightened) for (const atk of [...this.comboAtk, this.stabAtk, ...this.artAtks]) atk.range *= 1.5;
@@ -212,18 +216,20 @@ class Player extends Actor {
 
     enlightened() { return this.g.buddha === true && !this.g.statMods; }
 
+    buddhaPower() { return this.enlightened() && this.g.difficultyTier === 'buddha'; }
+
     dodgeDuration() { return DODGE_TIME * (this.enlightened() ? BUDDHA_SPEED : 1); }
 
-    guardDuration() { return this.guardWindow * (this.enlightened() ? 5 / 3 : 1); }
+    guardDuration() { return this.guardWindow * (this.buddhaPower() ? 5 / 3 : 1); }
 
     refillBuddhaRevive() {
-        if (!this.enlightened()) return;
+        if (!this.buddhaPower()) return;
         this.buddhaReviveReady = true;
         this.buddhaDeathblows = 0;
     }
 
     recordDeathblow() {
-        if (!this.enlightened() || this.buddhaReviveReady) return;
+        if (!this.buddhaPower() || this.buddhaReviveReady) return;
         this.buddhaDeathblows++;
         if (this.buddhaDeathblows >= 5) {
             this.refillBuddhaRevive();
@@ -238,7 +244,8 @@ class Player extends Actor {
     invulnerable() {
         const st = this.st;
         const art = this.curArt;
-        return this.invuln > 0 || st === 'DEATHBLOW' || st === 'MIKIRI' || st === 'IAI' || (st === 'DODGE' && this.stT < this.dodgeIframes)
+        return this.g.devGodMode === true || this.invuln > 0 || st === 'DEATHBLOW' || st === 'MIKIRI' || st === 'IAI'
+            || (st === 'DODGE' && this.stT < this.dodgeIframes)
             || (st === 'ART' && art.iframes !== undefined && this.stT >= art.iframes[0] && this.stT < art.iframes[1]);
     }
 
@@ -846,7 +853,7 @@ class Player extends Actor {
         this.facing = ang;
         this.dragonDone = false;
         const a = new Attack('dragonflash', 0, 0.1, 0, 260 * (this.enlightened() ? 1.5 : 1), 42,
-            this.dragonDamage, 70 * (this.enlightened() ? 5 : 1), 0);
+            this.dragonDamage, 70 * (this.buddhaPower() ? 5 : 1), 0);
         a.art = true;
         a.heavy = true;
         a.pierce = true;
@@ -904,14 +911,14 @@ class Player extends Actor {
         const guardAge = g.time - this.guardStart;
         const guardWindow = this.guardDuration();
         const sweepParry = perilous && sweep && guardAge >= 0 && guardAge <= guardWindow * 0.5;
-        const buddhaPerfect = this.enlightened() && guardAge >= 0
+        const buddhaPerfect = this.buddhaPower() && guardAge >= 0
             && guardAge <= Math.min(BUDDHA_PARRY_WINDOW, guardWindow * (sweepParry ? 0.5 : 1));
         const buddhaMikiri = perilous && thrust && buddhaPerfect;
         const buddhaSweep = sweep && (!perilous || sweepParry) && buddhaPerfect;
         const dodgeParry = this.st === 'DODGE' && this.guarding && front && guardAge >= 0
             && guardAge <= guardWindow && (!perilous || sweepParry || buddhaMikiri);
         if (this.st === 'DODGE' && this.stT < this.dodgeIframes && !dodgeParry) {
-            if (this.stT <= (this.enlightened() ? BUDDHA_DODGE_WINDOW : PERFECT_DODGE_WINDOW)) {
+            if (this.stT <= (this.buddhaPower() ? BUDDHA_DODGE_WINDOW : PERFECT_DODGE_WINDOW)) {
                 const cx = this.x + Math.cos(ang) * (this.r + 12), cy = this.y + Math.sin(ang) * (this.r + 12);
                 this.leaveDodgeAfterimage();
                 this.ki = Math.min(100, this.ki + 18);
@@ -934,7 +941,7 @@ class Player extends Actor {
         if ((!perilous || sweepParry || buddhaMikiri) && (this.st === 'FREE' || dodgeParry) && this.guarding && front) {
             if (guardAge <= guardWindow * (sweepParry ? 0.5 : 1)) {
                 const perfect = guardAge >= 0
-                    && guardAge <= Math.min(this.enlightened() ? BUDDHA_PARRY_WINDOW : PERFECT_PARRY_WINDOW,
+                    && guardAge <= Math.min(this.buddhaPower() ? BUDDHA_PARRY_WINDOW : PERFECT_PARRY_WINDOW,
                         guardWindow * (sweepParry ? 0.5 : 1));
                 this.posture = Math.min(this.maxPosture - 1, this.posture + (perfect ? 0 : post * 0.12));
                 this.spam = 0;
@@ -1062,7 +1069,7 @@ class Player extends Actor {
             this.g.sfx.play('BREAK');
             return;
         }
-        if (this.enlightened() && this.buddhaReviveReady) {
+        if (this.buddhaPower() && this.buddhaReviveReady) {
             this.buddhaReviveReady = false;
             this.buddhaDeathblows = 0;
             this.hp = this.maxHp * 0.5;

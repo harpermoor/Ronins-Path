@@ -9,10 +9,10 @@ const context = vm.createContext({ console });
 for (const name of ['util', 'preferences', 'draw', 'effects', 'world', 'skills', 'loadout', 'player', 'settings', 'save', 'enemy', 'game', 'coop']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', name + '.js'), 'utf8'), context);
 }
-const { Game, Player, Enemy, Loadout, SaveGame, Coop, EA, difficultyFor, JOURNEY_DIFFICULTY_ORDER,
+const { Game, Player, Enemy, Loadout, SaveGame, Coop, EquipMenu, ARTS, EA, difficultyFor, JOURNEY_DIFFICULTY_ORDER,
     P_PERFECT, P_DEFLECT, P_PERFECT_DODGE, P_IGNORE, IAI_FLASH_DAMAGE,
     JOHN_BLESS_TIME, JOHN_GRANT_TIME, JOHN_ASCEND_TIME, JOHN_FINISH_TIME } = vm.runInContext(
-    '({ Game, Player, Enemy, Loadout, SaveGame, Coop, EA, difficultyFor, JOURNEY_DIFFICULTY_ORDER, '
+    '({ Game, Player, Enemy, Loadout, SaveGame, Coop, EquipMenu, ARTS, EA, difficultyFor, JOURNEY_DIFFICULTY_ORDER, '
         + 'P_PERFECT, P_DEFLECT, P_PERFECT_DODGE, P_IGNORE, IAI_FLASH_DAMAGE, '
         + 'JOHN_BLESS_TIME, JOHN_GRANT_TIME, JOHN_ASCEND_TIME, JOHN_FINISH_TIME })', context);
 
@@ -25,7 +25,8 @@ function journey(tier = 'kachi') {
         canvas: { width: 800, height: 600 }, zoomKickV: 0,
         world: { shrines: [shrine], camps: [], resolve() {} }, lastShrine: shrine,
         enemies: [], kills: 0, elitesSlain: 0, totalElites: 5, ngPlus: 0,
-        bossSpawned: false, bossDefeated: false, buddha: false, ultimate: false, realityTears: [], johnJava: null,
+        bossSpawned: false, bossDefeated: false, buddha: false, ultimate: false, magicUnlocked: false,
+        magicCooldowns: {}, realityTears: [], johnJava: null,
         exp: 73, pointsEarned: 0, skillPoints: 0, deathCount: 0,
         fx: new Proxy({}, { get: (_, name) => (...args) => calls.push([name, args]) }),
         sfx: { play() {} }, banner: (...args) => calls.push(['banner', args]),
@@ -38,12 +39,47 @@ function journey(tier = 'kachi') {
 }
 
 {
-    for (const [tier, buddha, expected] of [['buddha', true, true], ['buddha', false, false], ['kachi', true, false]]) {
+    const ordinary = journey('kachi').game;
+    const buddhaForm = journey('kachi').game;
+    buddhaForm.buddha = true;
+    buddhaForm.player.applyLoadout();
+    assert.equal(buddhaForm.player.enlightened(), true, 'the earned Buddha form remains active');
+    assert.equal(buddhaForm.player.buddhaPower(), false, 'Buddha powers require Buddha difficulty');
+    assert.equal(buddhaForm.player.comboAtk[0].range, ordinary.player.comboAtk[0].range * 1.5,
+        'Buddha form retains longer attack reach');
+    assert.equal(buddhaForm.player.comboAtk[0].windup, ordinary.player.comboAtk[0].windup * 0.8,
+        'Buddha form retains faster attacks');
+    assert.equal(buddhaForm.player.comboAtk[0].damage, ordinary.player.comboAtk[0].damage,
+        'Buddha form does not boost damage outside Buddha difficulty');
+    buddhaForm.player.refillBuddhaRevive();
+    assert.equal(buddhaForm.player.buddhaReviveReady, false, 'Buddha form does not grant revives outside Buddha difficulty');
+    assert.equal(buddhaForm.player.guardDuration(), buddhaForm.player.guardWindow,
+        'Buddha form does not extend the guard window outside Buddha difficulty');
+
+    const buddhaDifficulty = journey('buddha').game;
+    buddhaDifficulty.buddha = true;
+    buddhaDifficulty.player.applyLoadout();
+    assert.equal(buddhaDifficulty.player.buddhaPower(), true, 'Buddha difficulty enables Buddha powers');
+    assert.ok(Math.abs(buddhaDifficulty.player.comboAtk[0].damage - ordinary.player.comboAtk[0].damage * 5) < 1e-9,
+        'Buddha difficulty retains the damage bonus');
+    buddhaDifficulty.player.refillBuddhaRevive();
+    assert.equal(buddhaDifficulty.player.buddhaReviveReady, true, 'Buddha difficulty grants the Buddha revive');
+}
+
+{
+    for (const [tier, buddha, expected, magic] of [
+        ['buddha', true, true, false], ['buddha', false, false, true], ['kachi', true, false, false],
+    ]) {
         const { game } = journey(tier);
         game.buddha = buddha;
         game.onEnemyKilled({ boss: true, elite: true, camp: null, x: 0, y: 0 });
         assert.equal(game.johnJava.ultimate === true, expected, 'fusion requires Buddha form and Buddha difficulty victory');
+        assert.equal(game.magicUnlocked, magic, 'spells unlock only after a solo Buddha-difficulty victory without Buddha form');
     }
+    const coopVictory = journey('buddha').game;
+    coopVictory.coop = {};
+    coopVictory.onEnemyKilled({ boss: true, elite: true, camp: null, x: 0, y: 0 });
+    assert.equal(coopVictory.magicUnlocked, false, 'co-op victories do not grant the solo magic reward');
     const { game, calls } = journey('buddha');
     game.buddha = true;
     game.beginUltimateAscension();
@@ -60,7 +96,16 @@ function journey(tier = 'kachi') {
     for (const name of ['John Java', 'Henry HTML', 'Cid CSS', 'Joseph Javascript']) assert(labels.includes(name));
     game.updateJohnJava(JOHN_GRANT_TIME - JOHN_BLESS_TIME);
     assert.equal(game.ultimate, true);
+    assert.equal(game.player.art.id, 'whirlwind', 'Reality Rend must be equipped after it is unlocked');
+    const menu = new EquipMenu(game);
+    menu.tab = 0;
+    const realityRendIndex = ARTS.findIndex(art => art.id === 'reality-tear');
+    assert.equal(menu.unlocked(ARTS[realityRendIndex]), true, 'the ultimate reward unlocks Reality Rend');
+    menu.equip(realityRendIndex);
     assert.equal(game.player.art.id, 'reality-tear');
+    menu.equip(0);
+    assert.equal(game.player.art.id, 'whirlwind', 'selecting another art unequips Reality Rend');
+    menu.equip(realityRendIndex);
     const completed = journey('buddha').game;
     SaveGame.apply(completed, SaveGame.serialize(game));
     assert.equal(completed.ultimate, true, 'ultimate power persists');
@@ -91,9 +136,58 @@ function journey(tier = 'kachi') {
     assert.equal(game.realityTears.length, 0, 'the tear seals after 2.4 seconds');
     assert.equal(deaths.length, 2);
     assert(calls.some(([name]) => name === 'save'), 'the ultimate reward is saved');
+    const lowerDifficulty = journey('kachi').game;
+    lowerDifficulty.buddha = true;
+    lowerDifficulty.ultimate = true;
+    lowerDifficulty.loadout.art = 'reality-tear';
+    lowerDifficulty.player.applyLoadout();
+    assert.equal(lowerDifficulty.player.art.id, 'reality-tear', 'Reality Rend can be equipped outside Buddha difficulty');
+    lowerDifficulty.openRealityTear(lowerDifficulty.player);
+    assert.equal(lowerDifficulty.realityTears.length, 1, 'Reality Rend can be used outside Buddha difficulty');
+
     game.statMods = {};
     game.player.applyLoadout();
     assert.notEqual(game.player.art.id, 'reality-tear', 'ultimate power never applies to stat-modified duels');
+}
+
+{
+    const { game } = journey('kachi');
+    game.magicUnlocked = true;
+    game.world.resolve = () => {};
+    game.magicCooldowns = {};
+    const hits = [];
+    game.enemies = [{ st: 'FREE', x: 120, y: 0, r: 15, takeRaw: (...args) => hits.push(args) }];
+    assert.equal(game.castMagicSpell('fireball', 120, 0), true, 'fireball casts after the solo unlock');
+    assert.equal(hits.length, 1, 'fireball damages an enemy at the target point');
+    assert.equal(game.castMagicSpell('fireball', 120, 0), false, 'spell cooldowns prevent immediate recasts');
+    assert.equal(game.castMagicSpell('lightning', 120, 0), true, 'lightning casts independently');
+    game.player.hp -= 40;
+    assert.equal(game.castMagicSpell('heal', 0, 0), true, 'healing spell restores health');
+    assert.equal(game.player.hp, game.player.maxHp, 'healing is clamped to maximum health');
+    assert.equal(game.castMagicSpell('teleport', 300, 0), true, 'teleport spell casts');
+    assert.equal(game.player.x, 300);
+    assert.equal(game.runDeveloperCommand('god on'), 'God mode on.');
+    assert.equal(game.player.invulnerable(), true, 'developer god mode prevents player damage');
+    assert.equal(game.runDeveloperCommand('hp 60'), 'HP set to 60.');
+    assert.equal(game.player.hp, 60);
+    assert.equal(game.runDeveloperCommand('ki 80'), 'KI set to 80.');
+    assert.equal(game.player.ki, 80);
+    game.enemies = [{ st: 'FREE', angleTo: () => 0, die() { this.st = 'DEAD'; } }];
+    assert.equal(game.runDeveloperCommand('clear'), 'Defeated 1 enemies.');
+    assert.equal(game.enemies[0].st, 'DEAD');
+    assert.equal(game.runDeveloperCommand('time 2'), 'Game speed set to 2x.');
+    assert.equal(game.devTimeScale, 2);
+    const magicSave = SaveGame.serialize(game);
+    assert.equal(magicSave.magicUnlocked, true, 'the magic reward is saved');
+    const resumed = journey('kachi').game;
+    SaveGame.apply(resumed, magicSave);
+    assert.equal(resumed.magicUnlocked, true, 'the magic reward survives loading on another difficulty');
+    assert.match(game.runDeveloperCommand('javascript alert(1)'), /Unknown command/,
+        'the console accepts game commands rather than executing JavaScript');
+    game.coop = {};
+    assert.equal(game.castMagicSpell('lightning', 120, 0), false, 'magic stays unavailable in co-op');
+    assert.match(game.runDeveloperCommand('help'), /unavailable in this mode/,
+        'the developer console stays unavailable in co-op');
 }
 
 {
@@ -102,6 +196,8 @@ function journey(tier = 'kachi') {
     const link = { conns: [], on(name, callback) { handlers[name] = callback; }, send(data) { sent.push(data); } };
     const coop = new Coop(game, link, true, {}, 0);
     const partner = coop.bodyFor(1);
+    game.loadout.art = 'reality-tear';
+    partner.g.loadout.art = 'reality-tear';
     game.grantUltimatePower();
     assert.equal(partner.art.id, 'reality-tear', 'ultimate power updates co-op party loadouts');
     partner.st = 'ART';
@@ -113,6 +209,7 @@ function journey(tier = 'kachi') {
     assert.equal(game.realityTears.length, 1, 'duplicate guest requests do not create another tear');
     const guest = journey('buddha').game, guestHandlers = {};
     const guestCoop = new Coop(guest, { conns: [], on(name, callback) { guestHandlers[name] = callback; } }, false, {}, 1);
+    guest.loadout.art = 'reality-tear';
     guestCoop.receiveWorld({ enemies: [], dead: [], defeated: true, buddha: true, ultimate: true });
     assert.equal(guest.player.art.id, 'reality-tear', 'the host shares ultimate power with guests');
     guestHandlers['coop-reality-tear'](sent[0]);
@@ -122,7 +219,7 @@ function journey(tier = 'kachi') {
 }
 
 {
-    const { game, calls } = journey();
+    const { game, calls } = journey('buddha');
     const damageHits = [];
     const victim = { x: 100, y: 0, st: 'FREE', beingExecuted: true,
         takeRaw: (...args) => damageHits.push(args) };
@@ -220,7 +317,7 @@ for (const tier of JOURNEY_DIFFICULTY_ORDER) {
     assert.equal(game.enemyFlankDirection(group[2]) !== 0, game.difficulty.enemySkill >= 0.6, tier + ' flanking');
 }
 
-const { game, calls } = journey();
+const { game, calls } = journey('buddha');
 const defender = new Enemy(game, 'RONIN', 100, 0, false, null, 99);
 defender.hasToken = true;
 game.enemies = [defender];

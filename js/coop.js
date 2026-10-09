@@ -509,11 +509,11 @@ class Coop {
             game.executeDeathblow(p, e);
         } else if (d.kind === 'mikiri' && e.atk && e.atk.thrust && p.distTo(e) < e.atk.range + 80) {
             game.onMikiri(p, e);
-        } else if (d.kind === 'buddha-mikiri' && p.enlightened() && e.atk && e.atk.perilous && e.atk.thrust
+        } else if (d.kind === 'buddha-mikiri' && p.buddhaPower() && e.atk && e.atk.perilous && e.atk.thrust
             && (e.st === 'ACTIVE' || (e.st === 'WINDUP' && e.stDur - e.stT < 0.32))
             && p.distTo(e) < e.atk.range + 80) {
             game.onBuddhaMikiri(p, e);
-        } else if (d.kind === 'sweep-counter' && p.enlightened() && e.atk && e.atk.sweep
+        } else if (d.kind === 'sweep-counter' && p.buddhaPower() && e.atk && e.atk.sweep
             && (e.st === 'ACTIVE' || (e.st === 'WINDUP' && e.stDur - e.stT < 0.32))
             && p.distTo(e) < e.atk.range + 80) {
             game.onSweepCounter(p, e);

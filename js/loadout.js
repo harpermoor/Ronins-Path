@@ -70,6 +70,8 @@ const ARTS = [
     },
 ];
 
+ARTS.push(REALITY_TEAR_ART);
+
 const SWORDS = [
     { id: 'wanderer', type: 'katana', name: "Wanderer's Katana", kanji: '打刀', unlock: 0, dmg: 1, post: 1, spd: 1, reach: 0, len: 56, color: rgb(210, 215, 230),
         desc: 'A plain, honest blade. Balanced in every way.', info: 'Balanced' },
@@ -231,11 +233,15 @@ class Loadout {
     }
 
     /** Restore from untrusted data; gear is only accepted if unlocked with the given elite count. */
-    apply(d, elites) {
+    apply(d, elites, realityRendUnlocked = false) {
         if (!d || typeof d !== 'object') return;
         for (const s of EQUIP_SLOTS) {
             const it = s.list.find(i => i.id === d[s.field]);
-            if (it && it.unlock <= elites) this[s.field] = it.id;
+            if (it && it.id === REALITY_TEAR_ART.id) {
+                this[s.field] = realityRendUnlocked ? it.id : ARTS[0].id;
+            } else if (it && it.unlock <= elites) {
+                this[s.field] = it.id;
+            }
         }
         if (d.look && typeof d.look === 'object') {
             for (const l of LOOKS) {
@@ -360,7 +366,9 @@ class EquipMenu {
         this.weaponTypeTab = Math.max(0, WEAPON_TYPES.findIndex(t => t.id === weaponType(lo.swordDef())));
     }
 
-    unlocked(it) { return this.g.elitesSlain >= it.unlock; }
+    unlocked(it) {
+        return it.id === REALITY_TEAR_ART.id ? this.g.ultimate === true : this.g.elitesSlain >= it.unlock;
+    }
 
     weaponIndices() {
         const type = WEAPON_TYPES[this.weaponTypeTab].id;
@@ -503,7 +511,9 @@ class EquipMenu {
     equip(i) {
         const g = this.g, slot = EQUIP_SLOTS[this.tab], it = slot.list[i];
         if (!this.unlocked(it)) {
-            this.note('Locked  -  slay ' + it.unlock + ' elite' + (it.unlock > 1 ? 's' : '') + ' to unlock');
+            this.note(it.id === REALITY_TEAR_ART.id
+                ? 'Complete the Buddha ultimate trial to unlock Reality Rend'
+                : 'Locked  -  slay ' + it.unlock + ' elite' + (it.unlock > 1 ? 's' : '') + ' to unlock');
             g.sfx.play('BLOCK');
             return;
         }
@@ -691,7 +701,10 @@ class EquipMenu {
             g.font = '12px sans-serif';
             game.text(g, it.info, x + 84, ry + 62, U.alpha(rgb(140, 210, 200), dim), false);
             g.font = 'bold 13px sans-serif';
-            if (!this.unlocked(it)) this.rightText(g, 'Slay ' + it.unlock + ' elite' + (it.unlock > 1 ? 's' : ''), x + w - 12, ry + 24, rgb(200, 120, 110));
+            if (!this.unlocked(it)) this.rightText(g,
+                it.id === REALITY_TEAR_ART.id ? 'Complete Buddha ultimate trial'
+                    : 'Slay ' + it.unlock + ' elite' + (it.unlock > 1 ? 's' : ''),
+                x + w - 12, ry + 24, rgb(200, 120, 110));
             else if (weaponLocked) this.rightText(g, 'Requires ' + weaponTypeName(it.weapon), x + w - 12, ry + 24, rgb(220, 160, 110));
             else if (slot.field === 'armor' && it.affinity) {
                 const fits = armorFitsWeapon(it, lo.swordDef());

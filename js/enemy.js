@@ -19,6 +19,7 @@ const EA = {
     R_HEAVY: new Attack('heavy', .80, .14, .60, 82, 180, 22, 30, 280),
     R_DELAY: new Attack('delayed', 1.05, .14, .60, 82, 180, 22, 30, 300),
     R_THRUST: new Attack('thrust', .70, .18, .75, 118, 30, 26, 10, 560).markPerilous().markThrust(),
+    DAIMYO_THRUST: new Attack('thrust', 1.0, .18, .75, 118, 30, 26, 10, 560).markPerilous().markThrust(),
     R_FAST: new Attack('quick', .24, .10, .35, 66, 130, 10, 14, 220),
     R_BACKHAND: new Attack('backhand', .38, .12, .48, 76, 165, 16, 20, 230),
     SP_T1: new Attack('thrust', .50, .14, .50, 118, 26, 13, 16, 170).markThrust(),
@@ -80,6 +81,7 @@ class Enemy extends Actor {
         this.beingExecuted = false;
         this.speed = 0;
         this.detect = 0;
+        this.visionAngle = 1.1;
         this.blockChance = 0;
         this.hyper = false;
         this.lastDamageT = -99;
@@ -142,7 +144,8 @@ class Enemy extends Actor {
             this.maxHp *= 2.4;
             this.maxPosture *= 2.2;
             this.speed *= 1.08;
-            this.detect = 700;
+            this.detect = 280;
+            this.visionAngle = 0.65;
             this.blockChance = 0.8;
             this.dodgeChance = 0.3;
             this.lives = 3;
@@ -189,13 +192,14 @@ class Enemy extends Actor {
         const E = EA;
         switch (this.type) {
             case 'RONIN':
+                const thrust = this.boss ? E.DAIMYO_THRUST : E.R_THRUST;
                 this.add(E.R_A);
                 this.add(E.R_A, E.R_B);
                 this.add(E.R_A, E.R_B, E.R_HEAVY);
                 this.add(E.R_BACKHAND, E.R_A);
                 this.add(E.R_FAST, E.R_BACKHAND, E.R_HEAVY);
-                this.add(E.R_THRUST);
-                this.add(E.R_A, E.R_THRUST);
+                this.add(thrust);
+                this.add(E.R_A, thrust);
                 this.addGap(E.R_DASH);
                 this.addGap(E.R_DASH, E.R_B);
                 if (this.vet) {
@@ -205,13 +209,13 @@ class Enemy extends Actor {
                     this.add(E.R_A, E.R_B, E.R_SWEEP);
                     this.add(E.R_FAST, E.R_SPIN);
                     this.add(E.R_BACKHAND, E.R_DELAY);
-                    this.addGap(E.R_DASH, E.R_A, E.R_THRUST);
+                    this.addGap(E.R_DASH, E.R_A, thrust);
                 }
                 if (this.elite) {
                     this.add(E.R_FAST, E.R_FAST, E.R_FAST, E.R_FAST, E.R_HEAVY);
                     this.add(E.R_A, E.R_B, E.R_A, E.R_B);
                     this.add(E.R_FAST, E.R_FAST, E.R_DELAY);
-                    this.add(E.R_HEAVY, E.R_THRUST);
+                    this.add(E.R_HEAVY, thrust);
                     this.addGap(E.R_DASH, E.R_SPIN, E.R_SWEEP);
                 }
                 if (this.boss) {
@@ -507,7 +511,7 @@ class Enemy extends Actor {
             this.walkAnim += this.speed * 0.3 * dt;
         }
         if (!pAlive || p.invuln > 0.5) return;
-        const inCone = Math.abs(U.angDiff(this.facing, toP)) < 1.1;
+        const inCone = Math.abs(U.angDiff(this.facing, toP)) < this.visionAngle;
         const hearing = (p.sneaking() ? 38 : (Math.hypot(p.vx, p.vy) > 60 ? 150 : 70)) * p.stealth;
         if ((d < this.detect && inCone) || d < hearing) this.alert(true);
     }
