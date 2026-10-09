@@ -118,6 +118,34 @@ const SWORDS = [
         desc: 'Broad, heavy chops catch groups.', info: 'Damage +18%  -  Wide arc  -  Slower' },
 ];
 
+SWORDS.push(
+    { id: 'duelist', type: 'katana', name: "Duelist's Katana", kanji: '刀', unlock: 3,
+        dmg: 1.08, post: 0.95, spd: 0.82, reach: 4, len: 60, color: rgb(165, 205, 235),
+        desc: 'A nimble blade for relentless, precise cuts.', info: 'Damage +8%  -  Faster swings  -  Less posture damage' },
+    { id: 'guardian-spear', type: 'spear', name: 'Guardian Spear', kanji: '槍', unlock: 4,
+        dmg: 1.18, post: 1.2, spd: 1.2, reach: 42, len: 90, color: rgb(225, 195, 125),
+        combo: SWORDS.find(w => w.id === 'spear').combo,
+        desc: 'A reinforced spear that punishes guarded foes.', info: 'Damage +18%  -  Posture +20%  -  Long reach' },
+    { id: 'temple-hammer', type: 'hammer', name: 'Temple Hammer', kanji: '鎚', unlock: 4,
+        poise: 30, dmg: 1.32, post: 1.7, spd: 1.25, reach: -4, len: 62, color: rgb(210, 185, 125),
+        combo: SWORDS.find(w => w.id === 'hammer').combo,
+        desc: 'A balanced ritual hammer, lighter than a war maul.', info: 'Posture +70%  -  Faster than Iron Hammer' },
+    { id: 'raider-axe', type: 'axe', name: 'Raider Hatchet', kanji: '斧', unlock: 1,
+        poise: 10, dmg: 1.08, post: 1.15, spd: 0.88, reach: -10, len: 44, color: rgb(195, 215, 220),
+        combo: SWORDS.find(w => w.id === 'axe').combo,
+        desc: 'A short axe built for fast, repeated chops.', info: 'Fast swings  -  Short reach  -  Light armor' },
+    { id: 'crescent-axe', type: 'axe', name: 'Crescent Greataxe', kanji: '斧', unlock: 2,
+        poise: 24, dmg: 1.4, post: 1.5, spd: 1.4, reach: 14, len: 72, color: rgb(220, 175, 155),
+        combo: [new Attack('crescent1', 0.17, 0.12, 0.3, 90, 205, 18, 17, 155),
+            new Attack('crescent2', 0.17, 0.12, 0.3, 90, 205, 18, 17, 155),
+            new Attack('crescent3', 0.28, 0.14, 0.48, 110, 280, 29, 30, 210)],
+        desc: 'A long crescent blade sweeps through groups.', info: 'Damage +40%  -  Posture +50%  -  Wide, slow sweeps' },
+    { id: 'executioner-axe', type: 'axe', name: "Executioner's Axe", kanji: '斧', unlock: 4,
+        poise: 32, dmg: 1.6, post: 1.65, spd: 1.55, reach: 6, len: 68, color: rgb(190, 100, 90),
+        combo: SWORDS.find(w => w.id === 'axe').combo,
+        desc: 'A weighty axe that ends fights with decisive chops.', info: 'Damage +60%  -  Posture +65%  -  High poise, slow swings' },
+);
+
 const THROWABLES = [
     { id: 'shuriken', name: 'Shuriken', kanji: '手裏剣', unlock: 0, max: 5, range: 250, damage: 12, posture: 10, color: rgb(185, 220, 240),
         desc: 'Quick steel stars for distant targets.', info: '5 throws  -  Fast  -  Refill at shrines' },
@@ -254,7 +282,7 @@ class Loadout {
 
 const PLAYER_DAMAGE_SCALE = 0.94;
 const IAI_FLASH_DAMAGE = 120;
-const MAX_PLAYER_HP = 180;
+const MAX_PLAYER_HP = 300;
 const MAX_PLAYER_GOURDS = 5;
 
 function playerProgression(elites, bossDefeated) {

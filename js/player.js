@@ -9,6 +9,12 @@ const PERFECT_DODGE_WINDOW = 0.06;
 const BUDDHA_PARRY_WINDOW = 0.14, BUDDHA_DODGE_WINDOW = 0.1;
 const HEAVY_STAB_HOLD = 0.36;
 const GOURD_HEAL_TIME = 0.25, GOURD_HEAL_END = 0.45;
+const DEATHBLOW_TIMINGS = {
+    katana: { impact: 0.13, duration: 0.55 },
+    spear: { impact: 0.24, duration: 0.68 },
+    hammer: { impact: 0.38, duration: 0.85 },
+    axe: { impact: 0.3, duration: 0.75 },
+};
 const P_COMBO = [
     new Attack('cut1', 0.08, 0.09, 0.20, 84, 150, 14, 12, 190),
     new Attack('cut2', 0.07, 0.09, 0.20, 84, 150, 14, 12, 190),
@@ -152,6 +158,10 @@ class Player extends Actor {
             s.charges = mods.charges;
             s.move *= mods.speed;
             s.deflect = mods.parry;
+        } else {
+            const blessing = 1 + 0.1 * (this.g.javaBlessings || 0);
+            s.dmg *= blessing;
+            s.post *= blessing;
         }
         const enlightened = this.enlightened();
         const buddhaPower = this.buddhaPower();
@@ -404,17 +414,25 @@ class Player extends Actor {
                 break;
             case 'DEATHBLOW': {
                 const e = this.dbTarget;
+                const type = weaponType(this.sword), timing = DEATHBLOW_TIMINGS[type];
                 this.facing = this.angleTo(e);
                 const tx = e.x - Math.cos(this.facing) * (e.r + this.r + 6), ty = e.y - Math.sin(this.facing) * (e.r + this.r + 6);
                 const k = 1 - Math.exp(-dt * 25);
                 this.x += (tx - this.x) * k;
                 this.y += (ty - this.y) * k;
                 g.world.resolve(this);
-                if (this.stT >= 0.13 && !this.dbDone) {
+                if (this.stT >= timing.impact && !this.dbDone) {
                     this.dbDone = true;
+                    if (type === 'spear') g.fx.thrust(this.x, this.y, this.facing,
+                        this.distTo(e) + e.r, 0.3, 14, this.sword.color);
+                    else if (type === 'hammer') {
+                        g.fx.ring(e.x, e.y, 8, 100, 0.4, 6, this.sword.color);
+                        g.fx.dust(e.x, e.y, 16);
+                    } else if (type === 'axe') g.fx.slash(this.x, this.y, this.distTo(e) + e.r,
+                        this.facing + 1.2, -2.4, 0.3, 14, this.sword.color);
                     g.executeDeathblow(this, e);
                 }
-                if (this.stT >= 0.55) this.toFree();
+                if (this.stT >= timing.duration) this.toFree();
                 break;
             }
             case 'IAI': this.iai(dt); break;
@@ -1249,8 +1267,29 @@ class Player extends Actor {
             handRel = 0.3;
             blade = facing + (st === 'IAI' && this.stT > 0.16 ? 2.6 : st === 'DRAGON' ? 0.2 + this.stT * 4 : 0.1);
         } else if (st === 'DEATHBLOW') {
-            handRel = 0;
-            blade = facing + (this.stT < 0.13 ? 1.4 : -0.6);
+            const type = weaponType(this.sword), timing = DEATHBLOW_TIMINGS[type];
+            const strike = U.clamp((this.stT - timing.impact + 0.1) / 0.1, 0, 1);
+            if (type === 'spear') {
+                const withdraw = U.clamp((this.stT - timing.impact - 0.12)
+                    / (timing.duration - timing.impact - 0.12), 0, 1);
+                handRel = 0;
+                handForward = U.lerp(U.lerp(-16, 26, strike), -10, withdraw);
+                blade = facing;
+                bodyLeanX = Math.cos(facing) * strike * (1 - withdraw) * 12;
+                bodyLeanY = Math.sin(facing) * strike * (1 - withdraw) * 12;
+            } else if (type === 'hammer') {
+                handRel = U.lerp(-1.2, 0.2, strike);
+                blade = facing + U.lerp(-2.5, 0.4, strike);
+                bodyFacing = facing - (1 - strike) * 0.6;
+                handForward = strike * 12;
+            } else if (type === 'axe') {
+                handRel = U.lerp(1.1, -0.6, strike);
+                blade = facing + U.lerp(2.2, -1.2, strike);
+                bodyFacing = facing + U.lerp(0.6, -0.4, strike);
+            } else {
+                handRel = 0;
+                blade = facing + U.lerp(1.4, -0.6, strike);
+            }
         } else if (st === 'STAGGER') {
             blade = facing + 1.6;
         } else if (st === 'THROW') {

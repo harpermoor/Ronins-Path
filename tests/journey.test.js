@@ -25,7 +25,7 @@ function journey(tier = 'kachi') {
         canvas: { width: 800, height: 600 }, zoomKickV: 0,
         world: { shrines: [shrine], camps: [], resolve() {} }, lastShrine: shrine,
         enemies: [], kills: 0, elitesSlain: 0, totalElites: 5, ngPlus: 0,
-        bossSpawned: false, bossDefeated: false, buddha: false, ultimate: false, magicUnlocked: false,
+        bossSpawned: false, bossDefeated: false, buddha: false, ultimate: false, javaBlessings: 0, magicUnlocked: false,
         magicCooldowns: {}, realityTears: [], johnJava: null,
         exp: 73, pointsEarned: 0, skillPoints: 0, deathCount: 0,
         fx: new Proxy({}, { get: (_, name) => (...args) => calls.push([name, args]) }),
@@ -359,8 +359,8 @@ assert(calls.some(([name, args]) => name === 'ring' && args[0] === john.x && arg
     'the blessing starts with a halo around John Java');
 game.updateJohnJava(JOHN_GRANT_TIME - john.t);
 assert.equal(game.buddha, true);
-assert(Math.abs(game.player.comboAtk[0].damage - normalDamage * 5) < 1e-9);
-assert(Math.abs(game.player.comboAtk[0].posture - postureDamage * 5) < 1e-9);
+assert(Math.abs(game.player.comboAtk[0].damage - normalDamage * 5 * 1.1) < 1e-9);
+assert(Math.abs(game.player.comboAtk[0].posture - postureDamage * 5 * 1.1) < 1e-9);
 assert(Math.abs(game.player.comboAtk[0].range - meleeRange * 1.5) < 1e-9);
 assert.equal(game.player.buddhaReviveReady, true, 'the Buddha blessing grants a ready revive');
 let deathEvents = 0;
@@ -512,12 +512,141 @@ assert.equal(invalid.buddha, false, 'saved blessing flags require a boolean');
 
 const guest = journey().game;
 guest.coop = { host: false };
-const coop = { game: guest, slot: 1, bodies: new Map() };
+const coop = { game: guest, slot: 1, bodies: new Map(), party: [] };
 Coop.prototype.receiveWorld.call(coop, { enemies: [], dead: [], defeated: true, buddha: false });
 assert(guest.johnJava, 'co-op guests see John Java after host victory');
 guest.updateJohnJava(3);
 assert.equal(guest.buddha, false, 'co-op guests must wait for the host to grant the blessing');
 Coop.prototype.receiveWorld.call(coop, { enemies: [], dead: [], defeated: true, buddha: true });
 assert.equal(guest.buddha, true, 'co-op guests receive the shared blessing');
+
+{
+    const { game } = journey();
+    const baseDamage = game.player.comboAtk[0].damage, basePosture = game.player.comboAtk[0].posture;
+    game.bossDefeated = true;
+    game.beginJohnJava();
+    game.updateJohnJava(JOHN_FINISH_TIME);
+    assert.equal(game.javaBlessings, 1);
+    game.beginJohnJava();
+    const pending = SaveGame.serialize(game);
+    assert.equal(pending.blessingPending, true, 'repeat blessings can be resumed from a save');
+    const resumed = journey().game;
+    SaveGame.apply(resumed, pending);
+    assert.equal(resumed.javaBlessings, 1);
+    assert.equal(resumed.johnJava.t, 0);
+    resumed.updateJohnJava(JOHN_GRANT_TIME);
+    assert.equal(resumed.javaBlessings, 2);
+    assert(Math.abs(resumed.player.comboAtk[0].damage - baseDamage * 1.2) < 1e-9);
+    assert(Math.abs(resumed.player.comboAtk[0].posture - basePosture * 1.2) < 1e-9);
+    resumed.updateJohnJava(JOHN_FINISH_TIME);
+    resumed.grantBuddha();
+    resumed.updateJohnJava(10);
+    assert.equal(resumed.javaBlessings, 2, 'completed ceremonies and repeated form grants do not duplicate bonuses');
+    const completed = journey().game;
+    SaveGame.apply(completed, SaveGame.serialize(resumed));
+    completed.updateJohnJava(10);
+    assert.equal(completed.javaBlessings, 2, 'loading a completed visit does not award it again');
+    completed.statMods = { hp: 100, posture: 100, gourds: 3, charges: 1, speed: 1, parry: 0.12 };
+    completed.player.applyLoadout();
+    assert.equal(completed.player.comboAtk[0].damage, baseDamage, 'blessings do not affect duels');
+    assert.equal(completed.player.comboAtk[0].posture, basePosture);
+    for (const value of [-1, Infinity, '2']) {
+        const sanitized = journey().game;
+        SaveGame.apply(sanitized, { ...pending, javaBlessings: value });
+        assert.equal(sanitized.javaBlessings, 0, 'invalid blessing counts are sanitized');
+    }
+    const guestDamage = guest.player.comboAtk[0].damage;
+    for (let i = 0; i < 3; i++) Coop.prototype.receiveWorld.call(coop,
+        { enemies: [], dead: [], defeated: true, buddha: true, javaBlessings: 2 });
+    assert.equal(guest.javaBlessings, 2, 'repeated co-op snapshots do not add blessings');
+    assert(Math.abs(guest.player.comboAtk[0].damage - guestDamage * 1.2) < 1e-9);
+}
+
+{
+    const { game } = journey();
+    game.saveNow = () => {};
+    const previous = game.difficulty;
+    game.resetMap(321);
+    assert.equal(game.ngPlus, 1, 'resetting before boss victory increases difficulty');
+    assert(game.difficulty.enemyHp > previous.enemyHp);
+    assert(game.difficulty.enemyPosture > previous.enemyPosture);
+    assert(game.difficulty.enemyDmg > previous.enemyDmg);
+    game.resetMap(322);
+    assert.equal(game.ngPlus, 2, 'every reset advances the journey');
+    game.resetMap(323, 5, true);
+    assert.equal(game.ngPlus, 5, 'authoritative co-op tiers are not incremented twice');
+    const cap = vm.runInContext('NG_PLUS_MAX', context);
+    game.ngPlus = cap;
+    game.resetMap(324);
+    assert.equal(game.ngPlus, cap, 'the existing New Game + limit is respected');
+    game.buddha = true;
+    game.beginJohnJava();
+    game.resetMap(325);
+    assert(game.johnJava, 'a repeat blessing survives an early map reset');
+    game.updateJohnJava(JOHN_GRANT_TIME);
+    assert.equal(game.javaBlessings, 1);
+    game.resetMap(326);
+    assert.equal(game.javaBlessings, 1, 'map resets preserve permanent bonuses');
+    game.elitesSlain = 20;
+    Object.assign(game.player, vm.runInContext('playerProgression', context)(20, false));
+    game.player.applyLoadout();
+    const resumed = journey().game;
+    SaveGame.apply(resumed, SaveGame.serialize(game));
+    assert.equal(resumed.elitesSlain, 20, 'lifetime elite counts are not clamped to one map');
+    assert.equal(resumed.player.maxHp, 300, 'increased vitality survives saving and loading');
+}
+
+{
+    const poses = [], Draw = vm.runInContext('Draw', context), originalWeapon = Draw.weapon;
+    const timings = vm.runInContext('DEATHBLOW_TIMINGS', context);
+    try {
+        for (const [id, type, effect] of [
+            ['wanderer', 'katana', null], ['spear', 'spear', 'thrust'],
+            ['hammer', 'hammer', 'ring'], ['axe', 'axe', 'slash'],
+        ]) {
+            const { game, calls } = journey(), p = game.player;
+            game.loadout.sword = id;
+            p.applyLoadout();
+            const target = { x: 80, y: 0, r: 15, st: 'BROKEN', elite: true, aware: true,
+                lives: 2, hp: 1, maxHp: 100, posture: 100,
+                setSt(st) { this.st = st; }, die() { this.st = 'DEAD'; } };
+            let executions = 0;
+            game.executeDeathblow = (attacker, victim) => {
+                assert.equal(attacker, p);
+                assert.equal(victim, target);
+                executions++;
+                Game.prototype.executeDeathblow.call(game, attacker, victim);
+            };
+            p.startDeathblow(target);
+            assert.equal(target.beingExecuted, true);
+            assert.equal(p.invulnerable(), true);
+            p.update(timings[type].impact - 0.01);
+            assert.equal(executions, 0, type + ' waits for its impact frame');
+            Draw.weapon = (_, x, y, angle) => poses.push([x, y, angle]);
+            p.draw(canvas, 0);
+            p.update(0.02);
+            assert.equal(executions, 1, type + ' resolves at its own impact time');
+            assert.equal(target.lives, 1, type + ' removes only one elite life');
+            assert.equal(target.hp, 100);
+            assert.equal(target.beingExecuted, false);
+            if (effect) assert(calls.some(([name]) => name === effect), type + ' has a matching impact effect');
+            p.update(timings[type].duration - p.stT - 0.01);
+            assert.equal(p.st, 'DEATHBLOW', type + ' retains its recovery animation');
+            assert.equal(executions, 1, type + ' never repeats the execution');
+            p.update(0.02);
+            assert.equal(p.st, 'FREE');
+            assert.equal(executions, 1);
+            p.startDeathblow(target);
+            p.update(1);
+            assert.equal(p.st, 'FREE');
+            assert.equal(executions, 2, type + ' executes once even when a frame crosses the full animation');
+            assert.equal(target.st, 'DEAD', type + ' kills the target on its final life');
+        }
+    } finally {
+        Draw.weapon = originalWeapon;
+    }
+    assert.equal(new Set(poses.map(pose => JSON.stringify(pose))).size, 4,
+        'all four weapon families have distinct deathblow poses');
+}
 
 console.log('Difficulty tactics, EXP retention, John Java, and persistent Buddha rewards passed');

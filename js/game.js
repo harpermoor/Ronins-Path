@@ -74,6 +74,7 @@ class Game {
         this.bossDefeated = false;
         this.buddha = false;
         this.ultimate = false;
+        this.javaBlessings = 0;
         this.magicUnlocked = o.magicUnlocked === true;
         this.magicCooldowns = {};
         this.devGodMode = false;
@@ -799,8 +800,6 @@ class Game {
         this.saveSoon();
     }
 
-    /** Regenerates the world layout. Keeps gear, skills, EXP and elites slain. Resetting the map after the Ashen
-     * Daimyo has fallen advances the journey one New Game + tier, up to +7, which permanently toughens enemies. */
     setCoopSettings(changes) {
         if (!this.coop || !this.coop.host) return;
         this.applyCoopSettings(Object.assign({}, this.coopSettings, changes));
@@ -825,10 +824,11 @@ class Game {
         }
     }
 
+    /** Map resets advance New Game + up to its cap, keeping gear, skills, EXP and blessings. */
     resetMap(seedOverride, ngOverride, remote) {
         this.shrineMenu = null;
         const player = this.player, newSeed = Number.isFinite(seedOverride) ? seedOverride : Math.floor(Math.random() * 2 ** 48);
-        const ascend = ngOverride === undefined && this.bossDefeated && this.ngPlus < NG_PLUS_MAX;
+        const ascend = ngOverride === undefined && this.ngPlus < NG_PLUS_MAX;
         if (Number.isInteger(ngOverride)) this.ngPlus = U.clamp(ngOverride, 0, NG_PLUS_MAX);
         else if (ascend) this.ngPlus++;
         this.difficulty = difficultyFor(this.coopSettings, this.partySize, this.ngPlus, this.difficultyTier);
@@ -839,7 +839,7 @@ class Game {
         this.boss = null;
         this.bossSpawned = false;
         this.bossDefeated = false;
-        if (this.buddha && !(this.johnJava && this.johnJava.ultimate && !this.johnJava.finished)) this.johnJava = null;
+        if (this.buddha && (!this.johnJava || this.johnJava.finished)) this.johnJava = null;
         this.realityTears = [];
         this.wardShrine = null;
         this.restBlockers = [];
@@ -1227,7 +1227,7 @@ class Game {
     }
 
     beginJohnJava() {
-        if (this.johnJava) return;
+        if (this.johnJava && !this.johnJava.finished) return;
         this.johnJava = { x: this.player.x + 65, y: this.player.y - 35, t: 0, invaders: [], summoned: false,
             smitten: false, finished: false };
         this.banner('JOHN JAVA', 'A visitor descends from the heavens...', rgb(255, 235, 150));
@@ -1283,6 +1283,7 @@ class Game {
             this.sfx.play('IAI');
         }
         if (previous < JOHN_GRANT_TIME && john.t >= JOHN_GRANT_TIME && (!this.coop || this.coop.host)) {
+            this.grantJavaBlessing();
             if (john.ultimate) this.grantUltimatePower();
             else this.grantBuddha();
         }
@@ -1323,6 +1324,15 @@ class Game {
         this.shake(18);
         this.hitstop(0.3);
         this.sfx.play('BREAK');
+    }
+
+    grantJavaBlessing() {
+        this.javaBlessings = Math.min(Number.MAX_SAFE_INTEGER, (this.javaBlessings || 0) + 1);
+        this.player.applyLoadout();
+        if (this.coop) for (const p of this.coop.party) p.applyLoadout();
+        this.fx.text('BLESSING ' + this.javaBlessings + ': +10% DAMAGE & POSTURE',
+            this.player.x, this.player.y - 70, rgb(255, 225, 130), 17);
+        this.saveSoon();
     }
 
     grantBuddha() {
@@ -2206,7 +2216,8 @@ class Game {
         const resetDisabled = this.coop && !this.coop.host;
         const resetTitle = this.resetMapConfirmT > 0 ? 'Confirm Reset Map' : 'Reset Map';
         const resetCopy = resetDisabled ? 'Only the co-op host can reset the map.'
-            : this.resetMapConfirmT > 0 ? 'Select again to rebuild the world; gear and progress remain.' : 'Rebuild the world while keeping gear, skills, and EXP.';
+            : this.resetMapConfirmT > 0 ? 'Confirm a harder world; gear and progress remain.'
+                : 'Rebuild the world at the next difficulty tier. Keep gear, skills, and EXP.';
         this.pauseButton(g, 'reset', resetTitle, resetCopy, lx, y, colW, 52,
             { danger: true, key: 'M', disabled: resetDisabled });
         this.pauseButton(g, 'new-game', this.newGameConfirmT > 0 ? 'Confirm New Game' : 'Start New Game',

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Every map reset now advances New Game +, even before defeating the Daimyo, up to the existing +7 limit.
+- Every completed John Java visit grants a permanent +10% base damage and posture-damage bonus, preserved in saves and shared in co-op but disabled in duels.
+- Added distinct katana, spear, hammer, and axe deathblow motions, impact effects, and execution timings.
+- Added the Duelist's Katana, Guardian Spear, Temple Hammer, Raider Hatchet, Crescent Greataxe, and Executioner's Axe.
+- Raised the vitality cap from 180 to 300; lifetime elite rewards remain available across map resets and saves.
 - Defeating the Ashen Daimyo on Buddha difficulty without Buddha form unlocks solo-only fireball, lightning, healing, and teleport spells plus a game-command developer console.
 - The Ashen Daimyo now has a much shorter vision range and narrower field of view.
 - Increased the Ashen Daimyo's perilous stab windup to give players more time to react.

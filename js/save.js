@@ -69,9 +69,11 @@ const SaveGame = {
             bossDefeated: game.bossDefeated,
             buddha: game.buddha === true,
             ultimate: game.ultimate === true,
+            javaBlessings: game.javaBlessings || 0,
             magicUnlocked: game.magicUnlocked === true,
             ultimatePending: !!game.johnJava && game.johnJava.ultimate === true && !game.ultimate,
-            blessingPending: !!game.johnJava && !game.buddha,
+            blessingPending: !!game.johnJava && !game.johnJava.finished && !game.johnJava.ultimate
+                && game.johnJava.t < JOHN_GRANT_TIME,
             exp: game.exp,
             pointsEarned: game.pointsEarned,
             skills: [...game.skills],
@@ -103,11 +105,12 @@ const SaveGame = {
             }
         }
         game.kills = Math.trunc(num(d.kills, 0, 1e7, 0));
-        game.elitesSlain = Math.trunc(num(d.elitesSlain, 0, game.totalElites, 0));
+        game.elitesSlain = Math.trunc(num(d.elitesSlain, 0, 10000, 0));
         game.ngPlus = Math.trunc(num(d.ngPlus, 0, NG_PLUS_MAX, 0));
         game.bossDefeated = d.bossDefeated === true;
         game.buddha = d.buddha === true;
         game.ultimate = game.buddha && d.ultimate === true;
+        game.javaBlessings = Math.trunc(num(d.javaBlessings, 0, Number.MAX_SAFE_INTEGER, 0));
         game.magicUnlocked = d.magicUnlocked === true
             || (d.bossDefeated === true && game.difficultyTier === 'buddha' && !game.buddha);
         if (d.bossSpawned === true && !game.bossDefeated) game.spawnFinalBoss();
@@ -146,7 +149,7 @@ const SaveGame = {
             game.beginUltimateAscension();
         } else if (game.bossDefeated || d.blessingPending === true) {
             game.beginJohnJava();
-            if (game.buddha) {
+            if (game.buddha && d.blessingPending !== true) {
                 game.johnJava.t = 3;
                 game.johnJava.finished = true;
             }
