@@ -39,10 +39,10 @@ function journey(tier = 'kachi') {
 }
 
 {
-<<<<<<< HEAD
     for (const tier of ['kachi', 'buddha']) {
         const { game, calls } = journey(tier);
         game.buddha = game.ultimate = true;
+        game.loadout.art = 'reality-tear';
         game.player.applyLoadout();
         game.grantBuddha = () => assert.fail('repeat victories must not grant Buddha again');
         game.grantUltimatePower = () => assert.fail('repeat victories must not replay the fusion');
@@ -71,8 +71,6 @@ function journey(tier = 'kachi') {
 }
 
 {
-    for (const [tier, buddha, expected] of [['buddha', true, true], ['buddha', false, false], ['kachi', true, false]]) {
-=======
     const ordinary = journey('kachi').game;
     const buddhaForm = journey('kachi').game;
     buddhaForm.buddha = true;
@@ -104,7 +102,6 @@ function journey(tier = 'kachi') {
     for (const [tier, buddha, expected, magic] of [
         ['buddha', true, true, false], ['buddha', false, false, true], ['kachi', true, false, false],
     ]) {
->>>>>>> origin/main
         const { game } = journey(tier);
         game.buddha = buddha;
         game.onEnemyKilled({ boss: true, elite: true, camp: null, x: 0, y: 0 });

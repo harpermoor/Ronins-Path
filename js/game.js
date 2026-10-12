@@ -74,13 +74,11 @@ class Game {
         this.bossDefeated = false;
         this.buddha = false;
         this.ultimate = false;
-<<<<<<< HEAD
         this.devMode = false;
         this.devInfiniteHealth = false;
         this.devInfiniteDamage = false;
         this.devSpeedBuff = false;
         this.devAttackSpeedBuff = false;
-=======
         this.javaBlessings = 0;
         this.magicUnlocked = o.magicUnlocked === true;
         this.magicCooldowns = {};
@@ -91,7 +89,6 @@ class Game {
         this.magicConsole = document.getElementById('magic-console');
         this.magicConsoleInput = document.getElementById('magic-console-input');
         this.magicConsoleOutput = document.getElementById('magic-console-output');
->>>>>>> origin/main
         this.realityTears = [];
         this.johnJava = null;
         this.vignette = null;
@@ -142,8 +139,21 @@ class Game {
         };
         window.addEventListener('resize', resize);
         resize();
-<<<<<<< HEAD
         this.setupDeveloperTools();
+        document.getElementById('magic-console-form').addEventListener('submit', event => {
+            event.preventDefault();
+            const command = this.magicConsoleInput.value.trim();
+            if (!command) return;
+            this.magicConsoleInput.value = '';
+            this.consolePrint('> ' + command);
+            this.consolePrint(this.runDeveloperCommand(command));
+        });
+        this.magicConsoleInput.addEventListener('keydown', event => {
+            if (event.code === 'Escape') {
+                event.preventDefault();
+                this.closeDeveloperConsole();
+            }
+        });
     }
 
     setupDeveloperTools() {
@@ -233,22 +243,6 @@ class Game {
             if (input) input.checked = false;
         }
         this.player.applyLoadout();
-=======
-        document.getElementById('magic-console-form').addEventListener('submit', event => {
-            event.preventDefault();
-            const command = this.magicConsoleInput.value.trim();
-            if (!command) return;
-            this.magicConsoleInput.value = '';
-            this.consolePrint('> ' + command);
-            this.consolePrint(this.runDeveloperCommand(command));
-        });
-        this.magicConsoleInput.addEventListener('keydown', event => {
-            if (event.code === 'Escape') {
-                event.preventDefault();
-                this.closeDeveloperConsole();
-            }
-        });
->>>>>>> origin/main
     }
 
     spawnEnemies() {

@@ -2,8 +2,8 @@
 
 ## Unreleased
 
+- Fixed a startup failure that caused Continue Journey to show a black screen.
 - After Reality Rend is unlocked, repeat victories have John Java descend, dap up the player, and ascend instead of replaying the Buddha awakening.
-- Added a single-player developer tools panel for spawning enemies, ending fights, restoring health, and enabling combat test buffs.
 - Every map reset now advances New Game +, even before defeating the Daimyo, up to the existing +7 limit.
 - Every completed John Java visit grants a permanent +10% base damage and posture-damage bonus, preserved in saves and shared in co-op but disabled in duels.
 - Added distinct katana, spear, hammer, and axe deathblow motions, impact effects, and execution timings.
