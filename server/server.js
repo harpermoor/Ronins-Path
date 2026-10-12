@@ -6,7 +6,7 @@ const http = require('node:http');
 const path = require('node:path');
 const { WebSocket, WebSocketServer } = require('ws');
 
-const NET_VERSION = 14;
+const NET_VERSION = 15;
 const MAX_CONNECTIONS_PER_ROOM = 8;
 const MAX_PAYLOAD = 1024 * 1024;
 const ROOM_TTL_MS = 30 * 60 * 1000;

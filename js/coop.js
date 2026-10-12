@@ -151,6 +151,7 @@ class Coop {
             }).filter(Boolean), dead: game.enemies.flatMap((e, i) => e.st === 'DEAD' ? [i] : []),
             kills: game.kills, elites: game.elitesSlain, boss: game.bossSpawned, defeated: game.bossDefeated,
             buddha: game.buddha === true, ultimate: game.ultimate === true,
+            javaBlessings: game.javaBlessings || 0,
             ultimatePending: !!game.johnJava && game.johnJava.ultimate === true && !game.ultimate, ng: game.ngPlus,
             camps: game.world.camps.map(c => c.cleared), shrines: game.world.shrines.map(s => s.discovered) });
         } else {
@@ -274,6 +275,12 @@ class Coop {
             game.grantBuddha();
         }
         if (d.ultimate === true && d.buddha === true) game.grantUltimatePower();
+        if (Number.isSafeInteger(d.javaBlessings) && d.javaBlessings >= 0
+            && game.javaBlessings !== d.javaBlessings) {
+            game.javaBlessings = d.javaBlessings;
+            game.player.applyLoadout();
+            for (const p of this.party) p.applyLoadout();
+        }
         if (Array.isArray(d.camps)) game.world.camps.forEach((c, i) => { if (d.camps[i]) c.cleared = true; });
         if (Array.isArray(d.shrines)) game.world.shrines.forEach((s, i) => { if (d.shrines[i]) s.discovered = true; });
     }
@@ -510,11 +517,11 @@ class Coop {
             game.executeDeathblow(p, e);
         } else if (d.kind === 'mikiri' && e.atk && e.atk.thrust && p.distTo(e) < e.atk.range + 80) {
             game.onMikiri(p, e);
-        } else if (d.kind === 'buddha-mikiri' && p.enlightened() && e.atk && e.atk.perilous && e.atk.thrust
+        } else if (d.kind === 'buddha-mikiri' && p.buddhaPower() && e.atk && e.atk.perilous && e.atk.thrust
             && (e.st === 'ACTIVE' || (e.st === 'WINDUP' && e.stDur - e.stT < 0.32))
             && p.distTo(e) < e.atk.range + 80) {
             game.onBuddhaMikiri(p, e);
-        } else if (d.kind === 'sweep-counter' && p.enlightened() && e.atk && e.atk.sweep
+        } else if (d.kind === 'sweep-counter' && p.buddhaPower() && e.atk && e.atk.sweep
             && (e.st === 'ACTIVE' || (e.st === 'WINDUP' && e.stDur - e.stT < 0.32))
             && p.distTo(e) < e.atk.range + 80) {
             game.onSweepCounter(p, e);

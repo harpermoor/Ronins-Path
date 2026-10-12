@@ -5,7 +5,7 @@
  * with export/import of a .json save file as a backup that survives clearing browser data or switching browsers.
  */
 const SAVE_KEY = 'roninsPath.save.v1';
-const SAVE_VERSION = 3;
+const SAVE_VERSION = 4;
 const SAVE_FILE_NAME = 'ronins-path-save.json';
 const MAX_SAVE_FILE_BYTES = 1000000;
 
@@ -35,7 +35,7 @@ const SaveGame = {
     },
 
     valid(d) {
-        return !!d && typeof d === 'object' && (d.v === 1 || d.v === 2 || d.v === SAVE_VERSION)
+        return !!d && typeof d === 'object' && (d.v === 1 || d.v === 2 || d.v === 3 || d.v === SAVE_VERSION)
             && Number.isFinite(d.seed) && !!d.player && typeof d.player === 'object';
     },
 
@@ -69,8 +69,11 @@ const SaveGame = {
             bossDefeated: game.bossDefeated,
             buddha: game.buddha === true,
             ultimate: game.ultimate === true,
+            javaBlessings: game.javaBlessings || 0,
+            magicUnlocked: game.magicUnlocked === true,
             ultimatePending: !!game.johnJava && game.johnJava.ultimate === true && !game.ultimate,
-            blessingPending: !!game.johnJava && !game.buddha,
+            blessingPending: !!game.johnJava && !game.johnJava.finished && !game.johnJava.ultimate
+                && game.johnJava.t < JOHN_GRANT_TIME,
             exp: game.exp,
             pointsEarned: game.pointsEarned,
             skills: [...game.skills],
@@ -102,13 +105,16 @@ const SaveGame = {
             }
         }
         game.kills = Math.trunc(num(d.kills, 0, 1e7, 0));
-        game.elitesSlain = Math.trunc(num(d.elitesSlain, 0, game.totalElites, 0));
+        game.elitesSlain = Math.trunc(num(d.elitesSlain, 0, 10000, 0));
         game.ngPlus = Math.trunc(num(d.ngPlus, 0, NG_PLUS_MAX, 0));
         game.bossDefeated = d.bossDefeated === true;
         game.buddha = d.buddha === true;
         game.ultimate = game.buddha && d.ultimate === true;
+        game.javaBlessings = Math.trunc(num(d.javaBlessings, 0, Number.MAX_SAFE_INTEGER, 0));
+        game.magicUnlocked = d.magicUnlocked === true
+            || (d.bossDefeated === true && game.difficultyTier === 'buddha' && !game.buddha);
         if (d.bossSpawned === true && !game.bossDefeated) game.spawnFinalBoss();
-        game.loadout.apply(d.loadout, game.elitesSlain);
+        game.loadout.apply(d.loadout, game.elitesSlain, game.ultimate);
         game.pointsEarned = Math.trunc(num(d.pointsEarned, 0, 1000, 0));
         game.exp = num(d.exp, 0, expForNextPoint(game.pointsEarned) - 1, 0);
         // only keep skills whose prerequisites are learned and that fit in the points earned
@@ -143,7 +149,7 @@ const SaveGame = {
             game.beginUltimateAscension();
         } else if (game.bossDefeated || d.blessingPending === true) {
             game.beginJohnJava();
-            if (game.buddha) {
+            if (game.buddha && d.blessingPending !== true) {
                 game.johnJava.t = 3;
                 game.johnJava.finished = true;
             }

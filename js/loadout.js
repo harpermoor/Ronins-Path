@@ -70,6 +70,8 @@ const ARTS = [
     },
 ];
 
+ARTS.push(REALITY_TEAR_ART);
+
 const SWORDS = [
     { id: 'wanderer', type: 'katana', name: "Wanderer's Katana", kanji: '打刀', unlock: 0, dmg: 1, post: 1, spd: 1, reach: 0, len: 56, color: rgb(210, 215, 230),
         desc: 'A plain, honest blade. Balanced in every way.', info: 'Balanced' },
@@ -115,6 +117,34 @@ const SWORDS = [
             new Attack('axe3', 0.24, 0.14, 0.45, 98, 240, 27, 27, 220)],
         desc: 'Broad, heavy chops catch groups.', info: 'Damage +18%  -  Wide arc  -  Slower' },
 ];
+
+SWORDS.push(
+    { id: 'duelist', type: 'katana', name: "Duelist's Katana", kanji: '刀', unlock: 3,
+        dmg: 1.08, post: 0.95, spd: 0.82, reach: 4, len: 60, color: rgb(165, 205, 235),
+        desc: 'A nimble blade for relentless, precise cuts.', info: 'Damage +8%  -  Faster swings  -  Less posture damage' },
+    { id: 'guardian-spear', type: 'spear', name: 'Guardian Spear', kanji: '槍', unlock: 4,
+        dmg: 1.18, post: 1.2, spd: 1.2, reach: 42, len: 90, color: rgb(225, 195, 125),
+        combo: SWORDS.find(w => w.id === 'spear').combo,
+        desc: 'A reinforced spear that punishes guarded foes.', info: 'Damage +18%  -  Posture +20%  -  Long reach' },
+    { id: 'temple-hammer', type: 'hammer', name: 'Temple Hammer', kanji: '鎚', unlock: 4,
+        poise: 30, dmg: 1.32, post: 1.7, spd: 1.25, reach: -4, len: 62, color: rgb(210, 185, 125),
+        combo: SWORDS.find(w => w.id === 'hammer').combo,
+        desc: 'A balanced ritual hammer, lighter than a war maul.', info: 'Posture +70%  -  Faster than Iron Hammer' },
+    { id: 'raider-axe', type: 'axe', name: 'Raider Hatchet', kanji: '斧', unlock: 1,
+        poise: 10, dmg: 1.08, post: 1.15, spd: 0.88, reach: -10, len: 44, color: rgb(195, 215, 220),
+        combo: SWORDS.find(w => w.id === 'axe').combo,
+        desc: 'A short axe built for fast, repeated chops.', info: 'Fast swings  -  Short reach  -  Light armor' },
+    { id: 'crescent-axe', type: 'axe', name: 'Crescent Greataxe', kanji: '斧', unlock: 2,
+        poise: 24, dmg: 1.4, post: 1.5, spd: 1.4, reach: 14, len: 72, color: rgb(220, 175, 155),
+        combo: [new Attack('crescent1', 0.17, 0.12, 0.3, 90, 205, 18, 17, 155),
+            new Attack('crescent2', 0.17, 0.12, 0.3, 90, 205, 18, 17, 155),
+            new Attack('crescent3', 0.28, 0.14, 0.48, 110, 280, 29, 30, 210)],
+        desc: 'A long crescent blade sweeps through groups.', info: 'Damage +40%  -  Posture +50%  -  Wide, slow sweeps' },
+    { id: 'executioner-axe', type: 'axe', name: "Executioner's Axe", kanji: '斧', unlock: 4,
+        poise: 32, dmg: 1.6, post: 1.65, spd: 1.55, reach: 6, len: 68, color: rgb(190, 100, 90),
+        combo: SWORDS.find(w => w.id === 'axe').combo,
+        desc: 'A weighty axe that ends fights with decisive chops.', info: 'Damage +60%  -  Posture +65%  -  High poise, slow swings' },
+);
 
 const THROWABLES = [
     { id: 'shuriken', name: 'Shuriken', kanji: '手裏剣', unlock: 0, max: 5, range: 250, damage: 12, posture: 10, color: rgb(185, 220, 240),
@@ -231,11 +261,15 @@ class Loadout {
     }
 
     /** Restore from untrusted data; gear is only accepted if unlocked with the given elite count. */
-    apply(d, elites) {
+    apply(d, elites, realityRendUnlocked = false) {
         if (!d || typeof d !== 'object') return;
         for (const s of EQUIP_SLOTS) {
             const it = s.list.find(i => i.id === d[s.field]);
-            if (it && it.unlock <= elites) this[s.field] = it.id;
+            if (it && it.id === REALITY_TEAR_ART.id) {
+                this[s.field] = realityRendUnlocked ? it.id : ARTS[0].id;
+            } else if (it && it.unlock <= elites) {
+                this[s.field] = it.id;
+            }
         }
         if (d.look && typeof d.look === 'object') {
             for (const l of LOOKS) {
@@ -248,7 +282,7 @@ class Loadout {
 
 const PLAYER_DAMAGE_SCALE = 0.94;
 const IAI_FLASH_DAMAGE = 120;
-const MAX_PLAYER_HP = 180;
+const MAX_PLAYER_HP = 300;
 const MAX_PLAYER_GOURDS = 5;
 
 function playerProgression(elites, bossDefeated) {
@@ -360,7 +394,9 @@ class EquipMenu {
         this.weaponTypeTab = Math.max(0, WEAPON_TYPES.findIndex(t => t.id === weaponType(lo.swordDef())));
     }
 
-    unlocked(it) { return this.g.elitesSlain >= it.unlock; }
+    unlocked(it) {
+        return it.id === REALITY_TEAR_ART.id ? this.g.ultimate === true : this.g.elitesSlain >= it.unlock;
+    }
 
     weaponIndices() {
         const type = WEAPON_TYPES[this.weaponTypeTab].id;
@@ -503,7 +539,9 @@ class EquipMenu {
     equip(i) {
         const g = this.g, slot = EQUIP_SLOTS[this.tab], it = slot.list[i];
         if (!this.unlocked(it)) {
-            this.note('Locked  -  slay ' + it.unlock + ' elite' + (it.unlock > 1 ? 's' : '') + ' to unlock');
+            this.note(it.id === REALITY_TEAR_ART.id
+                ? 'Complete the Buddha ultimate trial to unlock Reality Rend'
+                : 'Locked  -  slay ' + it.unlock + ' elite' + (it.unlock > 1 ? 's' : '') + ' to unlock');
             g.sfx.play('BLOCK');
             return;
         }
@@ -691,7 +729,10 @@ class EquipMenu {
             g.font = '12px sans-serif';
             game.text(g, it.info, x + 84, ry + 62, U.alpha(rgb(140, 210, 200), dim), false);
             g.font = 'bold 13px sans-serif';
-            if (!this.unlocked(it)) this.rightText(g, 'Slay ' + it.unlock + ' elite' + (it.unlock > 1 ? 's' : ''), x + w - 12, ry + 24, rgb(200, 120, 110));
+            if (!this.unlocked(it)) this.rightText(g,
+                it.id === REALITY_TEAR_ART.id ? 'Complete Buddha ultimate trial'
+                    : 'Slay ' + it.unlock + ' elite' + (it.unlock > 1 ? 's' : ''),
+                x + w - 12, ry + 24, rgb(200, 120, 110));
             else if (weaponLocked) this.rightText(g, 'Requires ' + weaponTypeName(it.weapon), x + w - 12, ry + 24, rgb(220, 160, 110));
             else if (slot.field === 'armor' && it.affinity) {
                 const fits = armorFitsWeapon(it, lo.swordDef());

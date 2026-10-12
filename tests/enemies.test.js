@@ -194,7 +194,27 @@ const daimyo = new Enemy(game, 'RONIN', 4000, 4000, true, 'The Ashen Daimyo', 7,
 assert(daimyo.combos.some(combo => combo.some(atk => atk.name === EA.DAIMYO_ASHFALL.name)));
 assert(daimyo.gap.some(combo => combo.some(atk => atk.name === EA.DAIMYO_ASHFALL.name)));
 assert(EA.DAIMYO_ASHFALL.perilous && !EA.DAIMYO_ASHFALL.thrust);
+const daimyoStab = daimyo.combos.find(combo => combo.length === 1 && combo[0].thrust)[0];
+assert.equal(daimyoStab.windup, 0.85, 'the Ashen Daimyo gives players more time to react to his perilous stabs');
+const roninStab = new Enemy(game, 'RONIN', 4000, 4000, false, null, 8).combos.find(combo =>
+    combo.length === 1 && combo[0].thrust)[0];
+assert.equal(roninStab.windup, EA.R_THRUST.windup, 'other ronins keep their original stab timing');
 assert(daimyo.dodgeChance > 0);
+assert.equal(daimyo.detect, 280, 'the Ashen Daimyo has a shorter vision range');
+assert.equal(daimyo.visionAngle, 0.65, 'the Ashen Daimyo has a narrower vision cone');
+daimyo.g = { enemies: [], fx: { text() {} }, engageBoss() {} };
+daimyo.wanderT = 10;
+daimyo.wanderX = daimyo.x;
+daimyo.wanderY = daimyo.y;
+const testVision = (distance, angle) => {
+    daimyo.aware = false;
+    daimyo.st = 'IDLE';
+    daimyo.idle(0, distance, angle, { st: 'FREE', invuln: 0, vx: 0, vy: 0, stealth: 1, sneaking: () => false }, true);
+    return daimyo.aware;
+};
+assert.equal(testVision(400, 0), false, 'the Ashen Daimyo does not see players beyond his reduced range');
+assert.equal(testVision(200, 0.8), false, 'the Ashen Daimyo does not see players outside his narrower cone');
+assert.equal(testVision(200, 0), true, 'the Ashen Daimyo still sees players nearby in front of him');
 const respawnElite = new Enemy(game, 'RONIN', 4000, 4000, true, eliteNames[0][0], 8);
 const respawnBoss = new Enemy(game, 'RONIN', 4000, 4000, true, 'The Ashen Daimyo', 9, true, true);
 const defeatedElite = new Enemy(game, 'SPEAR', 5000, 5000, true, eliteNames[1][0], 10);
@@ -359,7 +379,8 @@ latestGame.skills = new Set();
 SaveGame.apply(latestGame, { v: 3, dead: [1], player: {} });
 assert.notEqual(latestGame.enemies[0].st, 'DEAD');
 assert.equal(latestGame.enemies[1].st, 'DEAD');
-assert.equal(vm.runInContext('SAVE_VERSION', context), 3);
+assert.equal(SaveGame.valid({ v: 3, seed: 1, player: {} }), true, 'version 3 saves remain loadable');
+assert.equal(vm.runInContext('SAVE_VERSION', context), 4);
 
 const combatGame = { difficulty: difficultyFor(null, 1, 0), time: 0,
     fx: new Proxy({}, { get: () => () => {} }), sfx: { play() {} },

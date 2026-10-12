@@ -13,7 +13,7 @@ const { lo, g, p, shrine, fxEvents } = vm.runInContext(`(() => {
     const lo = new Loadout(), shrine = { x: 0, y: 0, name: 'Starting Shrine', discovered: true };
     const fxEvents = [];
     const fx = new Proxy({}, { get: (_, name) => (...args) => fxEvents.push({ name, args }) });
-    const g = { loadout: lo, skills: new Set(), world: { shrines: [shrine], camps: [],
+    const g = { loadout: lo, skills: new Set(), difficultyTier: 'buddha', world: { shrines: [shrine], camps: [],
         resolve() {}, solidAt: () => false }, enemies: [], totalElites: 5, lastShrine: shrine,
         rnd: { nextDouble: () => 1 }, fx, sfx: { play() {} }, time: 0,
         deathblowTarget: () => null, enemyInFront: () => false, projectileHitCheck: () => 240,
@@ -32,10 +32,10 @@ assert.equal(progression(2, false).baseMaxHp, 140);
 assert.equal(progression(2, false).baseGourds, 4);
 assert.equal(progression(3, false).baseMaxHp, 150);
 assert.equal(progression(3, false).baseGourds, 5);
-assert.equal(progression(20, true).baseMaxHp, 180);
+assert.equal(progression(20, true).baseMaxHp, 300);
 assert.equal(progression(20, true).baseGourds, 5);
 const cappedStats = vm.runInContext('computeStats', context)(lo, 500, 20, new Set());
-assert.equal(cappedStats.maxHp, 180);
+assert.equal(cappedStats.maxHp, 300);
 assert.equal(cappedStats.gourds, 5);
 assert.equal(p.comboAtk[0].damage, vm.runInContext('P_COMBO[0].damage', context) * 0.94);
 assert.equal(p.throwAtk.damage, lo.throwableDef().damage * 0.94);
@@ -80,12 +80,25 @@ for (const [id, arc, finisherArc] of [['spear', 42, 54], ['hammer', 150, 185], [
     assert.equal(p.comboAtk[0].arc, arc * Math.PI / 180);
     assert.equal(p.comboAtk[2].arc, finisherArc * Math.PI / 180);
 }
-for (const id of ['storm-spear', 'serpent-spear', 'war-hammer', 'stone-hammer']) {
+for (const id of ['storm-spear', 'serpent-spear', 'war-hammer', 'stone-hammer',
+    'duelist', 'guardian-spear', 'temple-hammer', 'raider-axe', 'crescent-axe', 'executioner-axe']) {
     lo.sword = id;
     p.applyLoadout();
     assert.equal(p.sword.id, id);
     assert.equal(p.comboAtk.length, 3);
+    const restored = lo.clone();
+    restored.apply(lo.toData(), 4);
+    assert.equal(restored.sword, id, 'weapon variants survive loadout serialization');
 }
+const variants = vm.runInContext('SWORDS', context);
+assert.equal(new Set(variants.map(w => w.id)).size, variants.length, 'weapon IDs are unique');
+assert.equal(variants.filter(w => w.type === 'axe').length, 4, 'axes have four distinct variants');
+assert(variants.find(w => w.id === 'raider-axe').spd < variants.find(w => w.id === 'axe').spd);
+assert(variants.find(w => w.id === 'crescent-axe').reach > variants.find(w => w.id === 'axe').reach);
+assert(variants.find(w => w.id === 'executioner-axe').dmg > variants.find(w => w.id === 'axe').dmg);
+const lockedVariant = new (vm.runInContext('Loadout', context))();
+lockedVariant.apply({ ...lo.toData(), sword: 'executioner-axe' }, 3);
+assert.notEqual(lockedVariant.sword, 'executioner-axe', 'new weapons retain their elite unlock requirements');
 const weaponMenu = new (vm.runInContext('EquipMenu', context))(g);
 weaponMenu.tab = 1;
 weaponMenu.selectWeaponType(2);
@@ -180,7 +193,7 @@ assert(hitDuringArt('hammer', 'earthshaker', 30, false)[1] < hitDuringArt('hamme
 assert.equal(hitDuringArt('hammer', 'whirlwind', 30, false)[0], 'ART');
 assert.equal(hitDuringArt('hammer', 'whirlwind', 30, true)[0], 'ART');
 assert.equal(hitDuringArt('wanderer', 'whirlwind', 14, false)[0], 'ART');
-for (const art of vm.runInContext('ARTS', context)) {
+for (const art of vm.runInContext('ARTS.filter(a => a.id !== "reality-tear")', context)) {
     lo.sword = art.weapon || 'wanderer';
     lo.art = art.id;
     p.applyLoadout();
@@ -209,7 +222,7 @@ lo.sword = 'wanderer';
 p.applyLoadout();
 
 // Close-range arts approach a foe without passing through it; Mortal Draw stays planted.
-for (const art of vm.runInContext('ARTS.filter(a => a.hits[0].atk.range < 200)', context)) {
+for (const art of vm.runInContext('ARTS.filter(a => a.id !== "reality-tear" && a.hits[0].atk.range < 200)', context)) {
     lo.sword = art.weapon || 'wanderer';
     lo.art = art.id;
     p.applyLoadout();
@@ -631,7 +644,7 @@ assert(vm.runInContext('PLAYER_SYNC', context).includes('poiseLeft'));
 assert(vm.runInContext('COOP_PLAYER_FIELDS', context).includes('poiseLeft'));
 assert(vm.runInContext('PLAYER_SYNC', context).includes('artHitsLeft'));
 assert(vm.runInContext('COOP_PLAYER_FIELDS', context).includes('artHitsLeft'));
-assert.equal(vm.runInContext('NET_VERSION', context), 14);
+assert.equal(vm.runInContext('NET_VERSION', context), 15);
 assert.equal(vm.runInContext('COOP_SYNC_INTERVAL', context), 0.05);
 const Duel = vm.runInContext('Duel', context);
 const duel = { n: 1, players: [p] };
